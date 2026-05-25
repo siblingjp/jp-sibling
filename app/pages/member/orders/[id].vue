@@ -1,0 +1,160 @@
+<script setup lang="ts">
+import { API_ENDPOINTS } from '~/composables/constants/api'
+
+definePageMeta({ layout: 'member', middleware: 'member' })
+
+const route = useRoute()
+const http = useHttpClient()
+
+interface OrderDetail {
+  id: string
+  status: string
+  source: string
+  subtotal: string | number
+  discount: string | number
+  total: string | number
+  pointsEarned: number
+  pointsRedeemed: number
+  note: string | null
+  createdAt: string
+  items: {
+    id: string
+    quantity: number
+    unitPrice: string | number
+    subtotal: string | number
+    note: string | null
+    product: { id: string; name: string; imageUrl: string | null }
+    options: { id: string; name: string; extraPrice: string | number }[]
+  }[]
+}
+
+const order = ref<OrderDetail | null>(null)
+const loading = ref(true)
+const error = ref('')
+
+onMounted(async () => {
+  try {
+    const res = await http.get<{ success: boolean; data: OrderDetail }>(
+      API_ENDPOINTS.MEMBER.ORDERS.SHOW(route.params.id as string)
+    )
+    order.value = res.data ?? null
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'Failed to load'
+  } finally {
+    loading.value = false
+  }
+})
+
+const statusLabel: Record<string, string> = {
+  PENDING: 'Pending',
+  CONFIRMED: 'Confirmed',
+  PREPARING: 'Preparing',
+  READY: 'Ready to Pickup',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+}
+
+const statusColor: Record<string, string> = {
+  PENDING: 'bg-gray-100 text-gray-600',
+  CONFIRMED: 'bg-blue-100 text-blue-700',
+  PREPARING: 'bg-yellow-100 text-yellow-700',
+  READY: 'bg-green-100 text-green-700',
+  COMPLETED: 'bg-green-50 text-green-600',
+  CANCELLED: 'bg-red-100 text-red-700',
+}
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('th-TH', {
+    year: 'numeric', month: 'long', day: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+}
+</script>
+
+<template>
+  <div class="max-w-lg mx-auto space-y-6">
+    <div class="flex items-center gap-3">
+      <NuxtLink to="/member/orders" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+      </NuxtLink>
+      <h1 class="text-2xl font-bold text-gray-900">Order Detail</h1>
+    </div>
+
+    <div v-if="loading" class="py-16 text-center text-gray-400">Loading...</div>
+    <div v-else-if="error" class="py-16 text-center text-red-500">{{ error }}</div>
+
+    <template v-else-if="order">
+      <!-- Status card -->
+      <div class="bg-white rounded-2xl shadow p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <p class="text-xs text-gray-400 font-mono">{{ order.id.slice(-12).toUpperCase() }}</p>
+            <p class="text-sm text-gray-500 mt-0.5">{{ formatDate(order.createdAt) }}</p>
+          </div>
+          <span class="px-3 py-1.5 text-sm font-semibold rounded-full" :class="statusColor[order.status]">
+            {{ statusLabel[order.status] }}
+          </span>
+        </div>
+
+        <!-- Live status for active orders -->
+        <div v-if="['PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)"
+          class="flex items-center gap-3 bg-[#F0F4F8] rounded-xl p-4">
+          <div class="w-2 h-2 rounded-full bg-[#1B2B4B] animate-pulse" />
+          <p class="text-sm text-[#1B2B4B] font-medium">
+            <template v-if="order.status === 'PENDING'">Order received, waiting for confirmation</template>
+            <template v-else-if="order.status === 'CONFIRMED'">Order confirmed, getting ready to prepare</template>
+            <template v-else-if="order.status === 'PREPARING'">Your order is being prepared</template>
+            <template v-else-if="order.status === 'READY'">Your order is ready for pickup!</template>
+          </p>
+        </div>
+      </div>
+
+      <!-- Items -->
+      <div class="bg-white rounded-2xl shadow overflow-hidden">
+        <div class="px-5 py-4 border-b border-gray-50">
+          <h2 class="font-semibold text-gray-800">Items</h2>
+        </div>
+        <div class="divide-y divide-gray-50">
+          <div v-for="item in order.items" :key="item.id" class="px-5 py-4">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="font-medium text-gray-800">{{ item.quantity }}x {{ item.product.name }}</p>
+                <p v-if="item.options.length" class="text-xs text-gray-400 mt-0.5">
+                  {{ item.options.map(o => o.name).join(', ') }}
+                </p>
+                <p v-if="item.note" class="text-xs text-gray-400 mt-0.5 italic">Note: {{ item.note }}</p>
+              </div>
+              <span class="text-sm font-semibold text-gray-700">฿{{ Number(item.subtotal).toFixed(2) }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="bg-white rounded-2xl shadow p-5 space-y-2.5">
+        <div class="flex justify-between text-sm text-gray-500">
+          <span>Subtotal</span>
+          <span>฿{{ Number(order.subtotal).toFixed(2) }}</span>
+        </div>
+        <div v-if="Number(order.discount) > 0" class="flex justify-between text-sm text-green-600">
+          <span>Discount ({{ order.pointsRedeemed }} pts redeemed)</span>
+          <span>-฿{{ Number(order.discount).toFixed(2) }}</span>
+        </div>
+        <div class="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
+          <span>Total</span>
+          <span>฿{{ Number(order.total).toFixed(2) }}</span>
+        </div>
+        <div v-if="order.pointsEarned > 0" class="text-xs text-[#1B2B4B] text-right">
+          +{{ order.pointsEarned }} pts earned from this order
+        </div>
+      </div>
+
+      <div v-if="order.note" class="bg-white rounded-2xl shadow p-5">
+        <p class="text-sm text-gray-500 font-medium mb-1">Note</p>
+        <p class="text-gray-700">{{ order.note }}</p>
+      </div>
+    </template>
+  </div>
+</template>

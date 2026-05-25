@@ -1,0 +1,149 @@
+<script setup lang="ts">
+definePageMeta({ layout: 'member', middleware: 'member' })
+
+const { member } = useMemberAuth()
+const store = useMemberStore()
+const { showSuccess, showError } = useAlert()
+
+const editing = ref(false)
+const form = reactive({ name: '', phone: '' })
+const loading = ref(false)
+
+function startEdit() {
+  form.name = member.value?.name ?? ''
+  form.phone = member.value?.phone ?? ''
+  editing.value = true
+}
+
+async function handleSave() {
+  loading.value = true
+  try {
+    await store.updateProfile({ name: form.name, phone: form.phone || undefined })
+    editing.value = false
+    showSuccess('Profile updated')
+  } catch (e: unknown) {
+    showError(e instanceof Error ? e.message : 'Update failed')
+  } finally {
+    loading.value = false
+  }
+}
+
+const tierLabel = computed(() => {
+  const t = member.value?.tier
+  if (t === 'VIP') return 'VIP'
+  if (t === 'GOLD') return 'Gold'
+  return 'Silver'
+})
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
+}
+</script>
+
+<template>
+  <div class="max-w-lg mx-auto space-y-6">
+    <h1 class="text-2xl font-bold text-gray-900">Profile</h1>
+
+    <!-- Avatar & tier -->
+    <div class="bg-white rounded-2xl shadow p-6 flex items-center gap-5">
+      <div class="w-20 h-20 rounded-full bg-[#C8D8E8] flex items-center justify-center text-3xl font-bold text-[#2a3f6b] overflow-hidden flex-shrink-0">
+        <img v-if="member?.profileImage" :src="member.profileImage" class="w-full h-full object-cover" />
+        <span v-else>{{ member?.name?.[0]?.toUpperCase() }}</span>
+      </div>
+      <div>
+        <p class="text-xl font-bold text-gray-900">{{ member?.name }}</p>
+        <span
+          class="inline-block text-sm font-medium px-3 py-0.5 rounded-full mt-1"
+          :class="{
+            'bg-purple-100 text-purple-700': member?.tier === 'VIP',
+            'bg-yellow-100 text-yellow-700': member?.tier === 'GOLD',
+            'bg-gray-100 text-gray-600': member?.tier === 'SILVER',
+          }"
+        >
+          {{ tierLabel }}
+        </span>
+        <p class="text-sm text-gray-500 mt-1">Member since {{ member?.createdAt ? formatDate(member.createdAt) : '-' }}</p>
+      </div>
+    </div>
+
+    <!-- Info / edit -->
+    <div class="bg-white rounded-2xl shadow p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-semibold text-gray-800">Account Details</h2>
+        <button v-if="!editing" @click="startEdit" class="text-[#1B2B4B] text-sm font-medium hover:underline">Edit</button>
+      </div>
+
+      <div v-if="!editing" class="space-y-4">
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide">Name</p>
+          <p class="text-gray-800 font-medium mt-0.5">{{ member?.name }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide">Email</p>
+          <p class="text-gray-800 font-medium mt-0.5">{{ member?.email ?? '-' }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide">Phone</p>
+          <p class="text-gray-800 font-medium mt-0.5">{{ member?.phone ?? '-' }}</p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide">Connected Accounts</p>
+          <div class="flex gap-2 mt-1.5">
+            <span v-if="member?.lineUserId" class="text-xs px-2 py-1 bg-[#06C755]/10 text-[#06C755] rounded-full font-medium">LINE</span>
+            <span v-if="member?.googleId" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-full font-medium">Google</span>
+            <span v-if="member?.email" class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full font-medium">Email</span>
+          </div>
+        </div>
+      </div>
+
+      <form v-else @submit.prevent="handleSave" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+          <input
+            v-model="form.name"
+            type="text"
+            required
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+          <input
+            v-model="form.phone"
+            type="tel"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
+            placeholder="0812345678"
+          />
+        </div>
+        <div class="flex gap-3">
+          <button
+            type="submit"
+            :disabled="loading"
+            class="flex-1 py-2.5 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b] disabled:opacity-50 transition-colors"
+          >
+            {{ loading ? 'Saving...' : 'Save' }}
+          </button>
+          <button
+            type="button"
+            @click="editing = false"
+            class="flex-1 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-white rounded-2xl shadow p-5 text-center">
+        <p class="text-3xl font-bold text-[#1B2B4B]">{{ (member?.points ?? 0).toLocaleString() }}</p>
+        <p class="text-sm text-gray-500 mt-1">Points</p>
+      </div>
+      <div class="bg-white rounded-2xl shadow p-5 text-center">
+        <p class="text-3xl font-bold text-green-600">฿{{ Number(member?.totalSpent ?? 0).toLocaleString() }}</p>
+        <p class="text-sm text-gray-500 mt-1">Total Spent</p>
+      </div>
+    </div>
+  </div>
+</template>
