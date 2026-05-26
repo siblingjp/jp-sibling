@@ -23,7 +23,7 @@
           class="flex-1 flex flex-col items-center py-3 gap-1 text-xs transition-colors"
           :class="isActive(item) ? 'text-[#1B2B4B]' : 'text-gray-400 hover:text-gray-600'"
         >
-          <span class="text-xl">{{ item.icon }}</span>
+          <Icon :name="item.icon" class="text-2xl" />
           <span class="font-medium">{{ item.label }}</span>
         </NuxtLink>
       </div>
@@ -35,11 +35,11 @@
 const { logout } = useMemberAuth()
 
 const navItems = [
-  { to: '/member', icon: '🏠', label: 'Home', exact: true },
-  { to: '/member/orders', icon: '☕', label: 'Orders', exact: false },
-  { to: '/member/redeem', icon: '🎁', label: 'Redeem', exact: false },
-  { to: '/member/qr', icon: '📱', label: 'QR', exact: false },
-  { to: '/member/profile', icon: '👤', label: 'Profile', exact: false },
+  { to: '/member', icon: 'flat-color-icons:home', label: 'Home', exact: true },
+  { to: '/member/orders', icon: 'flat-color-icons:list', label: 'Orders', exact: false },
+  { to: '/member/redeem', icon: 'mdi:gift', label: 'Redeem', exact: false },
+  { to: '/member/qr', icon: 'flat-color-icons:phone-android', label: 'QR', exact: false },
+  { to: '/member/profile', icon: 'flat-color-icons:businessman', label: 'Profile', exact: false },
 ]
 
 function isActive(item: typeof navItems[number]) {

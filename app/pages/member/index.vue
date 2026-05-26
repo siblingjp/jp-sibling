@@ -70,7 +70,7 @@ const spendRemaining = computed(() => {
         to="/member/orders/new"
         class="bg-[#1B2B4B] text-white rounded-2xl p-5 text-center shadow hover:bg-[#2a3f6b] transition-colors"
       >
-        <div class="text-3xl mb-2">☕</div>
+        <Icon name="flat-color-icons:shop" class="text-4xl mb-2" />
         <p class="font-semibold">Order Now</p>
         <p class="text-xs text-[#C8D8E8] mt-0.5">Online ordering</p>
       </NuxtLink>
@@ -79,7 +79,7 @@ const spendRemaining = computed(() => {
         to="/member/redeem"
         class="bg-white rounded-2xl p-5 text-center shadow hover:shadow-md transition-shadow border border-gray-100"
       >
-        <div class="text-3xl mb-2">🎁</div>
+        <Icon name="mdi:gift" class="text-4xl mb-2" />
         <p class="font-semibold text-gray-800">Redeem</p>
         <p class="text-xs text-gray-500 mt-0.5">Use your points</p>
       </NuxtLink>
@@ -88,7 +88,7 @@ const spendRemaining = computed(() => {
         to="/member/points"
         class="bg-white rounded-2xl p-5 text-center shadow hover:shadow-md transition-shadow border border-gray-100"
       >
-        <div class="text-3xl mb-2">📊</div>
+        <Icon name="flat-color-icons:bar-chart" class="text-4xl mb-2" />
         <p class="font-semibold text-gray-800">Points History</p>
         <p class="text-xs text-gray-500 mt-0.5">Earn & redeem log</p>
       </NuxtLink>
@@ -97,7 +97,7 @@ const spendRemaining = computed(() => {
         to="/member/qr"
         class="bg-white rounded-2xl p-5 text-center shadow hover:shadow-md transition-shadow border border-gray-100"
       >
-        <div class="text-3xl mb-2">📱</div>
+        <Icon name="flat-color-icons:phone-android" class="text-4xl mb-2" />
         <p class="font-semibold text-gray-800">My QR</p>
         <p class="text-xs text-gray-500 mt-0.5">Show at counter</p>
       </NuxtLink>
@@ -112,9 +112,7 @@ const spendRemaining = computed(() => {
         <p class="font-semibold text-gray-800">My Orders</p>
         <p class="text-sm text-gray-500">View order history</p>
       </div>
-      <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-      </svg>
+      <Icon name="mdi:chevron-right" class="w-5 h-5 text-gray-400" />
     </NuxtLink>
   </div>
 </template>

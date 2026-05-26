@@ -42,16 +42,16 @@ async function handleSubmit() {
 <template>
   <div class="max-w-2xl">
     <div class="flex items-center gap-3 mb-6">
-      <NuxtLink to="/admin/option-groups" class="text-gray-400 hover:text-gray-600">← Back</NuxtLink>
-      <h1 class="text-2xl font-bold text-gray-900">New Option Group</h1>
+      <NuxtLink to="/admin/option-groups" class="text-gray-400 hover:text-gray-600">← กลับ</NuxtLink>
+      <h1 class="text-2xl font-bold text-gray-900">กลุ่มตัวเลือกใหม่</h1>
     </div>
 
     <form class="space-y-6" @submit.prevent="handleSubmit">
       <div class="bg-white rounded-xl shadow-sm p-6 space-y-4">
-        <h2 class="font-semibold text-gray-900">Group Settings</h2>
+        <h2 class="font-semibold text-gray-900">ตั้งค่ากลุ่ม</h2>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อกลุ่ม <span class="text-red-500">*</span></label>
           <input
             v-model="form.name"
             type="text"
@@ -72,12 +72,12 @@ async function handleSubmit() {
           </label>
           <label class="flex items-center gap-2 cursor-pointer">
             <input v-model="form.isActive" type="checkbox" class="rounded" />
-            <span class="text-sm text-gray-700">Active</span>
+            <span class="text-sm text-gray-700">เปิดใช้งาน</span>
           </label>
         </div>
 
         <div class="w-32">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ลำดับการแสดง</label>
           <input
             v-model.number="form.sortOrder"
             type="number"
@@ -89,13 +89,13 @@ async function handleSubmit() {
 
       <div class="bg-white rounded-xl shadow-sm p-6 space-y-4">
         <div class="flex items-center justify-between">
-          <h2 class="font-semibold text-gray-900">Options</h2>
+          <h2 class="font-semibold text-gray-900">รายการตัวเลือก</h2>
           <button
             type="button"
             class="text-sm text-blue-600 hover:text-blue-800 font-medium"
             @click="addOption"
           >
-            + Add Option
+            + เพิ่มตัวเลือก
           </button>
         </div>
 
@@ -110,7 +110,7 @@ async function handleSubmit() {
               v-model="opt.name"
               type="text"
               required
-              placeholder="Option name"
+              placeholder="ชื่อตัวเลือก"
               class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <div class="flex items-center gap-1">
@@ -125,7 +125,7 @@ async function handleSubmit() {
             </div>
             <label class="flex items-center gap-1 cursor-pointer">
               <input v-model="opt.isActive" type="checkbox" class="rounded" />
-              <span class="text-xs text-gray-600">Active</span>
+              <span class="text-xs text-gray-600">เปิดใช้</span>
             </label>
             <button
               type="button"
@@ -142,14 +142,14 @@ async function handleSubmit() {
 
       <div class="flex justify-end gap-3">
         <NuxtLink to="/admin/option-groups" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
-          Cancel
+          ยกเลิก
         </NuxtLink>
         <button
           type="submit"
           :disabled="isLoading"
           class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
-          {{ isLoading ? 'Saving...' : 'Create Group' }}
+          {{ isLoading ? 'กำลังบันทึก...' : 'สร้างกลุ่มตัวเลือก' }}
         </button>
       </div>
     </form>

@@ -25,13 +25,13 @@ async function handleSubmit() {
   <div class="min-h-screen bg-gray-100 flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-sm w-full max-w-md p-8">
       <div class="mb-8 text-center">
-        <h1 class="text-2xl font-bold text-gray-900">Back Office</h1>
-        <p class="text-sm text-gray-500 mt-1">Sign in to your account</p>
+        <h1 class="text-2xl font-bold text-gray-900">ระบบหลังบ้าน</h1>
+        <p class="text-sm text-gray-500 mt-1">เข้าสู่ระบบเพื่อจัดการร้านค้า</p>
       </div>
 
       <form class="space-y-5" @submit.prevent="handleSubmit">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
           <input
             v-model="form.email"
             type="email"
@@ -43,7 +43,7 @@ async function handleSubmit() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน</label>
           <input
             v-model="form.password"
             type="password"
@@ -59,7 +59,7 @@ async function handleSubmit() {
           :disabled="isLoading"
           class="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {{ isLoading ? 'Signing in...' : 'Sign in' }}
+          {{ isLoading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ' }}
         </button>
       </form>
     </div>

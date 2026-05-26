@@ -60,9 +60,8 @@ model Product {
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
 
-  orderItems       OrderItem[]
-  memberOrderItems MemberOrderItem[]
-  optionGroups     ProductOptionGroup[]
+  orderItems   OrderItem[]
+  optionGroups ProductOptionGroup[]
 
   @@map("products")
 }
@@ -95,8 +94,7 @@ model Option {
   groupId String
   group   OptionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
 
-  orderItemOptions       OrderItemOption[]
-  memberOrderItemOptions MemberOrderItemOption[]
+  orderItemOptions OrderItemOption[]
 
   @@map("options")
 }
@@ -236,14 +234,6 @@ enum Tier {
   VIP
 }
 
-enum MemberOrderStatus {
-  PENDING
-  CONFIRMED
-  PREPARING
-  READY
-  COMPLETED
-  CANCELLED
-}
 
 model Member {
   id           String   @id @default(cuid())
@@ -261,8 +251,7 @@ model Member {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  orders           MemberOrder[]
-  posOrders        Order[]
+  orders        Order[]
   pointLogs        PointLog[]
   promotionUses    PromotionUse[]
   locationRequests LocationRequest[]
@@ -271,58 +260,6 @@ model Member {
   @@map("members")
 }
 
-model MemberOrder {
-  id            String            @id @default(cuid())
-  status        MemberOrderStatus @default(PENDING)
-  source        OrderSource       @default(ONLINE)
-  note          String?
-  subtotal      Decimal           @db.Decimal(10, 2)
-  discountKind  DiscountKind?
-  discountValue Decimal?          @db.Decimal(10, 2)
-  discount      Decimal           @default(0) @db.Decimal(10, 2)
-  total         Decimal           @db.Decimal(10, 2)
-  pointsEarned  Int               @default(0)
-  pointsRedeemed Int              @default(0)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-
-  memberId String
-  member   Member @relation(fields: [memberId], references: [id])
-
-  items MemberOrderItem[]
-
-  @@map("member_orders")
-}
-
-model MemberOrderItem {
-  id        String  @id @default(cuid())
-  quantity  Int
-  unitPrice Decimal @db.Decimal(10, 2)
-  subtotal  Decimal @db.Decimal(10, 2)
-  note      String?
-
-  orderId   String
-  order     MemberOrder @relation(fields: [orderId], references: [id])
-  productId String
-  product   Product     @relation(fields: [productId], references: [id])
-
-  options MemberOrderItemOption[]
-
-  @@map("member_order_items")
-}
-
-model MemberOrderItemOption {
-  id         String  @id @default(cuid())
-  name       String
-  extraPrice Decimal @db.Decimal(10, 2)
-
-  orderItemId String
-  orderItem   MemberOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  optionId    String
-  option      Option          @relation(fields: [optionId], references: [id])
-
-  @@map("member_order_item_options")
-}
 
 // ─── Points & Rewards ─────────────────────────────────────────────────────────
 
@@ -344,8 +281,7 @@ model PointLog {
   memberId String
   member   Member @relation(fields: [memberId], references: [id])
 
-  orderId   String?
-  memberOrderId String?
+  orderId String?
 
   @@map("point_logs")
 }

@@ -95,7 +95,7 @@ onMounted(load)
   <div class="space-y-8">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Location Management</h1>
+        <h1 class="text-2xl font-bold text-gray-900">จัดการตำแหน่งรถ</h1>
         <p class="text-sm text-gray-500 mt-0.5">สัปดาห์: {{ weekYear }}</p>
       </div>
       <div class="flex gap-3">
@@ -110,7 +110,7 @@ onMounted(load)
           :disabled="resetting"
           class="px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 disabled:opacity-50"
         >
-          {{ resetting ? 'Resetting...' : 'Reset Votes' }}
+          {{ resetting ? 'กำลังรีเซ็ต...' : 'รีเซ็ตโหวต' }}
         </button>
       </div>
     </div>
@@ -154,7 +154,7 @@ onMounted(load)
         <div class="md:col-span-2 flex gap-3">
           <button type="submit" :disabled="savingTruck"
             class="px-6 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-50">
-            {{ savingTruck ? 'Saving...' : 'บันทึก' }}
+            {{ savingTruck ? 'กำลังบันทึก...' : 'บันทึก' }}
           </button>
           <button type="button" @click="showTruckForm = false"
             class="px-6 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200">
@@ -170,7 +170,7 @@ onMounted(load)
         <h2 class="font-semibold text-gray-800">คำขอสถานที่สัปดาห์นี้</h2>
         <span class="text-sm text-gray-500">{{ requests.length }} คำขอ</span>
       </div>
-      <div v-if="loading" class="p-8 text-center text-gray-400">Loading...</div>
+      <div v-if="loading" class="p-8 text-center text-gray-400">กำลังโหลด...</div>
       <div v-else-if="requests.length === 0" class="p-8 text-center text-gray-400">ยังไม่มีคำขอสัปดาห์นี้</div>
       <div v-else class="divide-y divide-gray-50">
         <div v-for="(req, i) in requests" :key="req.id" class="px-6 py-4">
@@ -185,7 +185,7 @@ onMounted(load)
             </div>
             <div class="text-right flex-shrink-0 ml-4">
               <p class="text-2xl font-bold text-blue-600">{{ req.voteCount }}</p>
-              <p class="text-xs text-gray-400">votes</p>
+              <p class="text-xs text-gray-400">โหวต</p>
             </div>
           </div>
           <div class="ml-9 h-2 bg-gray-100 rounded-full overflow-hidden">

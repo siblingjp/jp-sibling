@@ -105,46 +105,46 @@ onMounted(load)
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Rewards</h1>
+      <h1 class="text-2xl font-bold text-gray-900">ของรางวัล</h1>
       <button
         @click="openCreate"
         class="px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors"
       >
-        Add Reward
+        + เพิ่มของรางวัล
       </button>
     </div>
 
     <div class="bg-white rounded-xl shadow overflow-hidden">
-      <div v-if="loading" class="p-8 text-center text-gray-400">Loading...</div>
+      <div v-if="loading" class="p-8 text-center text-gray-400">กำลังโหลด...</div>
       <div v-else-if="rewards.length === 0" class="p-8 text-center text-gray-400">
-        No rewards configured yet.
+        ยังไม่มีของรางวัล
       </div>
       <table v-else class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Point Cost</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อของรางวัล</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">แต้มที่ใช้</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
+            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">จัดการ</th>
           </tr>
         </thead>
         <tbody class="bg-white divide-y divide-gray-100">
           <tr v-for="reward in rewards" :key="reward.id">
             <td class="px-6 py-4 font-medium text-gray-900">{{ reward.name }}</td>
             <td class="px-6 py-4 text-sm text-gray-500">{{ reward.description || '-' }}</td>
-            <td class="px-6 py-4 text-sm font-semibold text-amber-700">{{ reward.pointCost.toLocaleString() }} pts</td>
+            <td class="px-6 py-4 text-sm font-semibold text-amber-700">{{ reward.pointCost.toLocaleString() }} แต้ม</td>
             <td class="px-6 py-4">
               <span
                 class="px-2.5 py-1 text-xs font-semibold rounded-full"
                 :class="reward.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >
-                {{ reward.isActive ? 'Active' : 'Inactive' }}
+                {{ reward.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
               </span>
             </td>
             <td class="px-6 py-4 text-right space-x-2">
-              <button @click="openEdit(reward)" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Edit</button>
-              <button @click="handleDelete(reward)" class="text-red-500 hover:text-red-700 text-sm font-medium">Delete</button>
+              <button @click="openEdit(reward)" class="text-blue-600 hover:text-blue-800 text-sm font-medium">แก้ไข</button>
+              <button @click="handleDelete(reward)" class="text-red-500 hover:text-red-700 text-sm font-medium">ลบ</button>
             </td>
           </tr>
         </tbody>
@@ -156,12 +156,12 @@ onMounted(load)
       <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
           <div class="p-6 border-b border-gray-100">
-            <h2 class="text-lg font-bold text-gray-900">{{ editing ? 'Edit Reward' : 'Add Reward' }}</h2>
+            <h2 class="text-lg font-bold text-gray-900">{{ editing ? 'แก้ไขของรางวัล' : 'เพิ่มของรางวัล' }}</h2>
           </div>
 
           <form @submit.prevent="handleSave" class="p-6 space-y-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อของรางวัล</label>
               <input
                 v-model="form.name"
                 type="text"
@@ -171,17 +171,17 @@ onMounted(load)
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">รายละเอียด</label>
               <textarea
                 v-model="form.description"
                 rows="2"
                 class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-amber-500 resize-none"
-                placeholder="Optional description"
+                placeholder="รายละเอียด (ไม่บังคับ)"
               />
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Point Cost</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">แต้มที่ใช้แลก</label>
               <input
                 v-model.number="form.pointCost"
                 type="number"
@@ -193,7 +193,7 @@ onMounted(load)
 
             <div class="flex items-center gap-2">
               <input id="isActive" v-model="form.isActive" type="checkbox" class="rounded accent-amber-600" />
-              <label for="isActive" class="text-sm text-gray-700">Active</label>
+              <label for="isActive" class="text-sm text-gray-700">เปิดใช้งาน</label>
             </div>
 
             <div class="flex gap-3 pt-2">
@@ -202,14 +202,14 @@ onMounted(load)
                 :disabled="saving"
                 class="flex-1 py-2.5 bg-amber-600 text-white font-semibold rounded-xl hover:bg-amber-700 disabled:opacity-50 transition-colors"
               >
-                {{ saving ? 'Saving...' : 'Save' }}
+                {{ saving ? 'กำลังบันทึก...' : 'บันทึก' }}
               </button>
               <button
                 type="button"
                 @click="showModal = false"
                 class="flex-1 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200"
               >
-                Cancel
+                ยกเลิก
               </button>
             </div>
           </form>

@@ -42,12 +42,12 @@ const isLoading = computed(() => store.listState.isLoading)
   <div>
     <!-- Header -->
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Categories</h1>
+      <h1 class="text-2xl font-bold text-gray-900">หมวดหมู่</h1>
       <NuxtLink
         to="/admin/categories/new"
         class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
       >
-        + New Category
+        + เพิ่มหมวดหมู่
       </NuxtLink>
     </div>
 
@@ -56,16 +56,16 @@ const isLoading = computed(() => store.listState.isLoading)
       <input
         v-model="search"
         type="text"
-        placeholder="Search categories..."
+        placeholder="ค้นหาหมวดหมู่..."
         class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <select
         v-model="filterActive"
         class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <option value="all">All Status</option>
-        <option value="true">Active</option>
-        <option value="false">Inactive</option>
+        <option value="all">ทุกสถานะ</option>
+        <option value="true">ใช้งานอยู่</option>
+        <option value="false">ปิดใช้งาน</option>
       </select>
     </div>
 
@@ -74,19 +74,19 @@ const isLoading = computed(() => store.listState.isLoading)
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อ</th>
             <th class="text-left px-4 py-3 font-medium text-gray-600">Slug</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Products</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">สินค้า</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
         <tbody>
           <tr v-if="isLoading">
-            <td colspan="5" class="text-center py-10 text-gray-400">Loading...</td>
+            <td colspan="5" class="text-center py-10 text-gray-400">กำลังโหลด...</td>
           </tr>
           <tr v-else-if="categories.length === 0">
-            <td colspan="5" class="text-center py-10 text-gray-400">No categories found</td>
+            <td colspan="5" class="text-center py-10 text-gray-400">ไม่พบหมวดหมู่</td>
           </tr>
           <tr
             v-for="cat in categories"
@@ -101,7 +101,7 @@ const isLoading = computed(() => store.listState.isLoading)
                 class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
                 :class="cat.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >
-                {{ cat.isActive ? 'Active' : 'Inactive' }}
+                {{ cat.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
               </span>
             </td>
             <td class="px-4 py-3 text-right">
@@ -110,13 +110,13 @@ const isLoading = computed(() => store.listState.isLoading)
                   :to="`/admin/categories/${cat.id}/edit`"
                   class="text-blue-600 hover:text-blue-800 text-xs font-medium"
                 >
-                  Edit
+                  แก้ไข
                 </NuxtLink>
                 <button
                   class="text-red-500 hover:text-red-700 text-xs font-medium"
                   @click="handleDelete(cat)"
                 >
-                  Delete
+                  ลบ
                 </button>
               </div>
             </td>
@@ -126,8 +126,8 @@ const isLoading = computed(() => store.listState.isLoading)
 
       <!-- Pagination -->
       <div v-if="pagination" class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
-        <span>Total {{ pagination.total }} items</span>
-        <span>Page {{ pagination.page }} / {{ pagination.totalPages }}</span>
+        <span>ทั้งหมด {{ pagination.total }} รายการ</span>
+        <span>หน้า {{ pagination.page }} / {{ pagination.totalPages }}</span>
       </div>
     </div>
   </div>

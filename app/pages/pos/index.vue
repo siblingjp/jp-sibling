@@ -76,7 +76,7 @@ async function handleMemberLookup() {
     showMemberSearch.value = false
     memberQuery.value = ''
   } catch {
-    showError('Member not found')
+    showError('ไม่พบสมาชิก')
   } finally {
     isLookingUp.value = false
   }
@@ -109,7 +109,7 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
         <input
           v-model="search"
           type="text"
-          placeholder="Search products..."
+          placeholder="ค้นหาสินค้า..."
           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <div class="flex gap-2 overflow-x-auto pb-1">
@@ -117,7 +117,7 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
             class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0"
             :class="!selectedCategory ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             @click="selectedCategory = null"
-          >All</button>
+          >ทั้งหมด</button>
           <button
             v-for="cat in categories"
             :key="cat.id"
@@ -130,8 +130,8 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
 
       <!-- Product Grid -->
       <div class="flex-1 overflow-y-auto p-4">
-        <div v-if="store.isLoadingProducts" class="text-center py-16 text-gray-400">Loading...</div>
-        <div v-else-if="filteredProducts.length === 0" class="text-center py-16 text-gray-400 text-sm">No products found</div>
+        <div v-if="store.isLoadingProducts" class="text-center py-16 text-gray-400">กำลังโหลด...</div>
+        <div v-else-if="filteredProducts.length === 0" class="text-center py-16 text-gray-400 text-sm">ไม่พบสินค้า</div>
         <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           <button
             v-for="p in filteredProducts"
@@ -144,11 +144,13 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
               class="w-full aspect-square rounded-lg bg-gray-100 mb-2 overflow-hidden"
             >
               <img v-if="p.imageUrl" :src="p.imageUrl" :alt="p.name" class="w-full h-full object-cover" />
-              <div v-else class="w-full h-full flex items-center justify-center text-3xl">☕</div>
+              <div v-else class="w-full h-full flex items-center justify-center">
+                <Icon name="flat-color-icons:shop" class="text-4xl" />
+              </div>
             </div>
             <p class="text-sm font-medium text-gray-900 leading-tight truncate">{{ p.name }}</p>
             <p class="text-sm text-blue-600 font-semibold mt-0.5">฿{{ Number(p.price).toFixed(0) }}</p>
-            <p v-if="p.optionGroups.length > 0" class="text-xs text-gray-400 mt-0.5">{{ p.optionGroups.length }} options</p>
+            <p v-if="p.optionGroups.length > 0" class="text-xs text-gray-400 mt-0.5">{{ p.optionGroups.length }} ตัวเลือก</p>
           </button>
         </div>
       </div>
@@ -207,21 +209,21 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
     <div v-if="showMemberSearch" class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="absolute inset-0 bg-black/40" @click="showMemberSearch = false" />
       <div class="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
-        <h2 class="font-semibold text-gray-900">Lookup Member</h2>
+        <h2 class="font-semibold text-gray-900">ค้นหาสมาชิก</h2>
         <input
           v-model="memberQuery"
           type="text"
-          placeholder="Phone or email..."
+          placeholder="เบอร์โทรหรืออีเมล..."
           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           @keyup.enter="handleMemberLookup"
         />
         <div class="flex gap-3">
-          <button class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600" @click="showMemberSearch = false">Cancel</button>
+          <button class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600" @click="showMemberSearch = false">ยกเลิก</button>
           <button
             class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             :disabled="isLookingUp"
             @click="handleMemberLookup"
-          >{{ isLookingUp ? 'Searching...' : 'Search' }}</button>
+          >{{ isLookingUp ? 'กำลังค้นหา...' : 'ค้นหา' }}</button>
         </div>
       </div>
     </div>
@@ -234,7 +236,7 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
         v-if="showSuccess2"
         class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-2xl shadow-lg font-semibold text-lg"
       >
-        Order #{{ lastOrderQueue }} placed!
+        ออเดอร์ #{{ lastOrderQueue }} สำเร็จ!
       </div>
     </Transition>
   </Teleport>

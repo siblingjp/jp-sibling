@@ -8,10 +8,10 @@ const isLoading = ref(false)
 const orders = ref<any[]>([])
 
 const statusOptions = [
-  { value: 'ACTIVE', label: 'Active' },
-  { value: 'PREPARING', label: 'Preparing' },
-  { value: 'READY', label: 'Ready' },
-  { value: 'COMPLETED', label: 'Completed' },
+  { value: 'ACTIVE', label: 'ที่ต้องทำ' },
+  { value: 'PREPARING', label: 'กำลังทำ' },
+  { value: 'READY', label: 'พร้อมส่ง' },
+  { value: 'COMPLETED', label: 'เสร็จสิ้น' },
 ]
 
 async function load() {
@@ -29,7 +29,7 @@ async function load() {
 
 async function updateStatus(id: string, status: string) {
   if (status === 'CANCELLED') {
-    const ok = await showConfirm({ title: 'Cancel Order', message: 'Cancel this order?', confirmText: 'Cancel Order' })
+    const ok = await showConfirm({ title: 'ยกเลิกออเดอร์', message: 'ต้องการยกเลิกออเดอร์นี้?', confirmText: 'ยกเลิกออเดอร์' })
     if (!ok) return
   }
   try {
@@ -62,6 +62,14 @@ const statusBadge: Record<string, string> = {
   CANCELLED: 'bg-red-100 text-red-500',
 }
 
+const statusLabel: Record<string, string> = {
+  PENDING: 'รอดำเนินการ',
+  PREPARING: 'กำลังทำ',
+  READY: 'พร้อมส่ง',
+  COMPLETED: 'เสร็จสิ้น',
+  CANCELLED: 'ยกเลิก',
+}
+
 function formatTime(d: string) {
   return new Date(d).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
 }
@@ -75,7 +83,7 @@ function formatPrice(n: number) {
   <div class="flex flex-col h-full bg-gray-50">
     <!-- Header -->
     <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4">
-      <h1 class="text-lg font-semibold text-gray-900">Order Queue</h1>
+      <h1 class="text-lg font-semibold text-gray-900">คิวออเดอร์</h1>
       <div class="flex items-center gap-3">
         <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
           <button
@@ -87,15 +95,15 @@ function formatPrice(n: number) {
           >{{ opt.label }}</button>
         </div>
         <button class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700" @click="load">
-          Refresh
+          รีเฟรช
         </button>
       </div>
     </div>
 
     <!-- Orders Grid -->
     <div class="flex-1 overflow-y-auto p-6">
-      <div v-if="isLoading" class="text-center py-16 text-gray-400">Loading...</div>
-      <div v-else-if="orders.length === 0" class="text-center py-16 text-gray-400 text-sm">No orders</div>
+      <div v-if="isLoading" class="text-center py-16 text-gray-400">กำลังโหลด...</div>
+      <div v-else-if="orders.length === 0" class="text-center py-16 text-gray-400 text-sm">ยังไม่มีออเดอร์</div>
       <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <div
           v-for="order in orders"
@@ -109,13 +117,13 @@ function formatPrice(n: number) {
               <span class="text-xs text-gray-400">{{ formatTime(order.createdAt) }}</span>
             </div>
             <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[order.status]">
-              {{ order.status }}
+              {{ statusLabel[order.status] ?? order.status }}
             </span>
           </div>
 
           <!-- Member -->
           <div v-if="order.member" class="text-xs text-blue-600 font-medium">
-            👤 {{ order.member.name }}
+            <Icon name="flat-color-icons:businessman" class="inline-block align-middle" /> {{ order.member.name }}
           </div>
 
           <!-- Items -->
@@ -137,7 +145,7 @@ function formatPrice(n: number) {
 
           <!-- Total -->
           <div class="flex justify-between text-sm border-t border-gray-100 pt-2">
-            <span class="text-gray-500">Total</span>
+            <span class="text-gray-500">รวม</span>
             <span class="font-bold text-gray-900">฿{{ formatPrice(order.total) }}</span>
           </div>
 
@@ -148,14 +156,14 @@ function formatPrice(n: number) {
               class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
               @click="updateStatus(order.id, nextStatus[order.status])"
             >
-              → {{ nextStatus[order.status] }}
+              → {{ { PENDING: 'กำลังทำ', PREPARING: 'พร้อมส่ง', READY: 'เสร็จสิ้น' }[order.status] || nextStatus[order.status] }}
             </button>
             <button
               v-if="order.status === 'PENDING'"
               class="px-3 py-2 rounded-lg border border-red-200 text-red-500 text-sm hover:bg-red-50 transition-colors"
               @click="updateStatus(order.id, 'CANCELLED')"
             >
-              Cancel
+              ยกเลิก
             </button>
           </div>
         </div>

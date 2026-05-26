@@ -47,7 +47,6 @@ onMounted(async () => {
 
 const statusLabel: Record<string, string> = {
   PENDING: 'Pending',
-  CONFIRMED: 'Confirmed',
   PREPARING: 'Preparing',
   READY: 'Ready to Pickup',
   COMPLETED: 'Completed',
@@ -56,7 +55,6 @@ const statusLabel: Record<string, string> = {
 
 const statusColor: Record<string, string> = {
   PENDING: 'bg-gray-100 text-gray-600',
-  CONFIRMED: 'bg-blue-100 text-blue-700',
   PREPARING: 'bg-yellow-100 text-yellow-700',
   READY: 'bg-green-100 text-green-700',
   COMPLETED: 'bg-green-50 text-green-600',
@@ -75,9 +73,7 @@ function formatDate(d: string) {
   <div class="max-w-lg mx-auto space-y-6">
     <div class="flex items-center gap-3">
       <NuxtLink to="/member/orders" class="text-gray-400 hover:text-gray-600">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
+        <Icon name="mdi:chevron-left" class="w-6 h-6" />
       </NuxtLink>
       <h1 class="text-2xl font-bold text-gray-900">Order Detail</h1>
     </div>
@@ -99,12 +95,11 @@ function formatDate(d: string) {
         </div>
 
         <!-- Live status for active orders -->
-        <div v-if="['PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)"
+        <div v-if="['PENDING', 'PREPARING', 'READY'].includes(order.status)"
           class="flex items-center gap-3 bg-[#F0F4F8] rounded-xl p-4">
           <div class="w-2 h-2 rounded-full bg-[#1B2B4B] animate-pulse" />
           <p class="text-sm text-[#1B2B4B] font-medium">
-            <template v-if="order.status === 'PENDING'">Order received, waiting for confirmation</template>
-            <template v-else-if="order.status === 'CONFIRMED'">Order confirmed, getting ready to prepare</template>
+            <template v-if="order.status === 'PENDING'">Order received, waiting for preparation</template>
             <template v-else-if="order.status === 'PREPARING'">Your order is being prepared</template>
             <template v-else-if="order.status === 'READY'">Your order is ready for pickup!</template>
           </p>

@@ -52,12 +52,12 @@ const roleBadge: Record<string, string> = {
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Users</h1>
+      <h1 class="text-2xl font-bold text-gray-900">ผู้ใช้งาน</h1>
       <NuxtLink
         to="/admin/users/new"
         class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
       >
-        + New User
+        + เพิ่มผู้ใช้งาน
       </NuxtLink>
     </div>
 
@@ -65,19 +65,19 @@ const roleBadge: Record<string, string> = {
       <input
         v-model="search"
         type="text"
-        placeholder="Search by name or email..."
+        placeholder="ค้นหาชื่อหรืออีเมล..."
         class="flex-1 min-w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <select v-model="filterRole" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <option value="all">All Roles</option>
+        <option value="all">ทุกบทบาท</option>
         <option value="ADMIN">Admin</option>
         <option value="CASHIER">Cashier</option>
         <option value="STAFF">Staff</option>
       </select>
       <select v-model="filterActive" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        <option value="all">All Status</option>
-        <option value="true">Active</option>
-        <option value="false">Inactive</option>
+        <option value="all">ทุกสถานะ</option>
+        <option value="true">ใช้งานอยู่</option>
+        <option value="false">ปิดใช้งาน</option>
       </select>
     </div>
 
@@ -85,19 +85,19 @@ const roleBadge: Record<string, string> = {
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Role</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อ</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">อีเมล</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">บทบาท</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
         <tbody>
           <tr v-if="isLoading">
-            <td colspan="5" class="text-center py-10 text-gray-400">Loading...</td>
+            <td colspan="5" class="text-center py-10 text-gray-400">กำลังโหลด...</td>
           </tr>
           <tr v-else-if="users.length === 0">
-            <td colspan="5" class="text-center py-10 text-gray-400">No users found</td>
+            <td colspan="5" class="text-center py-10 text-gray-400">ไม่พบผู้ใช้งาน</td>
           </tr>
           <tr
             v-for="u in users"
@@ -106,7 +106,7 @@ const roleBadge: Record<string, string> = {
           >
             <td class="px-4 py-3 font-medium text-gray-900">
               {{ u.name }}
-              <span v-if="u.id === me?.id" class="ml-1 text-xs text-gray-400">(you)</span>
+              <span v-if="u.id === me?.id" class="ml-1 text-xs text-gray-400">(คุณ)</span>
             </td>
             <td class="px-4 py-3 text-gray-500">{{ u.email }}</td>
             <td class="px-4 py-3 text-center">
@@ -119,7 +119,7 @@ const roleBadge: Record<string, string> = {
                 class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
                 :class="u.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >
-                {{ u.isActive ? 'Active' : 'Inactive' }}
+                {{ u.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
               </span>
             </td>
             <td class="px-4 py-3 text-right">
@@ -128,14 +128,14 @@ const roleBadge: Record<string, string> = {
                   :to="`/admin/users/${u.id}/edit`"
                   class="text-blue-600 hover:text-blue-800 text-xs font-medium"
                 >
-                  Edit
+                  แก้ไข
                 </NuxtLink>
                 <button
                   v-if="u.id !== me?.id && u.isActive"
                   class="text-red-500 hover:text-red-700 text-xs font-medium"
                   @click="handleDeactivate(u)"
                 >
-                  Deactivate
+                  ปิดใช้งาน
                 </button>
               </div>
             </td>
@@ -144,8 +144,8 @@ const roleBadge: Record<string, string> = {
       </table>
 
       <div v-if="pagination" class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
-        <span>Total {{ pagination.total }} items</span>
-        <span>Page {{ pagination.page }} / {{ pagination.totalPages }}</span>
+        <span>ทั้งหมด {{ pagination.total }} รายการ</span>
+        <span>หน้า {{ pagination.page }} / {{ pagination.totalPages }}</span>
       </div>
     </div>
   </div>

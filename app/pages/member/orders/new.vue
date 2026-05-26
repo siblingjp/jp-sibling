@@ -167,9 +167,7 @@ async function placeOrder() {
   <div class="max-w-2xl mx-auto space-y-6">
     <div class="flex items-center gap-3">
       <NuxtLink to="/member/orders" class="text-gray-400 hover:text-gray-600">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
+        <Icon name="mdi:chevron-left" class="w-6 h-6" />
       </NuxtLink>
       <h1 class="text-2xl font-bold text-gray-900">New Order</h1>
     </div>
@@ -188,7 +186,9 @@ async function placeOrder() {
           >
             <div class="w-full h-24 bg-[#F0F4F8] rounded-lg mb-2 overflow-hidden">
               <img v-if="product.imageUrl" :src="product.imageUrl" class="w-full h-full object-cover" />
-              <div v-else class="w-full h-full flex items-center justify-center text-2xl">☕</div>
+              <div v-else class="w-full h-full flex items-center justify-center">
+                <Icon name="flat-color-icons:shop" class="text-4xl" />
+              </div>
             </div>
             <p class="text-sm font-semibold text-gray-800 line-clamp-1">{{ product.name }}</p>
             <p class="text-xs text-[#2a3f6b] font-medium mt-0.5">฿{{ Number(product.price).toFixed(0) }}</p>
@@ -201,7 +201,7 @@ async function placeOrder() {
         <h2 class="font-semibold text-gray-700">Your Order</h2>
 
         <div v-if="cart.length === 0" class="bg-white rounded-2xl shadow p-8 text-center text-gray-400">
-          <div class="text-4xl mb-2">🛒</div>
+          <Icon name="flat-color-icons:empty-trash" class="text-5xl mb-2" />
           <p class="text-sm">Select items from the menu</p>
         </div>
 
@@ -219,9 +219,7 @@ async function placeOrder() {
                 </p>
               </div>
               <button @click="removeItem(index)" class="text-red-400 hover:text-red-600 ml-2 p-1">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <Icon name="mdi:close" class="w-4 h-4" />
               </button>
             </div>
 

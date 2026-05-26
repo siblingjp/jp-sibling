@@ -3,7 +3,7 @@ export default defineEventHandler(async (event) => {
     const session = await getUserSession(event)
     if (!session.member) throw unauthorized()
 
-    const orders = await prisma.memberOrder.findMany({
+    const orders = await prisma.order.findMany({
       where: { memberId: session.member.id },
       orderBy: { createdAt: 'desc' },
       include: {

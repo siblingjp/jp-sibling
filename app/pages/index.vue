@@ -28,10 +28,10 @@ const formError = ref('')
 const { showSuccess, showError } = useAlert()
 
 const benefits = [
-  { icon: '⭐', title: 'สะสมแต้ม', desc: 'ทุก ฿10 = 1 pt' },
-  { icon: '🎁', title: 'แลกของรางวัล', desc: 'ใช้แต้มแลกส่วนลด' },
-  { icon: '📱', title: 'สั่งล่วงหน้า', desc: 'ไม่ต้องรอนาน' },
-  { icon: '👑', title: 'สิทธิ์ VIP', desc: 'แต้มโบนัสพิเศษ' },
+  { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'ทุก ฿10 = 1 pt' },
+  { icon: 'mdi:gift', title: 'แลกของรางวัล', desc: 'ใช้แต้มแลกส่วนลด' },
+  { icon: 'flat-color-icons:phone-android', title: 'สั่งล่วงหน้า', desc: 'ไม่ต้องรอนาน' },
+  { icon: 'flat-color-icons:vip', title: 'สิทธิ์ VIP', desc: 'แต้มโบนัสพิเศษ' },
 ]
 
 onMounted(async () => {
@@ -124,7 +124,7 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
     <section v-if="data?.truckLocation" class="bg-[#1B2B4B] text-white py-5">
       <div class="max-w-4xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
         <div class="flex items-center gap-3">
-          <span class="text-2xl">📍</span>
+          <Icon name="flat-color-icons:globe" class="text-2xl flex-shrink-0" />
           <div>
             <p class="font-bold text-lg">{{ data.truckLocation.name }}</p>
             <p class="text-white/70 text-sm">
@@ -156,7 +156,7 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
             <div class="bg-[#F8FAFC] rounded-2xl overflow-hidden shadow hover:shadow-md transition-shadow">
               <div class="w-full h-40 bg-[#DDEAF6] flex items-center justify-center overflow-hidden">
                 <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="w-full h-full object-cover" />
-                <span v-else class="text-4xl">☕</span>
+                <Icon v-else name="flat-color-icons:shop" class="text-5xl" />
               </div>
               <div class="p-3">
                 <p class="font-semibold text-[#1B2B4B] text-sm leading-snug">{{ product.name }}</p>
@@ -184,7 +184,7 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
           >
             <div class="h-44 bg-gradient-to-br from-[#C8D8E8] to-[#DDEAF6] flex items-center justify-center overflow-hidden">
               <img v-if="campaign.imageUrl" :src="campaign.imageUrl" :alt="campaign.title" class="w-full h-full object-cover" />
-              <span v-else class="text-6xl">🎉</span>
+              <Icon v-else name="flat-color-icons:advertising" class="text-6xl" />
             </div>
             <div class="p-5">
               <h3 class="font-bold text-[#1B2B4B] text-lg">{{ campaign.title }}</h3>
@@ -295,7 +295,7 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
         <p class="text-[#C8D8E8] mb-12">สมัครฟรี ใช้เวลาไม่ถึง 1 นาที</p>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-12">
           <div v-for="b in benefits" :key="b.icon" class="bg-white/10 rounded-2xl p-5">
-            <div class="text-3xl mb-3">{{ b.icon }}</div>
+            <Icon :name="b.icon" class="text-4xl mb-3" />
             <p class="font-semibold text-white text-sm">{{ b.title }}</p>
             <p class="text-[#C8D8E8] text-xs mt-1">{{ b.desc }}</p>
           </div>

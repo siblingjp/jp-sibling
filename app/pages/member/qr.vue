@@ -25,7 +25,7 @@ const qrUrl = computed(() =>
       </div>
 
       <div class="flex items-center gap-3 w-full bg-[#F0F4F8] rounded-xl p-4">
-        <div class="text-2xl">⭐</div>
+        <Icon name="flat-color-icons:approval" class="text-2xl flex-shrink-0" />
         <div>
           <p class="font-semibold text-[#0F1C30]">{{ (member?.points ?? 0).toLocaleString() }} pts</p>
           <p class="text-xs text-[#2a3f6b]">Current balance</p>

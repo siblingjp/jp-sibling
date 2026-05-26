@@ -73,7 +73,7 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Orders</h1>
+      <h1 class="text-2xl font-bold text-gray-900">ออเดอร์</h1>
     </div>
 
     <!-- Filters -->
@@ -82,12 +82,12 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
         v-model="filterStatus"
         class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <option value="all">All Status</option>
-        <option value="PENDING">Pending</option>
-        <option value="PREPARING">Preparing</option>
-        <option value="READY">Ready</option>
-        <option value="COMPLETED">Completed</option>
-        <option value="CANCELLED">Cancelled</option>
+        <option value="all">ทุกสถานะ</option>
+        <option value="PENDING">รอดำเนินการ</option>
+        <option value="PREPARING">กำลังเตรียม</option>
+        <option value="READY">พร้อมรับ</option>
+        <option value="COMPLETED">เสร็จสิ้น</option>
+        <option value="CANCELLED">ยกเลิก</option>
       </select>
       <input
         v-model="dateFrom"
@@ -103,7 +103,7 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
       <button
         class="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
         @click="dateFrom = ''; dateTo = ''"
-      >Clear dates</button>
+      >ล้างวันที่</button>
     </div>
 
     <!-- Table -->
@@ -111,22 +111,22 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Queue</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Date</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Items</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Member</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Payment</th>
-            <th class="text-right px-4 py-3 font-medium text-gray-600">Total</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">คิว</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">วันที่</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">รายการ</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">สมาชิก</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">ชำระเงิน</th>
+            <th class="text-right px-4 py-3 font-medium text-gray-600">ยอดรวม</th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
         <tbody>
           <tr v-if="isLoading">
-            <td colspan="8" class="text-center py-10 text-gray-400">Loading...</td>
+            <td colspan="8" class="text-center py-10 text-gray-400">กำลังโหลด...</td>
           </tr>
           <tr v-else-if="orders.length === 0">
-            <td colspan="8" class="text-center py-10 text-gray-400">No orders found</td>
+            <td colspan="8" class="text-center py-10 text-gray-400">ไม่พบออเดอร์</td>
           </tr>
           <tr
             v-for="o in orders"
@@ -161,7 +161,7 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
             <td class="px-4 py-3 text-right font-semibold text-gray-900">฿{{ formatPrice(o.total) }}</td>
             <td class="px-4 py-3 text-right">
               <NuxtLink :to="`/admin/orders/${o.id}`" class="text-blue-600 hover:text-blue-800 text-xs font-medium">
-                View
+                ดูรายละเอียด
               </NuxtLink>
             </td>
           </tr>
@@ -170,14 +170,14 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
 
       <!-- Pagination -->
       <div v-if="pagination" class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
-        <span>Total {{ pagination.total }} orders</span>
+        <span>ทั้งหมด {{ pagination.total }} ออเดอร์</span>
         <div class="flex items-center gap-2">
           <button
             class="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
             :disabled="page <= 1"
             @click="page--"
           >←</button>
-          <span>Page {{ pagination.page }} / {{ pagination.totalPages }}</span>
+          <span>หน้า {{ pagination.page }} / {{ pagination.totalPages }}</span>
           <button
             class="px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
             :disabled="page >= pagination.totalPages"

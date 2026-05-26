@@ -84,12 +84,12 @@ onMounted(load)
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Discount Badges</h1>
+      <h1 class="text-2xl font-bold text-gray-900">ส่วนลด</h1>
       <button
         class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
         @click="openNew"
       >
-        + New Discount
+        + เพิ่มส่วนลด
       </button>
     </div>
 
@@ -97,20 +97,20 @@ onMounted(load)
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Type</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Value</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Used</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อส่วนลด</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">ประเภท</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">มูลค่า</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">ใช้ไปแล้ว</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
         <tbody>
           <tr v-if="isLoading">
-            <td colspan="6" class="text-center py-10 text-gray-400">Loading...</td>
+            <td colspan="6" class="text-center py-10 text-gray-400">กำลังโหลด...</td>
           </tr>
           <tr v-else-if="discounts.length === 0">
-            <td colspan="6" class="text-center py-10 text-gray-400">No discounts yet</td>
+            <td colspan="6" class="text-center py-10 text-gray-400">ยังไม่มีส่วนลด</td>
           </tr>
           <tr
             v-for="d in discounts"
@@ -135,18 +135,18 @@ onMounted(load)
                 class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
                 :class="d.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >
-                {{ d.isActive ? 'Active' : 'Inactive' }}
+                {{ d.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
               </span>
             </td>
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end gap-2">
-                <button class="text-blue-600 hover:text-blue-800 text-xs font-medium" @click="openEdit(d)">Edit</button>
+                <button class="text-blue-600 hover:text-blue-800 text-xs font-medium" @click="openEdit(d)">แก้ไข</button>
                 <button
                   class="text-xs font-medium"
                   :class="(d._count?.orders ?? 0) > 0 ? 'text-gray-300 cursor-not-allowed' : 'text-red-500 hover:text-red-700'"
                   :disabled="(d._count?.orders ?? 0) > 0"
                   @click="handleDelete(d)"
-                >Delete</button>
+                >ลบ</button>
               </div>
             </td>
           </tr>
@@ -159,33 +159,33 @@ onMounted(load)
       <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center">
         <div class="absolute inset-0 bg-black/40" @click="showForm = false" />
         <div class="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
-          <h2 class="font-semibold text-gray-900">{{ editingId ? 'Edit Discount' : 'New Discount Badge' }}</h2>
+          <h2 class="font-semibold text-gray-900">{{ editingId ? 'แก้ไขส่วนลด' : 'ส่วนลดใหม่' }}</h2>
 
           <div>
-            <label class="block text-xs text-gray-500 mb-1">Name <span class="text-red-500">*</span></label>
+            <label class="block text-xs text-gray-500 mb-1">ชื่อส่วนลด <span class="text-red-500">*</span></label>
             <input
               v-model="form.name"
               type="text"
               required
-              placeholder="e.g. Staff Discount"
+              placeholder="เช่น ส่วนลดพนักงาน"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           <div class="grid grid-cols-2 gap-3">
             <div>
-              <label class="block text-xs text-gray-500 mb-1">Type</label>
+              <label class="block text-xs text-gray-500 mb-1">ประเภท</label>
               <select
                 v-model="form.kind"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="PERCENT">Percent (%)</option>
-                <option value="AMOUNT">Amount (฿)</option>
+                <option value="PERCENT">เปอร์เซ็นต์ (%)</option>
+                <option value="AMOUNT">จำนวนเงิน (฿)</option>
               </select>
             </div>
             <div>
               <label class="block text-xs text-gray-500 mb-1">
-                Value {{ form.kind === 'PERCENT' ? '(%)' : '(฿)' }}
+                มูลค่า {{ form.kind === 'PERCENT' ? '(%)' : '(฿)' }}
               </label>
               <input
                 v-model.number="form.value"
@@ -216,12 +216,12 @@ onMounted(load)
             <button
               class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
               @click="showForm = false"
-            >Cancel</button>
+            >ยกเลิก</button>
             <button
               class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50"
               :disabled="isSaving || !form.name || form.value <= 0"
               @click="handleSave"
-            >{{ isSaving ? 'Saving...' : editingId ? 'Save Changes' : 'Create' }}</button>
+            >{{ isSaving ? 'กำลังบันทึก...' : editingId ? 'บันทึกการเปลี่ยนแปลง' : 'สร้าง' }}</button>
           </div>
         </div>
       </div>

@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { Decimal } from '@prisma/client/runtime/library'
 
 const itemSchema = z.object({
   productId: z.string(),
@@ -53,11 +52,25 @@ export default defineEventHandler(async (event) => {
     const tierMultiplier = member.tier === 'VIP' ? 1.5 : member.tier === 'GOLD' ? 1.25 : 1.0
     const pointsEarned = Math.floor((total / 10) * tierMultiplier)
 
+    // get next queue number for today
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+    const todayEnd = new Date()
+    todayEnd.setHours(23, 59, 59, 999)
+
+    const lastOrder = await prisma.order.findFirst({
+      where: { createdAt: { gte: todayStart, lte: todayEnd } },
+      orderBy: { queueNo: 'desc' },
+      select: { queueNo: true },
+    })
+    const queueNo = (lastOrder?.queueNo ?? 0) + 1
+
     const order = await prisma.$transaction(async (tx) => {
-      const newOrder = await tx.memberOrder.create({
+      const newOrder = await tx.order.create({
         data: {
-          memberId: member.id,
+          queueNo,
           source: 'ONLINE',
+          memberId: member.id,
           note: body.note,
           subtotal,
           discountKind: pointsToRedeem > 0 ? 'AMOUNT' : undefined,
@@ -95,7 +108,6 @@ export default defineEventHandler(async (event) => {
             memberId: member.id,
             action: 'REDEEM',
             amount: -pointsToRedeem,
-            memberOrderId: newOrder.id,
             note: `Redeemed for order`,
           },
         })

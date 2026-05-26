@@ -37,7 +37,6 @@ onMounted(async () => {
 
 const statusLabel: Record<string, string> = {
   PENDING: 'Pending',
-  CONFIRMED: 'Confirmed',
   PREPARING: 'Preparing',
   READY: 'Ready',
   COMPLETED: 'Completed',
@@ -46,7 +45,6 @@ const statusLabel: Record<string, string> = {
 
 const statusColor: Record<string, string> = {
   PENDING: 'bg-gray-100 text-gray-600',
-  CONFIRMED: 'bg-blue-100 text-blue-700',
   PREPARING: 'bg-yellow-100 text-yellow-700',
   READY: 'bg-green-100 text-green-700',
   COMPLETED: 'bg-green-50 text-green-600',
@@ -73,7 +71,7 @@ function formatDate(d: string) {
     <div v-if="loading" class="py-16 text-center text-gray-400">Loading...</div>
     <div v-else-if="error" class="py-16 text-center text-red-500">{{ error }}</div>
     <div v-else-if="orders.length === 0" class="py-16 text-center">
-      <div class="text-5xl mb-4">☕</div>
+      <Icon name="flat-color-icons:shop" class="text-6xl mb-4" />
       <p class="text-gray-500">No orders yet</p>
       <NuxtLink to="/member/orders/new" class="mt-4 inline-block text-[#1B2B4B] font-medium hover:underline">
         Place your first order

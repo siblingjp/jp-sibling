@@ -47,23 +47,23 @@ const isLoading = computed(() => store.listState.isLoading)
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Members</h1>
+      <h1 class="text-2xl font-bold text-gray-900">สมาชิก</h1>
     </div>
 
     <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap gap-3">
       <input
         v-model="search"
         type="text"
-        placeholder="Search by name, email, phone..."
+        placeholder="ค้นหาชื่อ, อีเมล, เบอร์โทร..."
         class="flex-1 min-w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <select
         v-model="filterActive"
         class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        <option value="all">All Status</option>
-        <option value="true">Active</option>
-        <option value="false">Inactive</option>
+        <option value="all">ทุกสถานะ</option>
+        <option value="true">ใช้งานอยู่</option>
+        <option value="false">ปิดใช้งาน</option>
       </select>
     </div>
 
@@ -71,12 +71,12 @@ const isLoading = computed(() => store.listState.isLoading)
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Name</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Email</th>
-            <th class="text-left px-4 py-3 font-medium text-gray-600">Phone</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Points</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Orders</th>
-            <th class="text-center px-4 py-3 font-medium text-gray-600">Status</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">ชื่อ</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">อีเมล</th>
+            <th class="text-left px-4 py-3 font-medium text-gray-600">เบอร์โทร</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">แต้ม</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">ออเดอร์</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
@@ -102,7 +102,7 @@ const isLoading = computed(() => store.listState.isLoading)
                 class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
                 :class="m.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
               >
-                {{ m.isActive ? 'Active' : 'Inactive' }}
+                {{ m.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
               </span>
             </td>
             <td class="px-4 py-3 text-right">
@@ -111,14 +111,14 @@ const isLoading = computed(() => store.listState.isLoading)
                   :to="`/admin/members/${m.id}`"
                   class="text-blue-600 hover:text-blue-800 text-xs font-medium"
                 >
-                  View
+                  ดูโปรไฟล์
                 </NuxtLink>
                 <button
                   class="text-xs font-medium"
                   :class="m.isActive ? 'text-red-500 hover:text-red-700' : 'text-green-600 hover:text-green-800'"
                   @click="handleToggleActive(m)"
                 >
-                  {{ m.isActive ? 'Deactivate' : 'Activate' }}
+                  {{ m.isActive ? 'ปิดใช้งาน' : 'เปิดใช้งาน' }}
                 </button>
               </div>
             </td>
@@ -127,8 +127,8 @@ const isLoading = computed(() => store.listState.isLoading)
       </table>
 
       <div v-if="pagination" class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
-        <span>Total {{ pagination.total }} members</span>
-        <span>Page {{ pagination.page }} / {{ pagination.totalPages }}</span>
+        <span>ทั้งหมด {{ pagination.total }} สมาชิก</span>
+        <span>หน้า {{ pagination.page }} / {{ pagination.totalPages }}</span>
       </div>
     </div>
   </div>

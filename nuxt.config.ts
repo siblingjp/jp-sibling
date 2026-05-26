@@ -11,7 +11,14 @@ export default defineNuxtConfig({
     '@pinia/nuxt',
     'nuxt-auth-utils',
     '@vite-pwa/nuxt',
+    '@nuxt/icon',
   ],
+
+  icon: {
+    serverBundle: {
+      collections: ['flat-color-icons', 'mdi'],
+    },
+  },
 
   runtimeConfig: {
     session: {

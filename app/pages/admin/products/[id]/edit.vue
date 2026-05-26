@@ -71,14 +71,14 @@ async function handleSubmit() {
 <template>
   <div class="max-w-xl">
     <div class="flex items-center gap-3 mb-6">
-      <NuxtLink to="/admin/products" class="text-gray-400 hover:text-gray-600">← Back</NuxtLink>
-      <h1 class="text-2xl font-bold text-gray-900">Edit Product</h1>
+      <NuxtLink to="/admin/products" class="text-gray-400 hover:text-gray-600">← กลับ</NuxtLink>
+      <h1 class="text-2xl font-bold text-gray-900">แก้ไขสินค้า</h1>
     </div>
 
     <form class="space-y-5" @submit.prevent="handleSubmit">
       <div class="bg-white rounded-xl shadow-sm p-6 space-y-5">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อสินค้า <span class="text-red-500">*</span></label>
           <input v-model="form.name" type="text" required class="input" />
         </div>
 
@@ -88,40 +88,40 @@ async function handleSubmit() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Category <span class="text-red-500">*</span></label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">หมวดหมู่ <span class="text-red-500">*</span></label>
           <select v-model="form.categoryId" required class="input">
-            <option value="" disabled>Select category</option>
+            <option value="" disabled>เลือกหมวดหมู่</option>
             <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
           </select>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Price (THB) <span class="text-red-500">*</span></label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">ราคา (บาท) <span class="text-red-500">*</span></label>
           <input v-model.number="form.price" type="number" required min="0" step="0.01" class="input" />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">รายละเอียด</label>
           <textarea v-model="form.description" rows="3" class="input resize-none" />
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">URL รูปภาพ</label>
           <input v-model="form.imageUrl" type="url" class="input" placeholder="https://..." />
         </div>
 
         <div class="flex items-center gap-3">
           <input id="isActive" v-model="form.isActive" type="checkbox" class="rounded" />
-          <label for="isActive" class="text-sm text-gray-700">Active</label>
+          <label for="isActive" class="text-sm text-gray-700">เปิดใช้งาน</label>
         </div>
       </div>
 
       <!-- Option Groups -->
       <div class="bg-white rounded-xl shadow-sm p-6">
         <div class="flex items-center justify-between mb-3">
-          <h2 class="font-semibold text-gray-900">Option Groups</h2>
+          <h2 class="font-semibold text-gray-900">กลุ่มตัวเลือก</h2>
           <NuxtLink to="/admin/option-groups/new" target="_blank" class="text-xs text-blue-600 hover:underline">
-            + New Group
+            + สร้างกลุ่มใหม่
           </NuxtLink>
         </div>
         <AdminOptionGroupPicker v-model="form.optionGroupIds" :options="optionGroups" />
@@ -129,9 +129,9 @@ async function handleSubmit() {
 
       <div class="flex gap-3 pt-2">
         <button type="submit" :disabled="isLoading" class="btn-primary">
-          {{ isLoading ? 'Saving...' : 'Save Changes' }}
+          {{ isLoading ? 'กำลังบันทึก...' : 'บันทึกการเปลี่ยนแปลง' }}
         </button>
-        <NuxtLink to="/admin/products" class="btn-ghost">Cancel</NuxtLink>
+        <NuxtLink to="/admin/products" class="btn-ghost">ยกเลิก</NuxtLink>
       </div>
     </form>
   </div>

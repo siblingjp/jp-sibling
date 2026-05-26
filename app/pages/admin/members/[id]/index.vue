@@ -48,20 +48,20 @@ function formatPrice(n: number) {
   <div v-if="member">
     <!-- Back + Header -->
     <div class="flex items-center gap-3 mb-6">
-      <NuxtLink to="/admin/members" class="text-gray-400 hover:text-gray-600">← Back</NuxtLink>
+      <NuxtLink to="/admin/members" class="text-gray-400 hover:text-gray-600">← กลับ</NuxtLink>
       <h1 class="text-2xl font-bold text-gray-900">{{ member.name }}</h1>
       <span
         class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
         :class="member.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
       >
-        {{ member.isActive ? 'Active' : 'Inactive' }}
+        {{ member.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
       </span>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <!-- Profile Card -->
       <div class="bg-white rounded-xl shadow-sm p-6 space-y-4">
-        <h2 class="font-semibold text-gray-900">Profile</h2>
+        <h2 class="font-semibold text-gray-900">ข้อมูลสมาชิก</h2>
         <div class="space-y-2 text-sm">
           <div class="flex justify-between">
             <span class="text-gray-500">Email</span>
@@ -72,35 +72,35 @@ function formatPrice(n: number) {
             <span class="text-gray-900">{{ member.phone ?? '-' }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-500">Joined</span>
+            <span class="text-gray-500">วันที่สมัคร</span>
             <span class="text-gray-900">{{ formatDate(member.createdAt) }}</span>
           </div>
           <div class="flex justify-between">
-            <span class="text-gray-500">Total Orders</span>
+            <span class="text-gray-500">จำนวนออเดอร์</span>
             <span class="font-medium text-gray-900">{{ member._count?.orders ?? 0 }}</span>
           </div>
         </div>
 
         <!-- Points Badge -->
         <div class="bg-blue-50 rounded-lg p-4 text-center">
-          <p class="text-xs text-blue-500 mb-1">Points Balance</p>
+          <p class="text-xs text-blue-500 mb-1">แต้มสะสม</p>
           <p class="text-3xl font-bold text-blue-600">{{ member.points.toLocaleString() }}</p>
         </div>
       </div>
 
       <!-- Orders -->
       <div class="bg-white rounded-xl shadow-sm p-6 lg:col-span-2">
-        <h2 class="font-semibold text-gray-900 mb-4">Recent Orders</h2>
+        <h2 class="font-semibold text-gray-900 mb-4">ออเดอร์ล่าสุด</h2>
         <div v-if="member.orders.length === 0" class="text-center py-8 text-gray-400 text-sm">
-          No orders yet
+          ยังไม่มีออเดอร์
         </div>
         <table v-else class="w-full text-sm">
           <thead class="bg-gray-50">
             <tr>
-              <th class="text-left px-3 py-2 font-medium text-gray-600">Order ID</th>
-              <th class="text-center px-3 py-2 font-medium text-gray-600">Status</th>
-              <th class="text-right px-3 py-2 font-medium text-gray-600">Total</th>
-              <th class="text-right px-3 py-2 font-medium text-gray-600">Date</th>
+              <th class="text-left px-3 py-2 font-medium text-gray-600">รหัสออเดอร์</th>
+              <th class="text-center px-3 py-2 font-medium text-gray-600">สถานะ</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600">ยอดรวม</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600">วันที่</th>
             </tr>
           </thead>
           <tbody>
@@ -124,17 +124,17 @@ function formatPrice(n: number) {
 
       <!-- Point History -->
       <div class="bg-white rounded-xl shadow-sm p-6 lg:col-span-3">
-        <h2 class="font-semibold text-gray-900 mb-4">Point History</h2>
+        <h2 class="font-semibold text-gray-900 mb-4">ประวัติแต้ม</h2>
         <div v-if="member.pointLogs.length === 0" class="text-center py-8 text-gray-400 text-sm">
-          No point activity
+          ยังไม่มีประวัติแต้ม
         </div>
         <table v-else class="w-full text-sm">
           <thead class="bg-gray-50">
             <tr>
-              <th class="text-left px-3 py-2 font-medium text-gray-600">Action</th>
-              <th class="text-left px-3 py-2 font-medium text-gray-600">Note</th>
-              <th class="text-right px-3 py-2 font-medium text-gray-600">Points</th>
-              <th class="text-right px-3 py-2 font-medium text-gray-600">Date</th>
+              <th class="text-left px-3 py-2 font-medium text-gray-600">ประเภท</th>
+              <th class="text-left px-3 py-2 font-medium text-gray-600">หมายเหตุ</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600">แต้ม</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600">วันที่</th>
             </tr>
           </thead>
           <tbody>

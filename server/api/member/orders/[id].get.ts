@@ -5,7 +5,7 @@ export default defineEventHandler(async (event) => {
 
     const id = getRouterParam(event, 'id')!
 
-    const order = await prisma.memberOrder.findUnique({
+    const order = await prisma.order.findUnique({
       where: { id, memberId: session.member.id },
       include: {
         items: {

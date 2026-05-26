@@ -26,7 +26,7 @@ onMounted(async () => {
               to="/member"
               class="flex items-center gap-1.5 px-4 py-2 bg-[#1B2B4B] text-white rounded-xl hover:bg-[#2a3f6b] transition-colors"
             >
-              <span>👤</span>
+              <Icon name="flat-color-icons:businessman" class="text-base" />
               <span>{{ member.name }}</span>
             </NuxtLink>
           </template>
