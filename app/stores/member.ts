@@ -32,6 +32,7 @@ interface RegisterBody {
 export const useMemberStore = defineStore('member', () => {
   const state = ref(initState<MemberUser>())
   const member = ref<MemberUser | null>(null)
+  const initialized = ref(false)
 
   const isMemberAuthenticated = computed(() => !!member.value)
 
@@ -78,6 +79,8 @@ export const useMemberStore = defineStore('member', () => {
       member.value = res.data ?? null
     } catch {
       member.value = null
+    } finally {
+      initialized.value = true
     }
   }
 
@@ -103,6 +106,7 @@ export const useMemberStore = defineStore('member', () => {
   return {
     state: readonly(state),
     member,
+    initialized,
     isMemberAuthenticated,
     login,
     register,

@@ -1,11 +1,11 @@
 export default defineNuxtRouteMiddleware(async () => {
-  const { member, fetchMe } = useMemberAuth()
+  const store = useMemberStore()
 
-  if (!member.value) {
-    await fetchMe()
+  if (!store.initialized) {
+    await store.fetchMe()
   }
 
-  if (!member.value) {
+  if (!store.member) {
     return navigateTo('/member/login')
   }
 })

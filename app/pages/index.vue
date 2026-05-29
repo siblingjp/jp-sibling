@@ -8,7 +8,7 @@ const { member, fetchMe } = useMemberAuth()
 
 interface HomeData {
   products: { id: string; name: string; imageUrl: string | null; category: { name: string } }[]
-  campaigns: { id: string; title: string; description: string | null; imageUrl: string | null; endsAt: string | null }[]
+  campaigns: { id: string; name: string; description: string | null }[]
   truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null } | null
   topRequests: { id: string; name: string; description: string | null; voteCount: number }[]
 }
@@ -28,7 +28,7 @@ const formError = ref('')
 const { showSuccess, showError } = useAlert()
 
 const benefits = [
-  { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'ทุก ฿10 = 1 pt' },
+  { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'อัตราแลก 1pt = 1฿' },
   { icon: 'mdi:gift', title: 'แต้มแลกลด', desc: 'ใช้แต้มแลกส่วนลด' },
   { icon: 'flat-color-icons:phone-android', title: 'สั่งล่วงหน้า', desc: 'ไม่ต้องรอนาน' },
   { icon: 'flat-color-icons:vip', title: 'สิทธิ์ VIP', desc: 'แต้มโบนัสพิเศษ' },
@@ -182,16 +182,12 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
             :key="campaign.id"
             class="bg-white rounded-2xl overflow-hidden shadow hover:shadow-lg transition-shadow"
           >
-            <div class="h-44 bg-gradient-to-br from-[#C8D8E8] to-[#DDEAF6] flex items-center justify-center overflow-hidden">
-              <img v-if="campaign.imageUrl" :src="campaign.imageUrl" :alt="campaign.title" class="w-full h-full object-cover" />
-              <Icon v-else name="flat-color-icons:advertising" class="text-6xl" />
+            <div class="h-44 bg-gradient-to-br from-[#C8D8E8] to-[#DDEAF6] flex items-center justify-center">
+              <Icon name="flat-color-icons:advertising" class="text-6xl" />
             </div>
             <div class="p-5">
-              <h3 class="font-bold text-[#1B2B4B] text-lg">{{ campaign.title }}</h3>
+              <h3 class="font-bold text-[#1B2B4B] text-lg">{{ campaign.name }}</h3>
               <p v-if="campaign.description" class="text-sm text-gray-500 mt-1">{{ campaign.description }}</p>
-              <p v-if="campaign.endsAt" class="text-xs text-amber-600 font-medium mt-2">
-                ถึง {{ new Date(campaign.endsAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) }}
-              </p>
             </div>
           </div>
         </div>

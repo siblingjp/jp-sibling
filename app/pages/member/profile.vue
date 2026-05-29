@@ -33,12 +33,7 @@ async function handleSave() {
   }
 }
 
-const tierLabel = computed(() => {
-  const t = member.value?.tier
-  if (t === 'VIP') return 'VIP'
-  if (t === 'GOLD') return 'Gold'
-  return 'Silver'
-})
+const tier = computed(() => useTier(member.value?.tier))
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -47,42 +42,42 @@ function formatDate(d: string) {
 
 <template>
   <div class="max-w-lg mx-auto space-y-6">
-    <h1 class="text-2xl font-bold text-gray-900">โปรไฟล์</h1>
+    <div class="flex items-center justify-between gap-5">
+      <h1 class="text-2xl font-bold text-gray-900">โปรไฟล์</h1>
+
+      <button
+        class="flex flex-col items-center gap-1 px-3 py-2.5 flex-shrink-0"
+        @click="showQr = true">
+        <Icon name="mdi:qrcode" class="text-2xl text-[#1B2B4B]" />
+        <!-- <span class="text-xs font-medium text-[#1B2B4B]">QR</span> -->
+      </button>
+    </div>
 
     <!-- Avatar & tier -->
     <div class="bg-white rounded-2xl shadow p-6 flex items-center gap-5">
-      <div class="w-20 h-20 rounded-full bg-[#C8D8E8] flex items-center justify-center text-3xl font-bold text-[#2a3f6b] overflow-hidden flex-shrink-0">
+      <div
+        class="w-20 h-20 rounded-full bg-[#C8D8E8] flex items-center justify-center text-3xl font-bold text-[#2a3f6b] overflow-hidden flex-shrink-0">
         <img v-if="member?.profileImage" :src="member.profileImage" class="w-full h-full object-cover" />
         <span v-else>{{ member?.name?.[0]?.toUpperCase() }}</span>
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-xl font-bold text-gray-900 truncate">{{ member?.name }}</p>
-        <span
-          class="inline-block text-sm font-medium px-3 py-0.5 rounded-full mt-1"
-          :class="{
-            'bg-purple-100 text-purple-700': member?.tier === 'VIP',
-            'bg-yellow-100 text-yellow-700': member?.tier === 'GOLD',
-            'bg-gray-100 text-gray-600': member?.tier === 'SILVER',
-          }"
-        >
-          {{ tierLabel }}
+        <span class="inline-flex items-center gap-1 text-sm font-medium px-3 py-0.5 rounded-full mt-1"
+          :class="[tier.badgeBg, tier.badgeText]">
+          <Icon :name="tier.icon" class="w-3.5 h-3.5" :class="tier.iconColor" />
+          {{ tier.label }}
         </span>
-        <p class="text-sm text-gray-500 mt-1">สมาชิกตั้งแต่ {{ member?.createdAt ? formatDate(member.createdAt) : '-' }}</p>
+        <p class="text-sm text-gray-500 mt-1">สมาชิกตั้งแต่ {{ member?.createdAt ? formatDate(member.createdAt) : '-' }}
+        </p>
       </div>
-      <button
-        class="flex flex-col items-center gap-1 px-3 py-2.5 rounded-xl bg-[#F0F4F8] hover:bg-[#C8D8E8] transition-colors flex-shrink-0"
-        @click="showQr = true"
-      >
-        <Icon name="mdi:qrcode" class="text-2xl text-[#1B2B4B]" />
-        <span class="text-xs font-medium text-[#1B2B4B]">QR</span>
-      </button>
     </div>
 
     <!-- Info / edit -->
     <div class="bg-white rounded-2xl shadow p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-semibold text-gray-800">ข้อมูลบัญชี</h2>
-        <button v-if="!editing" @click="startEdit" class="text-[#1B2B4B] text-sm font-medium hover:underline">แก้ไข</button>
+        <button v-if="!editing" @click="startEdit"
+          class="text-[#1B2B4B] text-sm font-medium hover:underline">แก้ไข</button>
       </div>
 
       <div v-if="!editing" class="space-y-4">
@@ -101,9 +96,12 @@ function formatDate(d: string) {
         <div>
           <p class="text-xs text-gray-400 uppercase tracking-wide">บัญชีที่เชื่อมต่อ</p>
           <div class="flex gap-2 mt-1.5">
-            <span v-if="member?.lineUserId" class="text-xs px-2 py-1 bg-[#06C755]/10 text-[#06C755] rounded-full font-medium">LINE</span>
-            <span v-if="member?.googleId" class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-full font-medium">Google</span>
-            <span v-if="member?.email" class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full font-medium">Email</span>
+            <span v-if="member?.lineUserId"
+              class="text-xs px-2 py-1 bg-[#06C755]/10 text-[#06C755] rounded-full font-medium">LINE</span>
+            <span v-if="member?.googleId"
+              class="text-xs px-2 py-1 bg-blue-50 text-blue-600 rounded-full font-medium">Google</span>
+            <span v-if="member?.email"
+              class="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded-full font-medium">Email</span>
           </div>
         </div>
       </div>
@@ -111,35 +109,22 @@ function formatDate(d: string) {
       <form v-else @submit.prevent="handleSave" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อ</label>
-          <input
-            v-model="form.name"
-            type="text"
-            required
-            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
-          />
+          <input v-model="form.name" type="text" required
+            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]" />
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทร</label>
-          <input
-            v-model="form.phone"
-            type="tel"
+          <input v-model="form.phone" type="tel"
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
-            placeholder="0812345678"
-          />
+            placeholder="0812345678" />
         </div>
         <div class="flex gap-3">
-          <button
-            type="submit"
-            :disabled="loading"
-            class="flex-1 py-2.5 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b] disabled:opacity-50 transition-colors"
-          >
+          <button type="submit" :disabled="loading"
+            class="flex-1 py-2.5 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b] disabled:opacity-50 transition-colors">
             {{ loading ? 'กำลังบันทึก...' : 'บันทึก' }}
           </button>
-          <button
-            type="button"
-            @click="editing = false"
-            class="flex-1 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
-          >
+          <button type="button" @click="editing = false"
+            class="flex-1 py-2.5 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors">
             ยกเลิก
           </button>
         </div>
@@ -166,13 +151,10 @@ function formatDate(d: string) {
       <div class="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xs space-y-4">
         <div class="text-center">
           <p class="font-bold text-gray-900 text-lg">{{ member?.name }}</p>
-          <span class="inline-block text-xs font-medium px-2.5 py-0.5 rounded-full mt-1"
-            :class="{
-              'bg-purple-100 text-purple-700': member?.tier === 'VIP',
-              'bg-yellow-100 text-yellow-700': member?.tier === 'GOLD',
-              'bg-gray-100 text-gray-600': member?.tier === 'SILVER',
-            }">
-            {{ tierLabel }}
+          <span class="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-0.5 rounded-full mt-1"
+            :class="[tier.badgeBg, tier.badgeText]">
+            <Icon :name="tier.icon" class="w-3 h-3" :class="tier.iconColor" />
+            {{ tier.label }}
           </span>
         </div>
         <div class="flex justify-center">
@@ -187,10 +169,8 @@ function formatDate(d: string) {
             <p class="text-xs text-[#2a3f6b]">แสดงที่เคาน์เตอร์เพื่อสะสมแต้ม</p>
           </div>
         </div>
-        <button
-          class="w-full py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
-          @click="showQr = false"
-        >ปิด</button>
+        <button class="w-full py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
+          @click="showQr = false">ปิด</button>
       </div>
     </div>
   </Teleport>

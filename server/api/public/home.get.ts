@@ -11,15 +11,12 @@ export default defineEventHandler(async () => {
       }),
       prisma.campaign.findMany({
         where: {
-          status: 'PUBLISHED',
-          OR: [
-            { startsAt: null },
-            { startsAt: { lte: now } },
-          ],
-          AND: [
-            { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
-          ],
+          isActive: true,
+          memberOnly: false,
+          OR: [{ startAt: null }, { startAt: { lte: now } }],
+          AND: [{ OR: [{ expiredAt: null }, { expiredAt: { gte: now } }] }],
         },
+        select: { id: true, name: true, description: true },
         orderBy: { createdAt: 'desc' },
         take: 4,
       }),

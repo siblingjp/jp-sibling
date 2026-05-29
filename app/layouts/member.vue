@@ -1,8 +1,14 @@
 <template>
-  <div class="min-h-screen bg-gray-50 pb-20">
+  <div v-if="!store.initialized" class="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div class="flex flex-col items-center gap-3 text-gray-400">
+      <Icon name="mdi:loading" class="text-4xl animate-spin text-[#1B2B4B]" />
+      <p class="text-sm">กำลังโหลด...</p>
+    </div>
+  </div>
+  <div v-else class="min-h-screen bg-gray-50 pb-20">
     <header class="bg-white shadow-sm sticky top-0 z-50">
       <nav class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-        <NuxtLink to="/member" class="text-lg font-bold text-[#1B2B4B]">
+        <NuxtLink to="/" class="text-lg font-bold text-[#1B2B4B]">
           {{ $config.public.appName }}
         </NuxtLink>
         <button class="text-gray-500 hover:text-red-600 text-sm" @click="handleLogout">ออกจากระบบ</button>
@@ -32,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+const store = useMemberStore()
 const { logout } = useMemberAuth()
 const router = useRouter()
 

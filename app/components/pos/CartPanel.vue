@@ -93,11 +93,6 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
   }
 }
 
-const tierColor: Record<string, string> = {
-  SILVER: 'bg-gray-100 text-gray-600',
-  GOLD: 'bg-yellow-100 text-yellow-700',
-  VIP: 'bg-purple-100 text-purple-700',
-}
 </script>
 
 <template>
@@ -146,8 +141,10 @@ const tierColor: Record<string, string> = {
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-1.5">
               <p class="text-sm font-medium text-gray-900 truncate">{{ member.name }}</p>
-              <span class="text-xs px-1.5 py-0.5 rounded-full font-medium" :class="tierColor[member.tier]">
-                {{ member.tier }}
+              <span class="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded-full font-medium"
+                :class="[useTier(member.tier).badgeBg, useTier(member.tier).badgeText]">
+                <Icon :name="useTier(member.tier).icon" class="w-3 h-3" :class="useTier(member.tier).iconColor" />
+                {{ useTier(member.tier).label }}
               </span>
             </div>
             <p class="text-xs text-gray-500">{{ member.points.toLocaleString() }} pts</p>

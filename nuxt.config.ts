@@ -58,6 +58,9 @@ export default defineNuxtConfig({
     experimental: {
       openAPI: true,
     },
+    imports: {
+      dirs: ['server/utils'],
+    },
   },
   
   pwa: {

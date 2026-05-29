@@ -6,10 +6,11 @@ const http = useHttpClient()
 
 // ─── Tier config ─────────────────────────────────────────────────────────────
 const tierConfig = computed(() => {
-  const tier = member.value?.tier ?? 'SILVER'
-  if (tier === 'VIP') return { label: 'VIP', color: 'text-purple-700', bg: 'bg-purple-100', icon: 'mdi:crown', iconColor: 'text-purple-500', next: null, nextSpend: 0 }
-  if (tier === 'GOLD') return { label: 'Gold', color: 'text-yellow-700', bg: 'bg-yellow-100', icon: 'mdi:star', iconColor: 'text-yellow-500', next: 'VIP', nextSpend: 5000 }
-  return { label: 'Silver', color: 'text-gray-600', bg: 'bg-gray-100', icon: 'mdi:shield-account', iconColor: 'text-gray-400', next: 'Gold', nextSpend: 2000 }
+  const t = member.value?.tier ?? 'SILVER'
+  const base = useTier(t)
+  const next = t === 'SILVER' ? 'Gold' : t === 'GOLD' ? 'VIP' : null
+  const nextSpend = t === 'SILVER' ? 2000 : t === 'GOLD' ? 5000 : 0
+  return { ...base, next, nextSpend }
 })
 
 const totalSpent = computed(() => Number(member.value?.totalSpent ?? 0))
@@ -22,19 +23,40 @@ const spendRemaining = computed(() => {
   return Math.max(tierConfig.value.nextSpend - totalSpent.value, 0)
 })
 
-// ─── Store status ─────────────────────────────────────────────────────────────
-// เปิด จ-ศ 07:00-18:00, ส-อา 08:00-17:00
+// ─── Store / Truck location ───────────────────────────────────────────────────
+interface TruckLocation {
+  name: string
+  description: string | null
+  mapUrl: string | null
+  openTime: string | null
+  closeTime: string | null
+  daysOfWeek: string | null
+}
+const truckLocation = ref<TruckLocation | null>(null)
+
+function parseTime(t: string | null) {
+  if (!t) return null
+  const [h, m] = t.split(':').map(Number)
+  return h + (m ?? 0) / 60
+}
+
 const isOpen = computed(() => {
+  if (!truckLocation.value) return false
+  const open = parseTime(truckLocation.value.openTime)
+  const close = parseTime(truckLocation.value.closeTime)
+  if (open === null || close === null) return false
   const now = new Date()
-  const day = now.getDay() // 0=Sun,1=Mon...6=Sat
   const h = now.getHours() + now.getMinutes() / 60
-  if (day === 0) return h >= 8 && h < 17
-  if (day === 6) return h >= 8 && h < 17
-  return h >= 7 && h < 18
+  return h >= open && h < close
 })
+
 const storeHoursText = computed(() => {
-  const day = new Date().getDay()
-  return (day === 0 || day === 6) ? 'เสาร์-อาทิตย์ 08:00-17:00' : 'จันทร์-ศุกร์ 07:00-18:00'
+  if (!truckLocation.value) return ''
+  const loc = truckLocation.value
+  const parts: string[] = []
+  if (loc.daysOfWeek) parts.push(loc.daysOfWeek)
+  if (loc.openTime && loc.closeTime) parts.push(`${loc.openTime}–${loc.closeTime}`)
+  return parts.join(' ')
 })
 
 // ─── Campaigns ────────────────────────────────────────────────────────────────
@@ -65,10 +87,14 @@ const expandedCampaign = ref<string | null>(null)
 
 onMounted(async () => {
   try {
-    const res = await http.get<{ data: Campaign[] }>(API_ENDPOINTS.MEMBER.CAMPAIGNS)
-    campaigns.value = res.data ?? []
+    const [campRes, homeRes] = await Promise.all([
+      http.get<{ data: Campaign[] }>(API_ENDPOINTS.MEMBER.CAMPAIGNS),
+      http.get<{ data: { truckLocation: TruckLocation | null } }>('/api/public/home'),
+    ])
+    campaigns.value = campRes.data ?? []
+    truckLocation.value = homeRes.data?.truckLocation ?? null
   } catch {
-    // silent — campaigns are optional
+    // silent
   }
 })
 
@@ -94,7 +120,8 @@ function formatCouponValue(c: CampaignCoupon) {
         <div class="flex-1 min-w-0">
           <p class="text-white/70 text-sm">ยินดีต้อนรับกลับ</p>
           <p class="text-xl font-bold truncate">{{ member?.name }}</p>
-          <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-white/20 font-medium mt-0.5">
+          <span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-medium mt-0.5"
+            :class="[tierConfig.badgeBg, tierConfig.badgeText]">
             <Icon :name="tierConfig.icon" class="w-3.5 h-3.5" :class="tierConfig.iconColor" />
             {{ tierConfig.label }}
           </span>
@@ -109,22 +136,25 @@ function formatCouponValue(c: CampaignCoupon) {
     </div>
 
     <!-- Store status -->
-    <div class="bg-white rounded-2xl shadow p-4 flex items-center gap-3">
+    <div v-if="truckLocation" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3">
       <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
         :class="isOpen ? 'bg-green-100' : 'bg-red-100'">
         <Icon :name="isOpen ? 'mdi:store-check' : 'mdi:store-off'" class="text-xl"
           :class="isOpen ? 'text-green-600' : 'text-red-500'" />
       </div>
-      <div class="flex-1">
+      <div class="flex-1 min-w-0">
         <p class="font-semibold text-sm" :class="isOpen ? 'text-green-700' : 'text-red-600'">
-          {{ isOpen ? 'เปิดอยู่ตอนนี้' : 'ปิดอยู่' }}
+          {{ truckLocation.name }} · {{ isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }}
         </p>
-        <p class="text-xs text-gray-400">{{ storeHoursText }}</p>
+        <p class="text-xs text-gray-400 truncate">{{ storeHoursText }}</p>
+        <p v-if="truckLocation.description" class="text-xs text-gray-400 truncate">{{ truckLocation.description }}</p>
       </div>
       <a
-        href="https://maps.google.com"
+        v-if="truckLocation.mapUrl"
+        :href="truckLocation.mapUrl"
         target="_blank"
-        class="flex items-center gap-1 text-xs text-[#1B2B4B] font-medium hover:underline"
+        rel="noopener noreferrer"
+        class="flex items-center gap-1 text-xs text-[#1B2B4B] font-medium hover:underline flex-shrink-0"
       >
         <Icon name="mdi:map-marker" class="w-4 h-4 text-red-400" />
         แผนที่
