@@ -17,6 +17,7 @@ const schema = z.object({
   discountKind: z.enum(['PERCENT', 'AMOUNT']).optional(),
   discountValue: z.number().min(0).optional(),
   discountId: z.string().optional(),
+  couponCode: z.string().optional(),
   pointsRedeemed: z.number().int().min(0).default(0),
   items: z.array(itemSchema).min(1),
 })
@@ -28,7 +29,6 @@ export default defineEventHandler(async (event) => {
 
     const data = validate(schema, await readBody(event))
 
-    // ดึง products + options ทั้งหมดที่ order ใช้
     const productIds = [...new Set(data.items.map((i) => i.productId))]
     const optionIds = [...new Set(data.items.flatMap((i) => i.options.map((o) => o.optionId)))]
 
@@ -44,7 +44,6 @@ export default defineEventHandler(async (event) => {
     const productMap = new Map(products.map((p) => [p.id, p]))
     const optionMap = new Map(options.map((o) => [o.id, o]))
 
-    // คำนวณ subtotal ของแต่ละ item
     const itemsCalc = data.items.map((item) => {
       const product = productMap.get(item.productId)!
       const itemOptions = item.options.map((o) => {
@@ -59,26 +58,40 @@ export default defineEventHandler(async (event) => {
 
     const subtotal = itemsCalc.reduce((sum, i) => sum + i.subtotal, 0)
 
-    // คำนวณส่วนลด
+    // discount badge
     let discountAmount = 0
     if (data.discountKind && data.discountValue != null) {
-      if (data.discountKind === 'PERCENT') {
-        discountAmount = Math.round((subtotal * data.discountValue) / 100 * 100) / 100
-      } else {
-        discountAmount = Math.min(data.discountValue, subtotal)
-      }
+      discountAmount = data.discountKind === 'PERCENT'
+        ? Math.round((subtotal * data.discountValue) / 100 * 100) / 100
+        : Math.min(data.discountValue, subtotal)
     }
 
-    // คำนวณ point redeem (1 point = 1 บาท)
-    const maxRedeemable = Math.floor(subtotal - discountAmount)
-    const pointsRedeemed = Math.min(data.pointsRedeemed, member?.points ?? 0, maxRedeemable)
-    const total = Math.max(0, subtotal - discountAmount - pointsRedeemed)
+    // coupon
+    let coupon = null
+    let couponDiscountAmount = 0
+    if (data.couponCode) {
+      const now = new Date()
+      coupon = await prisma.coupon.findUnique({ where: { code: data.couponCode.toUpperCase() } })
+      if (!coupon || !coupon.isActive) throw badRequest('Coupon ไม่ถูกต้อง')
+      if (coupon.startAt && coupon.startAt > now) throw badRequest('Coupon ยังไม่เริ่มใช้งาน')
+      if (coupon.expiredAt && coupon.expiredAt < now) throw badRequest('Coupon หมดอายุแล้ว')
+      if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) throw badRequest('Coupon ถูกใช้ครบแล้ว')
+      if (coupon.minOrderAmount && subtotal < Number(coupon.minOrderAmount)) throw badRequest(`ยอดขั้นต่ำ ฿${coupon.minOrderAmount}`)
+      if (coupon.memberOnly && !member) throw badRequest('Coupon นี้สำหรับสมาชิกเท่านั้น')
 
-    // คำนวณ point ที่ได้รับ (ทุก 10 บาท = 1 point, คูณ tier multiplier)
+      couponDiscountAmount = coupon.discountKind === 'PERCENT'
+        ? Math.min((subtotal * Number(coupon.discountValue)) / 100, subtotal)
+        : Math.min(Number(coupon.discountValue), subtotal)
+    }
+
+    const afterDiscount = subtotal - discountAmount - couponDiscountAmount
+    const maxRedeemable = Math.floor(afterDiscount)
+    const pointsRedeemed = Math.min(data.pointsRedeemed, member?.points ?? 0, maxRedeemable)
+    const total = Math.max(0, afterDiscount - pointsRedeemed)
+
     const tierMultiplier = member?.tier === 'VIP' ? 1.5 : member?.tier === 'GOLD' ? 1.25 : 1.0
     const pointsEarned = member ? Math.floor((total / 10) * tierMultiplier) : 0
 
-    // queueNo reset ทุกวัน
     const todayStart = new Date()
     todayStart.setHours(0, 0, 0, 0)
     const todayEnd = new Date()
@@ -98,7 +111,8 @@ export default defineEventHandler(async (event) => {
           subtotal,
           discountKind: data.discountKind ?? null,
           discountValue: data.discountValue ?? null,
-          discount: discountAmount,
+          discount: discountAmount + couponDiscountAmount,
+          couponCode: coupon?.code ?? null,
           total,
           pointsEarned,
           pointsRedeemed,
@@ -127,22 +141,29 @@ export default defineEventHandler(async (event) => {
         },
       })
 
-      // หัก point ที่ redeem
-      if (member && pointsRedeemed > 0) {
-        await tx.member.update({ where: { id: member.id }, data: { points: { decrement: pointsRedeemed } } })
-        await tx.pointLog.create({
+      // mark coupon used
+      if (coupon) {
+        await tx.coupon.update({ where: { id: coupon.id }, data: { usedCount: { increment: 1 } } })
+        await tx.couponUse.create({
           data: {
-            memberId: member.id,
-            action: 'REDEEM',
-            amount: pointsRedeemed,
-            note: `Redeem at POS #${queueNo}`,
+            couponId: coupon.id,
+            memberId: member?.id ?? null,
             orderId: created.id,
+            isUsed: true,
+            usedAt: new Date(),
           },
         })
       }
 
+      if (member && pointsRedeemed > 0) {
+        await tx.member.update({ where: { id: member.id }, data: { points: { decrement: pointsRedeemed } } })
+        await tx.pointLog.create({
+          data: { memberId: member.id, action: 'REDEEM', amount: pointsRedeemed, note: `Redeem at POS #${queueNo}`, orderId: created.id },
+        })
+      }
+
       return created
-    })
+    }, { timeout: 15000 })
 
     return okResponse(order)
   } catch (e) {

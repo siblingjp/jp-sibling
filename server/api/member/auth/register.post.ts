@@ -15,6 +15,11 @@ export default defineEventHandler(async (event) => {
     const existing = await prisma.member.findUnique({ where: { email: data.email } })
     if (existing) throw conflict('Email already registered')
 
+    if (data.phone) {
+      const phoneExists = await prisma.member.findFirst({ where: { phone: data.phone, isActive: true } })
+      if (phoneExists) throw conflict('PHONE_EXISTS')
+    }
+
     const passwordHash = await hash(data.password)
     const { password: _, ...rest } = data
 

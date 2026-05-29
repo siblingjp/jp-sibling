@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
     const member = await prisma.member.findUnique({
       where: { email: data.email, isActive: true },
     })
-    if (!member || !member.passwordHash) throw unauthorized('Invalid email or password')
+    if (!member || !member.passwordHash) throw notFound('EMAIL_NOT_FOUND')
 
     const valid = await verify(member.passwordHash, data.password)
     if (!valid) throw unauthorized('Invalid email or password')

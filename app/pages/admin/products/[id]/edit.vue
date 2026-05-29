@@ -106,8 +106,8 @@ async function handleSubmit() {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">URL รูปภาพ</label>
-          <input v-model="form.imageUrl" type="url" class="input" placeholder="https://..." />
+          <label class="block text-sm font-medium text-gray-700 mb-1">รูปภาพ</label>
+          <AdminImageUpload v-model="form.imageUrl" folder="products" />
         </div>
 
         <div class="flex items-center gap-3">

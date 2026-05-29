@@ -67,6 +67,7 @@ function handleOptionConfirm(options: PosOption[], note: string, qty: number) {
 const showMemberSearch = ref(false)
 const memberQuery = ref('')
 const isLookingUp = ref(false)
+const showMemberScanner = ref(false)
 
 async function handleMemberLookup() {
   if (!memberQuery.value.trim()) return
@@ -79,6 +80,50 @@ async function handleMemberLookup() {
     showError('ไม่พบสมาชิก')
   } finally {
     isLookingUp.value = false
+  }
+}
+
+function handleMemberScanned(value: string) {
+  showMemberScanner.value = false
+  memberQuery.value = value
+  handleMemberLookup()
+}
+
+// ─── Coupon ──────────────────────────────────────────────────────────────────
+const showCouponScanner = ref(false)
+
+async function handleApplyCoupon(code: string) {
+  try {
+    await store.validateAndApplyCoupon(code)
+    showSuccess('ใช้คูปองสำเร็จ')
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.statusMessage ?? e?.message ?? 'คูปองไม่ถูกต้อง')
+  }
+}
+
+function handleCouponScanned(value: string) {
+  showCouponScanner.value = false
+  // ถ้า value เป็น cuid (coupon use id) ให้ scan coupon use แทน
+  if (value.length > 20 && !value.includes(' ')) {
+    handleCouponUseScan(value.trim())
+  } else {
+    handleApplyCoupon(value.trim().toUpperCase())
+  }
+}
+
+// ─── Coupon Use Scan (QR จากหน้า Redeem ของ Member) ──────────────────────────
+const showCouponUseScanResult = ref(false)
+const couponUseScanResult = ref<{ couponCode: string; couponName: string; discountKind: string; discountValue: number; memberName: string | null } | null>(null)
+async function handleCouponUseScan(id: string) {
+  try {
+    const http = useHttpClient()
+    const res = await http.post<{ data: typeof couponUseScanResult.value }>(
+      API_ENDPOINTS.POS.COUPON_USE_SCAN(id)
+    )
+    couponUseScanResult.value = res.data
+    showCouponUseScanResult.value = true
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'ไม่สามารถใช้คูปองได้')
   }
 }
 
@@ -175,12 +220,17 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
         :is-submitting="store.isSubmitting"
         @remove-item="store.removeFromCart"
         @edit-item="openEditItem"
+        :applied-coupon="store.appliedCoupon"
+        :coupon-discount="store.couponDiscount"
         @lookup-member="showMemberSearch = true"
         @clear-member="store.clearMember()"
         @apply-badge="store.applyDiscountBadge"
         @set-percent="store.applyDiscountPercent"
         @set-amount="store.applyDiscountAmount"
         @clear-discount="store.clearDiscount()"
+        @apply-coupon="handleApplyCoupon"
+        @clear-coupon="store.clearCoupon()"
+        @scan-coupon="showCouponScanner = true"
         @update-points-redeem="store.pointsToRedeem = $event"
         @checkout="showPayment = true"
         @badge-created="store.fetchDiscounts()"
@@ -207,24 +257,80 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
   <!-- Member Search Modal -->
   <Teleport to="body">
     <div v-if="showMemberSearch" class="fixed inset-0 z-50 flex items-center justify-center">
-      <div class="absolute inset-0 bg-black/40" @click="showMemberSearch = false" />
+      <div class="absolute inset-0 bg-black/40" @click="showMemberSearch = false; showMemberScanner = false" />
       <div class="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
         <h2 class="font-semibold text-gray-900">ค้นหาสมาชิก</h2>
-        <input
-          v-model="memberQuery"
-          type="text"
-          placeholder="เบอร์โทรหรืออีเมล..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          @keyup.enter="handleMemberLookup"
-        />
-        <div class="flex gap-3">
-          <button class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600" @click="showMemberSearch = false">ยกเลิก</button>
-          <button
-            class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            :disabled="isLookingUp"
-            @click="handleMemberLookup"
-          >{{ isLookingUp ? 'กำลังค้นหา...' : 'ค้นหา' }}</button>
+        <div v-if="showMemberScanner">
+          <QrScanner @scanned="handleMemberScanned" @close="showMemberScanner = false" />
         </div>
+        <template v-else>
+          <div class="flex gap-2">
+            <input
+              v-model="memberQuery"
+              type="text"
+              placeholder="เบอร์โทรหรืออีเมล..."
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              @keyup.enter="handleMemberLookup"
+            />
+            <button
+              type="button"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50"
+              title="สแกน QR"
+              @click="showMemberScanner = true"
+            >
+              <Icon name="mdi:qrcode-scan" class="text-base" />
+            </button>
+          </div>
+          <div class="flex gap-3">
+            <button class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600" @click="showMemberSearch = false; showMemberScanner = false">ยกเลิก</button>
+            <button
+              class="flex-1 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              :disabled="isLookingUp"
+              @click="handleMemberLookup"
+            >{{ isLookingUp ? 'กำลังค้นหา...' : 'ค้นหา' }}</button>
+          </div>
+        </template>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Coupon Scanner Modal -->
+  <Teleport to="body">
+    <div v-if="showCouponScanner" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="absolute inset-0 bg-black/40" @click="showCouponScanner = false" />
+      <div class="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
+        <h2 class="font-semibold text-gray-900">สแกนคูปอง</h2>
+        <QrScanner @scanned="handleCouponScanned" @close="showCouponScanner = false" />
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Coupon Use Scan Result Modal -->
+  <Teleport to="body">
+    <div v-if="showCouponUseScanResult && couponUseScanResult" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="absolute inset-0 bg-black/40" @click="showCouponUseScanResult = false" />
+      <div class="relative bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm space-y-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
+            <Icon name="mdi:check" class="text-xl text-green-600" />
+          </div>
+          <div>
+            <p class="font-semibold text-gray-900">ใช้คูปองสำเร็จ</p>
+            <p v-if="couponUseScanResult.memberName" class="text-sm text-gray-500">สมาชิก: {{ couponUseScanResult.memberName }}</p>
+          </div>
+        </div>
+        <div class="bg-green-50 border border-green-200 rounded-xl p-4 space-y-1">
+          <p class="text-xs text-gray-500">คูปอง</p>
+          <p class="font-bold text-green-700 font-mono text-lg">{{ couponUseScanResult.couponCode }}</p>
+          <p class="text-sm text-gray-700">{{ couponUseScanResult.couponName }}</p>
+          <p class="text-base font-bold text-green-700 mt-1">
+            ส่วนลด {{ couponUseScanResult.discountKind === 'PERCENT' ? `${couponUseScanResult.discountValue}%` : `฿${couponUseScanResult.discountValue}` }}
+          </p>
+        </div>
+        <button
+          class="w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-medium hover:bg-gray-700"
+          @click="showCouponUseScanResult = false"
+        >ปิด</button>
       </div>
     </div>
   </Teleport>

@@ -44,11 +44,11 @@ function handleConfirm() {
     <div class="fixed inset-0 z-50 flex items-center justify-center">
       <div class="absolute inset-0 bg-black/40" @click="emit('cancel')" />
       <div class="relative bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 space-y-5">
-        <h2 class="text-lg font-semibold text-gray-900 text-center">Payment</h2>
+        <h2 class="text-lg font-semibold text-gray-900 text-center">ชำระเงิน</h2>
 
         <!-- Total -->
         <div class="bg-gray-50 rounded-xl py-4 text-center">
-          <p class="text-xs text-gray-500 mb-1">Total Amount</p>
+          <p class="text-xs text-gray-500 mb-1">ยอดรวม</p>
           <p class="text-3xl font-bold text-gray-900">฿{{ total.toFixed(2) }}</p>
         </div>
 
@@ -67,7 +67,7 @@ function handleConfirm() {
         <!-- CASH -->
         <div v-if="method === 'CASH'" class="space-y-3">
           <div>
-            <label class="block text-xs text-gray-500 mb-1">Cash Received</label>
+            <label class="block text-xs text-gray-500 mb-1">รับเงิน</label>
             <input
               v-model.number="cashReceived"
               type="number"
@@ -86,14 +86,14 @@ function handleConfirm() {
             >฿{{ amt }}</button>
           </div>
           <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Change</span>
+            <span class="text-gray-500">ทอน</span>
             <span class="font-semibold text-green-600">฿{{ change.toFixed(2) }}</span>
           </div>
         </div>
 
         <!-- CARD / QR -->
         <div v-else>
-          <label class="block text-xs text-gray-500 mb-1">Reference (optional)</label>
+          <label class="block text-xs text-gray-500 mb-1">เลขอ้างอิง (ไม่บังคับ)</label>
           <input
             v-model="transactionRef"
             type="text"
@@ -108,7 +108,7 @@ function handleConfirm() {
             type="button"
             class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
             @click="emit('cancel')"
-          >Cancel</button>
+          >ยกเลิก</button>
           <button
             type="button"
             class="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors"
@@ -116,7 +116,7 @@ function handleConfirm() {
             :disabled="!isValid || isSubmitting"
             @click="handleConfirm"
           >
-            {{ isSubmitting ? 'Processing...' : 'Confirm Payment' }}
+            {{ isSubmitting ? 'กำลังดำเนินการ...' : 'ยืนยันการชำระเงิน' }}
           </button>
         </div>
       </div>

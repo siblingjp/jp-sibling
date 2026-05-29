@@ -12,9 +12,11 @@ const navGroups = [
     label: 'ร้านค้า',
     items: [
       { to: '/admin/orders', label: 'ออเดอร์', icon: 'flat-color-icons:list', exact: false },
-      { to: '/admin/discounts', label: 'ส่วนลด', icon: 'flat-color-icons:sales-performance', exact: false },
+      { to: '/admin/discounts', label: 'ส่วนลดที่บันทึกไว้', icon: 'flat-color-icons:sales-performance', exact: false },
       { to: '/admin/members', label: 'สมาชิก', icon: 'flat-color-icons:conference-call', exact: false },
-      { to: '/admin/rewards', label: 'ของรางวัล', icon: 'mdi:gift', exact: false },
+      { to: '/admin/coupons', label: 'คูปอง', icon: 'mdi:ticket-percent', exact: false },
+      { to: '/admin/campaigns', label: 'แคมเปญ', icon: 'flat-color-icons:advertising', exact: false },
+      
       { to: '/admin/users', label: 'ผู้ใช้งาน', icon: 'flat-color-icons:businessman', exact: false },
     ],
   },
@@ -29,7 +31,7 @@ const navGroups = [
   {
     label: 'CMS',
     items: [
-      { to: '/admin/campaigns', label: 'แคมเปญ', icon: 'flat-color-icons:advertising', exact: false },
+      
       { to: '/admin/location', label: 'ตำแหน่งรถ', icon: 'flat-color-icons:globe', exact: false },
     ],
   },

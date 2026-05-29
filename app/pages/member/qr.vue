@@ -10,10 +10,10 @@ const qrUrl = computed(() =>
 
 <template>
   <div class="max-w-lg mx-auto space-y-6">
-    <h1 class="text-2xl font-bold text-gray-900">My QR Code</h1>
+    <h1 class="text-2xl font-bold text-gray-900">QR Code ของฉัน</h1>
 
     <div class="bg-white rounded-2xl shadow p-8 flex flex-col items-center gap-6">
-      <p class="text-gray-500 text-sm text-center">Show this QR code at the counter to collect points</p>
+      <p class="text-gray-500 text-sm text-center">แสดง QR Code นี้ที่เคาน์เตอร์เพื่อสะสมแต้ม</p>
 
       <div class="p-4 bg-white rounded-xl border-2 border-gray-100 shadow-sm">
         <img :src="qrUrl" alt="Member QR" class="w-64 h-64" />
@@ -28,13 +28,13 @@ const qrUrl = computed(() =>
         <Icon name="flat-color-icons:approval" class="text-2xl flex-shrink-0" />
         <div>
           <p class="font-semibold text-[#0F1C30]">{{ (member?.points ?? 0).toLocaleString() }} pts</p>
-          <p class="text-xs text-[#2a3f6b]">Current balance</p>
+          <p class="text-xs text-[#2a3f6b]">ยอดแต้มปัจจุบัน</p>
         </div>
       </div>
     </div>
 
     <p class="text-center text-xs text-gray-400">
-      Scan this code at the POS to link your account to in-store purchases
+      สแกน QR นี้ที่หน้าจอ POS เพื่อเชื่อมบัญชีกับการซื้อในร้าน
     </p>
   </div>
 </template>

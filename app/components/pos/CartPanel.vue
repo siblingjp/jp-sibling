@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CartItem, PosDiscount, PosMember } from '~/stores/pos'
+import type { CartItem, PosDiscount, PosMember, PosCoupon } from '~/stores/pos'
 
 const props = defineProps<{
   cart: readonly CartItem[]
@@ -9,6 +9,8 @@ const props = defineProps<{
   discountPercent: number
   discountAmount: number
   discountCalc: number
+  appliedCoupon: PosCoupon | null
+  couponDiscount: number
   pointsToRedeem: number
   pointsRedeemCapped: number
   maxRedeemable: number
@@ -27,17 +29,36 @@ const emit = defineEmits<{
   setPercent: [v: number]
   setAmount: [v: number]
   clearDiscount: []
+  applyCoupon: [code: string]
+  clearCoupon: []
   updatePointsRedeem: [v: number]
   checkout: []
   badgeCreated: [badge: any]
+  scanCoupon: []
+  scanMember: []
 }>()
 
 const discountInput = ref(0)
 const discountName = ref('')
 const showDiscountPanel = ref(false)
-const discountTab = ref<'badge' | 'percent' | 'amount'>('badge')
+const discountTab = ref<'badge' | 'percent' | 'amount' | 'coupon'>('badge')
 const isSavingBadge = ref(false)
 const saveAsBadge = ref(false)
+
+const couponInput = ref('')
+const couponLoading = ref(false)
+
+async function handleApplyCoupon() {
+  if (!couponInput.value.trim()) return
+  couponLoading.value = true
+  try {
+    emit('applyCoupon', couponInput.value.trim())
+    couponInput.value = ''
+    showDiscountPanel.value = false
+  } finally {
+    couponLoading.value = false
+  }
+}
 
 async function handleApplyPercent() {
   if (saveAsBadge.value && discountName.value.trim()) await createBadge('PERCENT', discountInput.value)
@@ -84,15 +105,15 @@ const tierColor: Record<string, string> = {
     <!-- Header -->
     <div class="px-4 pt-4 pb-3 border-b border-gray-100">
       <div class="flex items-center justify-between">
-        <h2 class="font-semibold text-gray-900">Cart</h2>
-        <span class="text-xs text-gray-400">{{ cart.length }} items</span>
+        <h2 class="font-semibold text-gray-900">ตะกร้า</h2>
+        <span class="text-xs text-gray-400">{{ cart.length }} รายการ</span>
       </div>
     </div>
 
     <!-- Cart Items -->
     <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
       <div v-if="cart.length === 0" class="text-center py-12 text-gray-300 text-sm">
-        No items yet
+        ยังไม่มีรายการ
       </div>
       <div
         v-for="item in cart"
@@ -110,8 +131,8 @@ const tierColor: Record<string, string> = {
           <p v-if="item.note" class="text-xs text-orange-500 mt-0.5">{{ item.note }}</p>
           <div class="flex items-center gap-3 mt-1.5">
             <span class="text-xs text-gray-400">x{{ item.quantity }}</span>
-            <button class="text-xs text-blue-500 hover:text-blue-700" @click="emit('editItem', item.cartId)">Edit</button>
-            <button class="text-xs text-red-400 hover:text-red-600" @click="emit('removeItem', item.cartId)">Remove</button>
+            <button class="text-xs text-blue-500 hover:text-blue-700" @click="emit('editItem', item.cartId)">แก้ไข</button>
+            <button class="text-xs text-red-400 hover:text-red-600" @click="emit('removeItem', item.cartId)">ลบ</button>
           </div>
         </div>
       </div>
@@ -138,14 +159,14 @@ const tierColor: Record<string, string> = {
           class="w-full py-2 rounded-lg border border-dashed border-gray-300 text-sm text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors"
           @click="emit('lookupMember')"
         >
-          + Lookup Member
+          + ค้นหาสมาชิก
         </button>
       </div>
 
       <!-- Point Redeem -->
       <div v-if="member && member.points > 0">
         <div class="flex items-center justify-between mb-1">
-          <span class="text-xs text-gray-500">Redeem Points (max {{ maxRedeemable }})</span>
+          <span class="text-xs text-gray-500">แลกแต้ม (สูงสุด {{ maxRedeemable }})</span>
           <span class="text-xs font-medium text-purple-600">-฿{{ pointsRedeemCapped.toFixed(0) }}</span>
         </div>
         <input
@@ -159,13 +180,14 @@ const tierColor: Record<string, string> = {
         />
         <div class="flex justify-between text-xs text-gray-400">
           <span>0</span>
-          <span>{{ pointsRedeemCapped }} pts used</span>
+          <span>ใช้ {{ pointsRedeemCapped }} แต้ม</span>
           <span>{{ Math.min(member.points, maxRedeemable) }}</span>
         </div>
       </div>
 
-      <!-- Discount -->
+      <!-- Discount / Coupon -->
       <div>
+        <!-- Active: discount -->
         <div v-if="discountMode" class="flex items-center justify-between p-2.5 rounded-lg bg-orange-50 border border-orange-200">
           <div>
             <p class="text-xs font-medium text-orange-700">
@@ -175,25 +197,34 @@ const tierColor: Record<string, string> = {
           </div>
           <button class="text-gray-400 hover:text-red-500 text-lg" @click="emit('clearDiscount')">×</button>
         </div>
+        <!-- Active: coupon -->
+        <div v-else-if="appliedCoupon" class="flex items-center justify-between p-2.5 rounded-lg bg-green-50 border border-green-200">
+          <div>
+            <p class="text-xs font-bold text-green-700 font-mono">{{ appliedCoupon.code }}</p>
+            <p class="text-xs text-green-600">{{ appliedCoupon.name }} · -฿{{ couponDiscount.toFixed(2) }}</p>
+          </div>
+          <button class="text-gray-400 hover:text-red-500 text-lg" @click="emit('clearCoupon')">×</button>
+        </div>
+        <!-- Toggle button -->
         <button
           v-else
           class="w-full py-2 rounded-lg border border-dashed border-gray-300 text-sm text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors"
           @click="showDiscountPanel = !showDiscountPanel"
         >
-          + Add Discount
+          + ส่วนลด / คูปอง
         </button>
 
-        <!-- Discount Panel -->
-        <div v-if="showDiscountPanel && !discountMode" class="mt-2 p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-3">
+        <!-- Panel -->
+        <div v-if="showDiscountPanel && !discountMode && !appliedCoupon" class="mt-2 p-3 rounded-lg border border-gray-200 bg-gray-50 space-y-3">
           <div class="flex gap-1">
             <button
-              v-for="tab in (['badge','percent','amount'] as const)"
+              v-for="tab in (['badge','percent','amount','coupon'] as const)"
               :key="tab"
               type="button"
               class="flex-1 py-1.5 rounded text-xs font-medium transition-colors"
               :class="discountTab === tab ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'"
               @click="discountTab = tab"
-            >{{ tab === 'badge' ? 'Badge' : tab === 'percent' ? '%' : '฿' }}</button>
+            >{{ tab === 'badge' ? 'บันทึกไว้' : tab === 'percent' ? '%' : tab === 'amount' ? '฿' : 'คูปอง' }}</button>
           </div>
 
           <!-- Badge -->
@@ -208,7 +239,7 @@ const tierColor: Record<string, string> = {
               <span>{{ d.name }}</span>
               <span class="text-xs text-gray-500">{{ d.kind === 'PERCENT' ? `${d.value}%` : `฿${d.value}` }}</span>
             </button>
-            <p v-if="!discounts.length" class="text-xs text-gray-400 text-center py-2">No discount badges</p>
+            <p v-if="!discounts.length" class="text-xs text-gray-400 text-center py-2">ไม่มีส่วนลดที่บันทึกไว้</p>
           </div>
 
           <!-- Percent -->
@@ -220,17 +251,17 @@ const tierColor: Record<string, string> = {
                 class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="0"
               />
-              <button class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700" @click="handleApplyPercent">Apply</button>
+              <button class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700" @click="handleApplyPercent">ใช้</button>
             </div>
             <label class="flex items-center gap-2 cursor-pointer">
               <input v-model="saveAsBadge" type="checkbox" class="rounded" />
-              <span class="text-xs text-gray-500">Save as badge</span>
+              <span class="text-xs text-gray-500">บันทึกไว้</span>
             </label>
             <input
               v-if="saveAsBadge"
               v-model="discountName"
               type="text"
-              placeholder="Badge name..."
+              placeholder="ชื่อ..."
               class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -244,19 +275,43 @@ const tierColor: Record<string, string> = {
                 class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="0"
               />
-              <button class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700" @click="handleApplyAmount">Apply</button>
+              <button class="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700" @click="handleApplyAmount">ใช้</button>
             </div>
             <label class="flex items-center gap-2 cursor-pointer">
               <input v-model="saveAsBadge" type="checkbox" class="rounded" />
-              <span class="text-xs text-gray-500">Save as badge</span>
+              <span class="text-xs text-gray-500">บันทึกไว้</span>
             </label>
             <input
               v-if="saveAsBadge"
               v-model="discountName"
               type="text"
-              placeholder="Badge name..."
+              placeholder="ชื่อ..."
               class="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+
+          <!-- Coupon -->
+          <div v-if="discountTab === 'coupon'" class="flex gap-2">
+            <input
+              v-model="couponInput"
+              type="text"
+              placeholder="รหัสคูปอง..."
+              class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-green-400 uppercase"
+              @keyup.enter="handleApplyCoupon"
+            />
+            <button
+              type="button"
+              class="px-2.5 py-2 border border-gray-300 rounded-lg text-gray-500 hover:bg-gray-50"
+              title="สแกน QR"
+              @click="emit('scanCoupon')"
+            >
+              <Icon name="mdi:qrcode-scan" class="text-base" />
+            </button>
+            <button
+              :disabled="!couponInput.trim() || couponLoading || cart.length === 0"
+              class="px-3 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700 disabled:opacity-40"
+              @click="handleApplyCoupon"
+            >ใช้</button>
           </div>
         </div>
       </div>
@@ -264,16 +319,19 @@ const tierColor: Record<string, string> = {
       <!-- Summary -->
       <div class="space-y-1 text-sm">
         <div class="flex justify-between text-gray-500">
-          <span>Subtotal</span><span>฿{{ subtotal.toFixed(2) }}</span>
+          <span>ยอดรวม</span><span>฿{{ subtotal.toFixed(2) }}</span>
         </div>
         <div v-if="discountCalc > 0" class="flex justify-between text-orange-500">
-          <span>Discount</span><span>-฿{{ discountCalc.toFixed(2) }}</span>
+          <span>ส่วนลด</span><span>-฿{{ discountCalc.toFixed(2) }}</span>
+        </div>
+        <div v-if="couponDiscount > 0" class="flex justify-between text-green-600">
+          <span>คูปอง</span><span>-฿{{ couponDiscount.toFixed(2) }}</span>
         </div>
         <div v-if="pointsRedeemCapped > 0" class="flex justify-between text-purple-600">
-          <span>Points Redeem</span><span>-฿{{ pointsRedeemCapped.toFixed(2) }}</span>
+          <span>แลกแต้ม</span><span>-฿{{ pointsRedeemCapped.toFixed(2) }}</span>
         </div>
         <div class="flex justify-between font-bold text-gray-900 text-base pt-1 border-t border-gray-100">
-          <span>Total</span><span>฿{{ total.toFixed(2) }}</span>
+          <span>รวมทั้งหมด</span><span>฿{{ total.toFixed(2) }}</span>
         </div>
       </div>
 
@@ -285,7 +343,7 @@ const tierColor: Record<string, string> = {
         :disabled="cart.length === 0 || isSubmitting"
         @click="emit('checkout')"
       >
-        Checkout →
+        ชำระเงิน →
       </button>
     </div>
   </div>

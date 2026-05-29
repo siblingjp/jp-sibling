@@ -34,24 +34,22 @@ export default defineEventHandler(async (event) => {
 
     const { optionGroupIds, ...rest } = data
 
-    const product = await prisma.$transaction(async (tx) => {
-      if (optionGroupIds !== undefined) {
-        await tx.productOptionGroup.deleteMany({ where: { productId: id } })
-        if (optionGroupIds.length > 0) {
-          await tx.productOptionGroup.createMany({
-            data: optionGroupIds.map((optionGroupId) => ({ productId: id, optionGroupId })),
-          })
-        }
+    if (optionGroupIds !== undefined) {
+      await prisma.productOptionGroup.deleteMany({ where: { productId: id } })
+      if (optionGroupIds.length > 0) {
+        await prisma.productOptionGroup.createMany({
+          data: optionGroupIds.map((optionGroupId) => ({ productId: id, optionGroupId })),
+        })
       }
+    }
 
-      return tx.product.update({
-        where: { id },
-        data: { ...rest, imageUrl: rest.imageUrl || null },
-        include: {
-          category: { select: { id: true, name: true } },
-          optionGroups: { include: { optionGroup: { include: { options: { where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }] } } } } },
-        },
-      })
+    const product = await prisma.product.update({
+      where: { id },
+      data: { ...rest, imageUrl: rest.imageUrl || null },
+      include: {
+        category: { select: { id: true, name: true } },
+        optionGroups: { include: { optionGroup: { include: { options: { where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }] } } } } },
+      },
     })
 
     return okResponse(product)

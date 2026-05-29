@@ -66,7 +66,8 @@ export default defineEventHandler(async (event) => {
       member: { id: member.id, name: member.name, email: member.email, tier: member.tier, points: member.points },
     })
 
-    return sendRedirect(event, '/member')
+    const redirectTo = member.phone ? '/member' : '/member/complete-profile'
+    return sendRedirect(event, redirectTo)
   } catch (e) {
     handleError(e)
   }

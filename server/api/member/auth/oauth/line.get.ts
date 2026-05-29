@@ -33,20 +33,26 @@ export default defineEventHandler(async (event) => {
       headers: { Authorization: `Bearer ${tokenRes.access_token}` },
     })
 
+    // email อยู่ใน id_token (JWT payload) ไม่ใช่ /v2/profile
+    const idTokenPayload = tokenRes.id_token
+      ? JSON.parse(Buffer.from(tokenRes.id_token.split('.')[1], 'base64url').toString())
+      : null
+
     const lineUserId = profile.userId
     const name = profile.displayName
     const profileImage = profile.pictureUrl ?? null
+    const lineEmail = idTokenPayload?.email ?? null
 
     // Step 4: upsert member
     let member = await prisma.member.findUnique({ where: { lineUserId } })
     if (!member) {
       member = await prisma.member.create({
-        data: { lineUserId, name, profileImage },
+        data: { lineUserId, name, profileImage, email: lineEmail },
       })
     } else {
       member = await prisma.member.update({
         where: { id: member.id },
-        data: { profileImage },
+        data: { profileImage, ...(lineEmail && !member.email ? { email: lineEmail } : {}) },
       })
     }
 
@@ -56,7 +62,8 @@ export default defineEventHandler(async (event) => {
       member: { id: member.id, name: member.name, email: member.email, tier: member.tier, points: member.points },
     })
 
-    return sendRedirect(event, '/member')
+    const redirectTo = member.phone ? '/member' : '/member/complete-profile'
+    return sendRedirect(event, redirectTo)
   } catch (e) {
     handleError(e)
   }

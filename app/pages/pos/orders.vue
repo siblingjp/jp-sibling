@@ -6,6 +6,7 @@ const { showError, showConfirm } = useAlert()
 const statusFilter = ref<string>('ACTIVE')
 const isLoading = ref(false)
 const orders = ref<any[]>([])
+const slipModal = ref<string | null>(null)
 
 const statusOptions = [
   { value: 'ACTIVE', label: 'ที่ต้องทำ' },
@@ -149,6 +150,22 @@ function formatPrice(n: number) {
             <span class="font-bold text-gray-900">฿{{ formatPrice(order.total) }}</span>
           </div>
 
+          <!-- Pickup time & slip -->
+          <div v-if="order.source === 'ONLINE'" class="flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+            <span>
+              <Icon name="mdi:clock-outline" class="inline-block align-middle mr-1" />
+              รับ {{ order.pickupTime ?? '-' }}
+            </span>
+            <button
+              v-if="order.slipUrl"
+              class="flex items-center gap-1 text-blue-600 font-medium hover:text-blue-800"
+              @click="slipModal = order.slipUrl"
+            >
+              <Icon name="mdi:receipt" class="w-4 h-4" />
+              ดูสลิป
+            </button>
+          </div>
+
           <!-- Actions -->
           <div class="flex gap-2">
             <button
@@ -170,4 +187,26 @@ function formatPrice(n: number) {
       </div>
     </div>
   </div>
+
+  <!-- Slip preview modal -->
+  <Teleport to="body">
+    <div v-if="slipModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" @click.self="slipModal = null">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <p class="font-semibold text-gray-800">สลิปการโอนเงิน</p>
+          <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="slipModal = null">×</button>
+        </div>
+        <div class="p-4">
+          <img :src="slipModal" alt="slip" class="w-full rounded-xl object-contain max-h-[70vh]" />
+        </div>
+        <div class="px-4 pb-4">
+          <a
+            :href="slipModal"
+            target="_blank"
+            class="block w-full text-center py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
+          >เปิดในแท็บใหม่</a>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>

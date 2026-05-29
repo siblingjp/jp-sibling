@@ -29,7 +29,7 @@ const { showSuccess, showError } = useAlert()
 
 const benefits = [
   { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'ทุก ฿10 = 1 pt' },
-  { icon: 'mdi:gift', title: 'แลกของรางวัล', desc: 'ใช้แต้มแลกส่วนลด' },
+  { icon: 'mdi:gift', title: 'แต้มแลกลด', desc: 'ใช้แต้มแลกส่วนลด' },
   { icon: 'flat-color-icons:phone-android', title: 'สั่งล่วงหน้า', desc: 'ไม่ต้องรอนาน' },
   { icon: 'flat-color-icons:vip', title: 'สิทธิ์ VIP', desc: 'แต้มโบนัสพิเศษ' },
 ]

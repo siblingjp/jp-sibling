@@ -33,10 +33,10 @@ onMounted(async () => {
 })
 
 const actionLabel: Record<string, string> = {
-  EARN: 'Earned',
-  REDEEM: 'Redeemed',
-  ADJUST: 'Adjusted',
-  EXPIRE: 'Expired',
+  EARN: 'ได้รับ',
+  REDEEM: 'แลกแล้ว',
+  ADJUST: 'ปรับ',
+  EXPIRE: 'หมดอายุ',
 }
 
 const actionColor: Record<string, string> = {
@@ -53,20 +53,20 @@ function formatDate(d: string) {
 
 <template>
   <div class="max-w-lg mx-auto space-y-6">
-    <h1 class="text-2xl font-bold text-gray-900">Points History</h1>
+    <h1 class="text-2xl font-bold text-gray-900">ประวัติแต้ม</h1>
 
     <!-- Summary -->
     <div class="bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b] rounded-2xl p-6 text-white">
-      <p class="text-white/70 text-sm">Current Balance</p>
+      <p class="text-white/70 text-sm">ยอดแต้มปัจจุบัน</p>
       <p class="text-5xl font-bold mt-1">{{ (member?.points ?? 0).toLocaleString() }}</p>
-      <p class="text-white/70 text-sm mt-1">points</p>
+      <p class="text-white/70 text-sm mt-1">แต้ม</p>
     </div>
 
     <!-- How to earn info -->
     <div class="bg-white rounded-2xl shadow p-5 space-y-3">
-      <h3 class="font-semibold text-gray-800">Earn Rate</h3>
-      <div class="space-y-2 text-sm text-gray-600">
-        <div class="flex justify-between">
+      <!-- <h3 class="font-semibold text-gray-800">อัตราการสะสมแต้ม</h3>
+      <div class="space-y-2 text-sm text-gray-600"> -->
+        <!-- <div class="flex justify-between">
           <span>Silver</span>
           <span class="font-medium">฿10 = 1 pt</span>
         </div>
@@ -77,19 +77,19 @@ function formatDate(d: string) {
         <div class="flex justify-between">
           <span>VIP</span>
           <span class="font-medium">฿10 = 1.5 pts</span>
+        </div> -->
+        <div class="flex justify-between">
+          <span>อัตราแลก</span>
+          <span class="font-medium">1 แต้ม = ส่วนลด ฿1</span>
         </div>
-        <div class="flex justify-between pt-2 border-t border-gray-100">
-          <span>Redeem rate</span>
-          <span class="font-medium">1 pt = ฿1 discount</span>
-        </div>
-      </div>
+      <!-- </div> -->
     </div>
 
     <!-- Log list -->
     <div class="bg-white rounded-2xl shadow overflow-hidden">
-      <div v-if="loading" class="p-8 text-center text-gray-400">Loading...</div>
+      <div v-if="loading" class="p-8 text-center text-gray-400">กำลังโหลด...</div>
       <div v-else-if="error" class="p-8 text-center text-red-500">{{ error }}</div>
-      <div v-else-if="logs.length === 0" class="p-8 text-center text-gray-400">No point activity yet</div>
+      <div v-else-if="logs.length === 0" class="p-8 text-center text-gray-400">ยังไม่มีรายการแต้ม</div>
       <div v-else class="divide-y divide-gray-50">
         <div
           v-for="log in logs"

@@ -69,7 +69,7 @@ function handleConfirm() {
         <!-- Header -->
         <div class="px-5 pt-5 pb-3 border-b border-gray-100">
           <h2 class="text-lg font-semibold text-gray-900">{{ product.name }}</h2>
-          <p class="text-sm text-gray-400">Base price: ฿{{ Number(product.price).toFixed(0) }}</p>
+          <p class="text-sm text-gray-400">ราคาเริ่มต้น: ฿{{ Number(product.price).toFixed(0) }}</p>
         </div>
 
         <!-- Options -->
@@ -77,7 +77,7 @@ function handleConfirm() {
           <div v-for="g in groups" :key="g.id">
             <div class="flex items-center gap-2 mb-2">
               <p class="text-sm font-medium text-gray-800">{{ g.name }}</p>
-              <span v-if="g.required" class="text-xs text-red-500">*Required</span>
+              <span v-if="g.required" class="text-xs text-red-500">*จำเป็น</span>
               <span v-if="g.multiSelect" class="text-xs text-gray-400">(เลือกได้หลายอย่าง)</span>
             </div>
             <div class="space-y-1.5">
@@ -101,11 +101,11 @@ function handleConfirm() {
 
           <!-- Note -->
           <div>
-            <p class="text-sm font-medium text-gray-800 mb-2">Note</p>
+            <p class="text-sm font-medium text-gray-800 mb-2">หมายเหตุ</p>
             <input
               v-model="note"
               type="text"
-              placeholder="Special request..."
+              placeholder="คำขอพิเศษ..."
               class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -136,7 +136,7 @@ function handleConfirm() {
             :disabled="!isValid"
             @click="handleConfirm"
           >
-            Add to Cart — ฿{{ previewPrice.toFixed(0) }}
+            เพิ่มลงตะกร้า — ฿{{ previewPrice.toFixed(0) }}
           </button>
         </div>
       </div>

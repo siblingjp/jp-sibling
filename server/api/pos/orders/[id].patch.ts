@@ -35,12 +35,12 @@ export default defineEventHandler(async (event) => {
         },
       })
 
-      // earn point เมื่อ COMPLETED และมี member และมี payment
+      // earn points เมื่อ COMPLETED และมี member และมี payment
       if (data.status === 'COMPLETED' && result.memberId && result.pointsEarned > 0 && result.payment) {
         const expiredAt = new Date()
         expiredAt.setFullYear(expiredAt.getFullYear() + 2)
 
-        await tx.member.update({
+        const updatedMember = await tx.member.update({
           where: { id: result.memberId },
           data: {
             points: { increment: result.pointsEarned },
@@ -48,14 +48,11 @@ export default defineEventHandler(async (event) => {
           },
         })
 
-        // tier upgrade
-        const updatedMember = await tx.member.findUnique({ where: { id: result.memberId } })
-        if (updatedMember) {
-          const spent = Number(updatedMember.totalSpent)
-          const newTier = spent >= 5000 ? 'VIP' : spent >= 2000 ? 'GOLD' : 'SILVER'
-          if (newTier !== updatedMember.tier) {
-            await tx.member.update({ where: { id: result.memberId }, data: { tier: newTier } })
-          }
+        // tier upgrade ในคำสั่งเดียว ไม่ต้อง findUnique แยก
+        const spent = Number(updatedMember.totalSpent)
+        const newTier = spent >= 5000 ? 'VIP' : spent >= 2000 ? 'GOLD' : 'SILVER'
+        if (newTier !== updatedMember.tier) {
+          await tx.member.update({ where: { id: result.memberId }, data: { tier: newTier } })
         }
 
         await tx.pointLog.create({
@@ -71,10 +68,11 @@ export default defineEventHandler(async (event) => {
       }
 
       return result
-    })
+    }, { timeout: 15000, maxWait: 5000 })
 
     return okResponse(updated)
-  } catch (e) {
+  } catch (e: any) {
+    console.error('[PATCH /pos/orders/:id] ERROR:', e?.message, e?.code, e?.meta)
     handleError(e)
   }
 })

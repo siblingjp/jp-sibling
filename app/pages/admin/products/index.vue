@@ -9,6 +9,7 @@ const { showSuccess, showError, confirmDelete } = useAlert()
 const search = ref('')
 const filterActive = ref<string>('all')
 const filterCategory = ref<string>('all')
+const currentPage = ref(1)
 
 const query = computed(() => ({
   search: search.value,
@@ -16,8 +17,11 @@ const query = computed(() => ({
     ...(filterActive.value !== 'all' ? { isActive: filterActive.value === 'true' } : {}),
     ...(filterCategory.value !== 'all' ? { categoryId: filterCategory.value } : {}),
   },
-  pagination: { page: 1, limit: 20 },
+  pagination: { page: currentPage.value, limit: 20 },
 }))
+
+// Reset to page 1 when filters change
+watch([search, filterActive, filterCategory], () => { currentPage.value = 1 })
 
 // Load categories for filter dropdown
 const { data: categoriesRes } = await useAsyncData('admin-categories-select', () =>
@@ -155,9 +159,31 @@ function formatPrice(price: number) {
         </tbody>
       </table>
 
-      <div v-if="pagination" class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500 flex justify-between items-center">
+      <div v-if="pagination && pagination.totalPages > 1" class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-500">
         <span>ทั้งหมด {{ pagination.total }} รายการ</span>
-        <span>หน้า {{ pagination.page }} / {{ pagination.totalPages }}</span>
+        <div class="flex items-center gap-1">
+          <button
+            class="px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            :disabled="currentPage <= 1"
+            @click="currentPage--"
+          >‹</button>
+          <button
+            v-for="p in pagination.totalPages"
+            :key="p"
+            class="px-2.5 py-1.5 rounded-lg border transition"
+            :class="p === currentPage ? 'border-[#1B2B4B] text-white font-semibold' : 'border-gray-200 hover:bg-gray-50'"
+            :style="p === currentPage ? 'background:#1B2B4B' : ''"
+            @click="currentPage = p"
+          >{{ p }}</button>
+          <button
+            class="px-2.5 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            :disabled="currentPage >= pagination.totalPages"
+            @click="currentPage++"
+          >›</button>
+        </div>
+      </div>
+      <div v-else-if="pagination" class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
+        ทั้งหมด {{ pagination.total }} รายการ
       </div>
     </div>
   </div>

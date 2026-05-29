@@ -12,17 +12,17 @@ const { user } = useAuth()
             to="/pos"
             class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             :class="$route.path === '/pos' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'"
-          >Cashier</NuxtLink>
+          >สั่งสินค้า</NuxtLink>
           <NuxtLink
             to="/pos/orders"
             class="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
             :class="$route.path === '/pos/orders' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-100'"
-          >Queue</NuxtLink>
+          >คิวออเดอร์</NuxtLink>
         </nav>
       </div>
       <div class="flex items-center gap-4 text-sm text-gray-500">
         <span>{{ user?.name }}</span>
-        <NuxtLink to="/admin" class="hover:text-gray-900 transition-colors">Back Office</NuxtLink>
+        <NuxtLink to="/admin" class="hover:text-gray-900 transition-colors">ระบบหลังบ้าน</NuxtLink>
       </div>
     </header>
     <main class="flex-1 overflow-hidden">

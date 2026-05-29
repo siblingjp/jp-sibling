@@ -21,6 +21,12 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
+    s3: {
+      accessKey: process.env.S3_ACCESS_KEY || '',
+      accessSecret: process.env.S3_ACCESS_SECRET || '',
+      bucket: process.env.S3_BUCKET || '',
+      region: process.env.S3_REGION || 'ap-southeast-1',
+    },
     session: {
       password: process.env.NUXT_SESSION_PASSWORD || '',
     },

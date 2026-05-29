@@ -56,6 +56,14 @@ export interface PosDiscount {
   value: number
 }
 
+export interface PosCoupon {
+  id: string
+  code: string
+  name: string
+  discountKind: 'PERCENT' | 'AMOUNT'
+  discountValue: number
+}
+
 export const usePosStore = defineStore('pos', () => {
   // ─── Products & Discounts ───────────────────────────────────────────────────
   const products = ref<PosProduct[]>([])
@@ -122,6 +130,8 @@ export const usePosStore = defineStore('pos', () => {
     discountAmount.value = 0
     pointsToRedeem.value = 0
     orderNote.value = ''
+    appliedCoupon.value = null
+    couponDiscount.value = 0
   }
 
   // ─── Member ─────────────────────────────────────────────────────────────────
@@ -172,6 +182,24 @@ export const usePosStore = defineStore('pos', () => {
     discountAmount.value = 0
   }
 
+  // ─── Coupon ─────────────────────────────────────────────────────────────────
+  const appliedCoupon = ref<PosCoupon | null>(null)
+  const couponDiscount = ref(0)
+
+  async function validateAndApplyCoupon(code: string) {
+    const res = await useHttpClient().post<{ data: { coupon: PosCoupon; discountAmount: number } }>(
+      API_ENDPOINTS.POS.COUPON_VALIDATE,
+      { code, subtotal: subtotal.value, memberId: member.value?.id ?? null },
+    )
+    appliedCoupon.value = res.data.coupon
+    couponDiscount.value = res.data.discountAmount
+  }
+
+  function clearCoupon() {
+    appliedCoupon.value = null
+    couponDiscount.value = 0
+  }
+
   // ─── Points Redeem ──────────────────────────────────────────────────────────
   const pointsToRedeem = ref(0)
 
@@ -194,13 +222,13 @@ export const usePosStore = defineStore('pos', () => {
     return Math.min(discountAmount.value, subtotal.value)
   })
 
-  const maxRedeemable = computed(() => Math.floor(subtotal.value - discountCalc.value))
+  const maxRedeemable = computed(() => Math.floor(subtotal.value - discountCalc.value - couponDiscount.value))
 
   const pointsRedeemCapped = computed(() =>
     Math.min(pointsToRedeem.value, member.value?.points ?? 0, maxRedeemable.value),
   )
 
-  const total = computed(() => Math.max(0, subtotal.value - discountCalc.value - pointsRedeemCapped.value))
+  const total = computed(() => Math.max(0, subtotal.value - discountCalc.value - couponDiscount.value - pointsRedeemCapped.value))
 
   // ─── Checkout ───────────────────────────────────────────────────────────────
   const isSubmitting = ref(false)
@@ -224,6 +252,7 @@ export const usePosStore = defineStore('pos', () => {
           : discountMode.value === 'amount' ? discountAmount.value
           : undefined,
         discountId: discountBadge.value?.id,
+        couponCode: appliedCoupon.value?.code,
         pointsRedeemed: pointsRedeemCapped.value,
         items: cart.value.map((i) => ({
           productId: i.productId,
@@ -270,6 +299,8 @@ export const usePosStore = defineStore('pos', () => {
     maxRedeemable,
     pointsRedeemCapped,
     total,
+    appliedCoupon: readonly(appliedCoupon),
+    couponDiscount: readonly(couponDiscount),
     isSubmitting: readonly(isSubmitting),
     lastOrder: readonly(lastOrder),
     fetchProducts,
@@ -284,6 +315,8 @@ export const usePosStore = defineStore('pos', () => {
     applyDiscountPercent,
     applyDiscountAmount,
     clearDiscount,
+    validateAndApplyCoupon,
+    clearCoupon,
     checkout,
   }
 })

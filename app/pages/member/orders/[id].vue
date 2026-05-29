@@ -5,6 +5,7 @@ definePageMeta({ layout: 'member', middleware: 'member' })
 
 const route = useRoute()
 const http = useHttpClient()
+const { showSuccess, showError } = useAlert()
 
 interface OrderDetail {
   id: string
@@ -32,10 +33,14 @@ const order = ref<OrderDetail | null>(null)
 const loading = ref(true)
 const error = ref('')
 
-onMounted(async () => {
+const orderId = computed(() => route.params.id as string)
+
+async function loadOrder(id: string) {
+  loading.value = true
+  error.value = ''
   try {
     const res = await http.get<{ success: boolean; data: OrderDetail }>(
-      API_ENDPOINTS.MEMBER.ORDERS.SHOW(route.params.id as string)
+      API_ENDPOINTS.MEMBER.ORDERS.SHOW(id)
     )
     order.value = res.data ?? null
   } catch (e: unknown) {
@@ -43,14 +48,17 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(() => loadOrder(orderId.value))
+watch(orderId, (id) => loadOrder(id))
 
 const statusLabel: Record<string, string> = {
-  PENDING: 'Pending',
-  PREPARING: 'Preparing',
-  READY: 'Ready to Pickup',
-  COMPLETED: 'Completed',
-  CANCELLED: 'Cancelled',
+  PENDING: 'รอดำเนินการ',
+  PREPARING: 'กำลังทำ',
+  READY: 'พร้อมรับ',
+  COMPLETED: 'เสร็จสิ้น',
+  CANCELLED: 'ยกเลิก',
 }
 
 const statusColor: Record<string, string> = {
@@ -59,6 +67,22 @@ const statusColor: Record<string, string> = {
   READY: 'bg-green-100 text-green-700',
   COMPLETED: 'bg-green-50 text-green-600',
   CANCELLED: 'bg-red-100 text-red-700',
+}
+
+const cancelling = ref(false)
+
+async function cancelOrder() {
+  if (!order.value) return
+  cancelling.value = true
+  try {
+    await http.post(API_ENDPOINTS.MEMBER.ORDERS.CANCEL(order.value.id), {})
+    order.value.status = 'CANCELLED'
+    showSuccess('ยกเลิกออเดอร์แล้ว')
+  } catch (e: unknown) {
+    showError(e instanceof Error ? e.message : 'ยกเลิกไม่สำเร็จ')
+  } finally {
+    cancelling.value = false
+  }
 }
 
 function formatDate(d: string) {
@@ -75,10 +99,10 @@ function formatDate(d: string) {
       <NuxtLink to="/member/orders" class="text-gray-400 hover:text-gray-600">
         <Icon name="mdi:chevron-left" class="w-6 h-6" />
       </NuxtLink>
-      <h1 class="text-2xl font-bold text-gray-900">Order Detail</h1>
+      <h1 class="text-2xl font-bold text-gray-900">รายละเอียดออเดอร์</h1>
     </div>
 
-    <div v-if="loading" class="py-16 text-center text-gray-400">Loading...</div>
+    <div v-if="loading" class="py-16 text-center text-gray-400">กำลังโหลด...</div>
     <div v-else-if="error" class="py-16 text-center text-red-500">{{ error }}</div>
 
     <template v-else-if="order">
@@ -97,19 +121,29 @@ function formatDate(d: string) {
         <!-- Live status for active orders -->
         <div v-if="['PENDING', 'PREPARING', 'READY'].includes(order.status)"
           class="flex items-center gap-3 bg-[#F0F4F8] rounded-xl p-4">
-          <div class="w-2 h-2 rounded-full bg-[#1B2B4B] animate-pulse" />
+          <div class="w-2 h-2 rounded-full bg-[#1B2B4B] animate-pulse flex-shrink-0" />
           <p class="text-sm text-[#1B2B4B] font-medium">
-            <template v-if="order.status === 'PENDING'">Order received, waiting for preparation</template>
-            <template v-else-if="order.status === 'PREPARING'">Your order is being prepared</template>
-            <template v-else-if="order.status === 'READY'">Your order is ready for pickup!</template>
+            <template v-if="order.status === 'PENDING'">รับออเดอร์แล้ว กำลังรอเตรียม</template>
+            <template v-else-if="order.status === 'PREPARING'">กำลังเตรียมออเดอร์ของคุณ</template>
+            <template v-else-if="order.status === 'READY'">ออเดอร์ของคุณพร้อมรับแล้ว!</template>
           </p>
         </div>
+
+        <!-- Cancel button — only for PENDING / PREPARING -->
+        <button
+          v-if="['PENDING', 'PREPARING'].includes(order.status)"
+          :disabled="cancelling"
+          @click="cancelOrder"
+          class="mt-4 w-full py-2.5 border border-red-300 text-red-600 font-semibold rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors text-sm"
+        >
+          {{ cancelling ? 'กำลังยกเลิก...' : 'ยกเลิกออเดอร์' }}
+        </button>
       </div>
 
       <!-- Items -->
       <div class="bg-white rounded-2xl shadow overflow-hidden">
         <div class="px-5 py-4 border-b border-gray-50">
-          <h2 class="font-semibold text-gray-800">Items</h2>
+          <h2 class="font-semibold text-gray-800">รายการสินค้า</h2>
         </div>
         <div class="divide-y divide-gray-50">
           <div v-for="item in order.items" :key="item.id" class="px-5 py-4">
@@ -119,7 +153,7 @@ function formatDate(d: string) {
                 <p v-if="item.options.length" class="text-xs text-gray-400 mt-0.5">
                   {{ item.options.map(o => o.name).join(', ') }}
                 </p>
-                <p v-if="item.note" class="text-xs text-gray-400 mt-0.5 italic">Note: {{ item.note }}</p>
+                <p v-if="item.note" class="text-xs text-gray-400 mt-0.5 italic">หมายเหตุ: {{ item.note }}</p>
               </div>
               <span class="text-sm font-semibold text-gray-700">฿{{ Number(item.subtotal).toFixed(2) }}</span>
             </div>
@@ -130,24 +164,24 @@ function formatDate(d: string) {
       <!-- Summary -->
       <div class="bg-white rounded-2xl shadow p-5 space-y-2.5">
         <div class="flex justify-between text-sm text-gray-500">
-          <span>Subtotal</span>
+          <span>ยอดรวม</span>
           <span>฿{{ Number(order.subtotal).toFixed(2) }}</span>
         </div>
         <div v-if="Number(order.discount) > 0" class="flex justify-between text-sm text-green-600">
-          <span>Discount ({{ order.pointsRedeemed }} pts redeemed)</span>
+          <span>ส่วนลด (แลก {{ order.pointsRedeemed }} แต้ม)</span>
           <span>-฿{{ Number(order.discount).toFixed(2) }}</span>
         </div>
         <div class="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
-          <span>Total</span>
+          <span>รวมทั้งหมด</span>
           <span>฿{{ Number(order.total).toFixed(2) }}</span>
         </div>
         <div v-if="order.pointsEarned > 0" class="text-xs text-[#1B2B4B] text-right">
-          +{{ order.pointsEarned }} pts earned from this order
+          +{{ order.pointsEarned }} แต้มจากออเดอร์นี้
         </div>
       </div>
 
       <div v-if="order.note" class="bg-white rounded-2xl shadow p-5">
-        <p class="text-sm text-gray-500 font-medium mb-1">Note</p>
+        <p class="text-sm text-gray-500 font-medium mb-1">หมายเหตุ</p>
         <p class="text-gray-700">{{ order.note }}</p>
       </div>
     </template>

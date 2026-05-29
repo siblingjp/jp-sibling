@@ -21,8 +21,12 @@ async function handleLogin() {
     await login({ email: email.value, password: password.value })
     await fetchMe()
     router.push('/member')
-  } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : 'Login failed'
+  } catch (e: any) {
+    if (e?.statusCode === 404) {
+      router.push(`/member/register?email=${encodeURIComponent(email.value)}`)
+      return
+    }
+    error.value = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
   } finally {
     loading.value = false
   }
@@ -33,8 +37,8 @@ async function handleLogin() {
   <div class="min-h-screen bg-[#F0F4F8] flex items-center justify-center p-4">
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
-        <h1 class="text-3xl font-bold text-[#0F1C30]">Member Login</h1>
-        <p class="text-[#2a3f6b] mt-2">Sign in to earn and redeem points</p>
+        <h1 class="text-3xl font-bold text-[#0F1C30]">เข้าสู่ระบบสมาชิก</h1>
+        <p class="text-[#2a3f6b] mt-2">ลงชื่อเข้าใช้เพื่อสะสมและแลกแต้ม</p>
       </div>
 
       <div class="bg-white rounded-2xl shadow-lg p-8 space-y-4">
@@ -43,8 +47,8 @@ async function handleLogin() {
           href="/api/member/auth/oauth/line"
           class="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-xl bg-[#06C755] text-white font-medium hover:bg-[#05b34c] transition-colors"
         >
-          <Icon name="mdi:line" class="w-6 h-6" />
-          Continue with LINE
+          <span class="font-bold text-base leading-none">LINE</span>
+          เข้าสู่ระบบด้วย LINE
         </a>
 
         <a
@@ -52,7 +56,7 @@ async function handleLogin() {
           class="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-xl bg-white border-2 border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
         >
           <Icon name="flat-color-icons:google" class="w-5 h-5" />
-          Continue with Google
+          เข้าสู่ระบบด้วย Google
         </a>
 
         <div class="relative my-2">
@@ -60,7 +64,7 @@ async function handleLogin() {
             <div class="w-full border-t border-gray-200" />
           </div>
           <div class="relative flex justify-center text-sm">
-            <span class="px-3 bg-white text-gray-400">or</span>
+            <span class="px-3 bg-white text-gray-400">หรือ</span>
           </div>
         </div>
 
@@ -71,7 +75,7 @@ async function handleLogin() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
             <input
               v-model="email"
               type="email"
@@ -82,7 +86,7 @@ async function handleLogin() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">รหัสผ่าน</label>
             <input
               v-model="password"
               type="password"
@@ -97,13 +101,13 @@ async function handleLogin() {
             :disabled="loading"
             class="w-full py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b] disabled:opacity-50 transition-colors"
           >
-            {{ loading ? 'Signing in...' : 'Sign in' }}
+            {{ loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ' }}
           </button>
         </form>
 
         <p class="text-center text-sm text-gray-500">
-          Don't have an account?
-          <NuxtLink to="/member/register" class="text-[#1B2B4B] font-medium hover:underline">Register</NuxtLink>
+          ยังไม่มีบัญชี?
+          <NuxtLink to="/member/register" class="text-[#1B2B4B] font-medium hover:underline">สมัครสมาชิก</NuxtLink>
         </p>
       </div>
     </div>

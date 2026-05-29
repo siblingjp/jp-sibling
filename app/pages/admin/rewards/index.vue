@@ -105,24 +105,24 @@ onMounted(load)
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">ของรางวัล</h1>
+      <h1 class="text-2xl font-bold text-gray-900">แต้มแลกลด</h1>
       <button
         @click="openCreate"
         class="px-4 py-2 bg-amber-600 text-white text-sm font-semibold rounded-lg hover:bg-amber-700 transition-colors"
       >
-        + เพิ่มของรางวัล
+        + เพิ่มแต้มแลกลด
       </button>
     </div>
 
     <div class="bg-white rounded-xl shadow overflow-hidden">
       <div v-if="loading" class="p-8 text-center text-gray-400">กำลังโหลด...</div>
       <div v-else-if="rewards.length === 0" class="p-8 text-center text-gray-400">
-        ยังไม่มีของรางวัล
+        ยังไม่มีแต้มแลกลด
       </div>
       <table v-else class="min-w-full divide-y divide-gray-200">
         <thead class="bg-gray-50">
           <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อของรางวัล</th>
+            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ชื่อรายการ</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">รายละเอียด</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">แต้มที่ใช้</th>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">สถานะ</th>
@@ -156,12 +156,12 @@ onMounted(load)
       <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
           <div class="p-6 border-b border-gray-100">
-            <h2 class="text-lg font-bold text-gray-900">{{ editing ? 'แก้ไขของรางวัล' : 'เพิ่มของรางวัล' }}</h2>
+            <h2 class="text-lg font-bold text-gray-900">{{ editing ? 'แก้ไขแต้มแลกลด' : 'เพิ่มแต้มแลกลด' }}</h2>
           </div>
 
           <form @submit.prevent="handleSave" class="p-6 space-y-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อของรางวัล</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">ชื่อรายการ</label>
               <input
                 v-model="form.name"
                 type="text"

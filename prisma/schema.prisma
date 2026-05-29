@@ -111,7 +111,7 @@ model ProductOptionGroup {
   @@map("product_option_groups")
 }
 
-// ─── Discounts (Badge) ────────────────────────────────────────────────────────
+// ─── Discounts (POS Badge) ────────────────────────────────────────────────────
 
 enum DiscountKind {
   PERCENT
@@ -130,6 +130,103 @@ model Discount {
   orders Order[]
 
   @@map("discounts")
+}
+
+// ─── Coupons ──────────────────────────────────────────────────────────────────
+
+enum CouponType {
+  POINT_REDEEM  // แลกแต้ม — requires pointCost
+  PROMOTION     // โปรโมชัน — may have minQuantity / minOrderAmount
+  DISCOUNT      // ส่วนลดทั่วไป — basic discount code
+}
+
+enum BenefitType {
+  DISCOUNT   // ลดราคา
+  FREE_ITEM  // ของแถม (cashier handles physically)
+}
+
+model Coupon {
+  id            String      @id @default(cuid())
+  code          String      @unique
+  name          String
+  description   String?
+
+  type          CouponType  @default(DISCOUNT)
+  benefitType   BenefitType @default(DISCOUNT)
+  freeItemDescription String?  // used when benefitType = FREE_ITEM
+
+  discountKind  DiscountKind
+  discountValue Decimal      @db.Decimal(10, 2)
+
+  minOrderAmount Decimal?   @db.Decimal(10, 2)
+  minQuantity   Int?
+
+  maxUses       Int?
+  usedCount     Int         @default(0)
+  startAt       DateTime?
+  expiredAt     DateTime?
+  isActive      Boolean     @default(true)
+
+  // member restriction
+  memberOnly    Boolean     @default(false)
+  minTier       Tier?
+
+  // point redemption
+  pointCost     Int?
+  perMemberLimit Int?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  uses          CouponUse[]
+  campaigns     CampaignCoupon[]
+
+  @@map("coupons")
+}
+
+model CouponUse {
+  id       String   @id @default(cuid())
+  isUsed   Boolean  @default(false)
+  usedAt   DateTime?
+  createdAt DateTime @default(now())
+
+  couponId String
+  coupon   Coupon  @relation(fields: [couponId], references: [id])
+  memberId String?
+  member   Member? @relation(fields: [memberId], references: [id])
+  orderId  String?
+  order    Order?  @relation(fields: [orderId], references: [id])
+
+  @@map("coupon_uses")
+}
+
+// ─── Campaigns ────────────────────────────────────────────────────────────────
+
+model Campaign {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  startAt     DateTime?
+  expiredAt   DateTime?
+  isActive    Boolean   @default(true)
+  memberOnly  Boolean   @default(false)
+  minTier     Tier?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  coupons CampaignCoupon[]
+
+  @@map("campaigns")
+}
+
+model CampaignCoupon {
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  couponId   String
+  coupon     Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@id([campaignId, couponId])
+  @@map("campaign_coupons")
 }
 
 // ─── POS Orders ───────────────────────────────────────────────────────────────
@@ -154,30 +251,34 @@ enum PaymentMethod {
 }
 
 model Order {
-  id            String       @id @default(cuid())
-  queueNo       Int
-  source        OrderSource  @default(POS)
-  status        OrderStatus  @default(PENDING)
-  note          String?
-  subtotal      Decimal      @db.Decimal(10, 2)
-  discountKind  DiscountKind?
-  discountValue Decimal?     @db.Decimal(10, 2)
-  discount      Decimal      @default(0) @db.Decimal(10, 2)
-  total         Decimal      @db.Decimal(10, 2)
-  pointsEarned  Int          @default(0)
-  pointsRedeemed Int         @default(0)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id             String       @id @default(cuid())
+  queueNo        Int
+  source         OrderSource  @default(POS)
+  status         OrderStatus  @default(PENDING)
+  note           String?
+  subtotal       Decimal      @db.Decimal(10, 2)
+  discountKind   DiscountKind?
+  discountValue  Decimal?     @db.Decimal(10, 2)
+  discount       Decimal      @default(0) @db.Decimal(10, 2)
+  total          Decimal      @db.Decimal(10, 2)
+  pointsEarned   Int          @default(0)
+  pointsRedeemed Int          @default(0)
+  couponCode     String?
+  pickupTime     String?
+  slipUrl        String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  userId     String?
-  user       User?     @relation(fields: [userId], references: [id])
-  memberId   String?
-  member     Member?   @relation(fields: [memberId], references: [id])
-  discountId String?
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id])
+  memberId      String?
+  member        Member?   @relation(fields: [memberId], references: [id])
+  discountId    String?
   discountBadge Discount? @relation(fields: [discountId], references: [id])
 
-  items   OrderItem[]
-  payment Payment?
+  items      OrderItem[]
+  payment    Payment?
+  couponUses CouponUse[]
 
   @@map("orders")
 }
@@ -234,7 +335,6 @@ enum Tier {
   VIP
 }
 
-
 model Member {
   id           String   @id @default(cuid())
   email        String?  @unique
@@ -251,17 +351,16 @@ model Member {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  orders        Order[]
+  orders           Order[]
   pointLogs        PointLog[]
-  promotionUses    PromotionUse[]
+  couponUses       CouponUse[]
   locationRequests LocationRequest[]
   locationVotes    LocationVote[]
 
   @@map("members")
 }
 
-
-// ─── Points & Rewards ─────────────────────────────────────────────────────────
+// ─── Points ───────────────────────────────────────────────────────────────────
 
 enum PointAction {
   EARN
@@ -286,52 +385,6 @@ model PointLog {
   @@map("point_logs")
 }
 
-model Reward {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  pointCost   Int
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("rewards")
-}
-
-// ─── Promotions ───────────────────────────────────────────────────────────────
-
-model Promotion {
-  id            String       @id @default(cuid())
-  name          String
-  description   String?
-  discountKind  DiscountKind
-  discountValue Decimal      @db.Decimal(10, 2)
-  minOrderValue Decimal?     @db.Decimal(10, 2)
-  maxUses       Int?
-  usedCount     Int          @default(0)
-  startsAt      DateTime?
-  endsAt        DateTime?
-  isActive      Boolean      @default(true)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-
-  uses PromotionUse[]
-
-  @@map("promotions")
-}
-
-model PromotionUse {
-  id        String   @id @default(cuid())
-  usedAt    DateTime @default(now())
-
-  promotionId String
-  promotion   Promotion @relation(fields: [promotionId], references: [id])
-  memberId    String
-  member      Member    @relation(fields: [memberId], references: [id])
-
-  @@map("promotion_uses")
-}
-
 // ─── Content (Public Website) ─────────────────────────────────────────────────
 
 enum ContentStatus {
@@ -353,20 +406,6 @@ model Article {
   updatedAt   DateTime      @updatedAt
 
   @@map("articles")
-}
-
-model Campaign {
-  id          String        @id @default(cuid())
-  title       String
-  description String?
-  imageUrl    String?
-  status      ContentStatus @default(DRAFT)
-  startsAt    DateTime?
-  endsAt      DateTime?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  @@map("campaigns")
 }
 
 // ─── Truck Location ────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ export default defineEventHandler(async (event) => {
       where: {
         isActive: true,
         OR: [
+          { id: q.trim() },
           { phone: { contains: q.trim() } },
           { email: { contains: q.trim(), mode: 'insensitive' } },
         ],

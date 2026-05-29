@@ -42,6 +42,18 @@ export const API_ENDPOINTS = {
       UPDATE: (id: string) => `/api/admin/discounts/${id}`,
       DELETE: (id: string) => `/api/admin/discounts/${id}`,
     },
+    COUPONS: {
+      LIST: '/api/admin/coupons',
+      CREATE: '/api/admin/coupons',
+      UPDATE: (id: string) => `/api/admin/coupons/${id}`,
+      DELETE: (id: string) => `/api/admin/coupons/${id}`,
+    },
+    CAMPAIGNS_DISCOUNT: {
+      LIST: '/api/admin/campaigns',
+      CREATE: '/api/admin/campaigns',
+      UPDATE: (id: string) => `/api/admin/campaigns/${id}`,
+      DELETE: (id: string) => `/api/admin/campaigns/${id}`,
+    },
     ORDERS: {
       LIST: '/api/admin/orders',
       SHOW: (id: string) => `/api/admin/orders/${id}`,
@@ -69,6 +81,8 @@ export const API_ENDPOINTS = {
     PRODUCTS: '/api/pos/products',
     DISCOUNTS: '/api/pos/discounts',
     MEMBER_LOOKUP: '/api/pos/member-lookup',
+    COUPON_VALIDATE: '/api/pos/coupon/validate',
+    COUPON_USE_SCAN: (id: string) => `/api/pos/coupon-use/${id}`,
     ORDERS: {
       LIST: '/api/pos/orders',
       CREATE: '/api/pos/orders',
@@ -90,11 +104,18 @@ export const API_ENDPOINTS = {
       LIST: '/api/member/orders',
       CREATE: '/api/member/orders',
       SHOW: (id: string) => `/api/member/orders/${id}`,
+      CANCEL: (id: string) => `/api/member/orders/${id}/cancel`,
     },
     PROFILE: '/api/member/profile',
     POINTS: '/api/member/points',
     REDEEM: '/api/member/redeem',
     REWARDS: '/api/member/rewards',
+    COUPONS: {
+      LIST: '/api/member/coupons',
+      REDEEM: '/api/member/coupons/redeem',
+    },
+    CAMPAIGNS: '/api/member/campaigns',
+    PRODUCTS: '/api/member/products',
   },
 
   PUBLIC: {
