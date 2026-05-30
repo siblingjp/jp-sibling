@@ -16,18 +16,18 @@ onMounted(async () => {
     >
       <nav class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         <NuxtLink to="/" class="flex items-center gap-2.5">
-          <img src="/logo.jpg" alt="Sibling Coffee" class="w-8 h-8 rounded-full object-cover" />
-          <span class="font-bold text-[#1B2B4B] text-lg">Sibling Coffee</span>
+          <img src="/logo-text.png" alt="Sibling Coffee" class="h-8 w-auto block sm:hidden" />
+          <img src="/logo.jpg" alt="Sibling Coffee" class="hidden sm:block w-8 h-8 rounded-full object-cover" />
+          <span class="hidden sm:block font-bold text-[#1B2B4B] text-lg">Sibling Coffee</span>
         </NuxtLink>
 
         <div class="flex items-center gap-4 text-sm font-medium">
           <template v-if="member">
             <NuxtLink
               to="/member"
-              class="flex items-center gap-1.5 px-4 py-2 bg-[#1B2B4B] text-white rounded-xl hover:bg-[#2a3f6b] transition-colors"
+              class="flex items-center gap-1.5 px-3 py-1.5 bg-[#1B2B4B] text-white rounded-xl hover:bg-[#2a3f6b] transition-colors text-xs max-w-[120px]"
             >
-              <Icon name="flat-color-icons:businessman" class="text-base" />
-              <span>{{ member.name }}</span>
+              <span class="truncate">{{ member.name }}</span>
             </NuxtLink>
           </template>
           <template v-else>

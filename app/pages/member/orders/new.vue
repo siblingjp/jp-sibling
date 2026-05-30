@@ -93,7 +93,7 @@ const filteredProducts = computed(() => {
 
 // option modal
 const modalProduct = ref<Product | null>(null)
-const modalOptions = ref<Record<string, string[]>>({})
+const modalOptions = reactive<Record<string, string[]>>({})
 const modalQty = ref(1)
 
 // coupon picker — รวม: redeemed coupon uses, campaign coupons, manual code
@@ -132,21 +132,21 @@ onMounted(async () => {
 // ─── Product modal ────────────────────────────────────────────────────────────
 function openModal(product: Product) {
   modalProduct.value = product
-  modalOptions.value = {}
   modalQty.value = 1
+  for (const key of Object.keys(modalOptions)) delete modalOptions[key]
   for (const pg of product.optionGroups) {
     if (!pg.optionGroup.multiSelect && pg.optionGroup.required) {
       const first = pg.optionGroup.options.find(o => o.isActive)
-      if (first) modalOptions.value[pg.optionGroup.id] = [first.id]
+      modalOptions[pg.optionGroup.id] = first ? [first.id] : []
     } else {
-      modalOptions.value[pg.optionGroup.id] = []
+      modalOptions[pg.optionGroup.id] = []
     }
   }
 }
 
 function toggleOption(groupId: string, optionId: string, multiSelect: boolean) {
-  const current = modalOptions.value[groupId] ?? []
-  modalOptions.value[groupId] = multiSelect
+  const current = modalOptions[groupId] ?? []
+  modalOptions[groupId] = multiSelect
     ? (current.includes(optionId) ? current.filter(id => id !== optionId) : [...current, optionId])
     : [optionId]
 }
@@ -156,14 +156,14 @@ function confirmModal() {
   const product = modalProduct.value
   for (const pg of product.optionGroups) {
     const g = pg.optionGroup
-    if (g.required && !(modalOptions.value[g.id]?.length > 0)) {
+    if (g.required && !(modalOptions[g.id]?.length > 0)) {
       showError(`กรุณาเลือก "${g.name}"`)
       return
     }
   }
   const selectedOptions: CartItem['selectedOptions'] = []
   for (const pg of product.optionGroups) {
-    for (const optId of (modalOptions.value[pg.optionGroup.id] ?? [])) {
+    for (const optId of (modalOptions[pg.optionGroup.id] ?? [])) {
       const opt = pg.optionGroup.options.find(o => o.id === optId)
       if (opt) selectedOptions.push({ optionId: opt.id, name: opt.name, extraPrice: Number(opt.extraPrice) })
     }

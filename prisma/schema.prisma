@@ -207,6 +207,8 @@ model Campaign {
   name        String
   description String?
   imageUrl    String?
+  displayMode String?   @default("image")
+  bannerColor String?
   startAt     DateTime?
   expiredAt   DateTime?
   isActive    Boolean   @default(true)

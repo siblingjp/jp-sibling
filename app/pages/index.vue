@@ -6,7 +6,7 @@ const { member, fetchMe } = useMemberAuth()
 
 interface HomeData {
   products: { id: string; name: string; imageUrl: string | null; category: { name: string } }[]
-  campaigns: { id: string; name: string; description: string | null; imageUrl: string | null }[]
+  campaigns: { id: string; name: string; description: string | null; imageUrl: string | null; displayMode: string | null; bannerColor: string | null }[]
   truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean } | null
   topRequests: { id: string; name: string; description: string | null; voteCount: number }[]
 }
@@ -29,7 +29,7 @@ const { canInstall, install, dismiss } = usePwaInstall()
 const benefits = [
   { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'อัตราแลก 1pt = 1฿' },
   { icon: 'mdi:gift', title: 'แต้มแลกลด', desc: 'ใช้แต้มแลกส่วนลด' },
-  { icon: 'flat-color-icons:phone-android', title: 'สั่งล่วงหน้า', desc: 'ไม่ต้องรอนาน' },
+  { icon: null, image: '/logo-icon-white.png', title: 'สั่งล่วงหน้า', desc: 'ไม่ต้องรอนาน' },
   { icon: 'flat-color-icons:vip', title: 'สิทธิ์ VIP', desc: 'แต้มโบนัสพิเศษ' },
 ]
 
@@ -92,99 +92,6 @@ const marqueeProducts = computed(() => {
 
 <template>
   <div>
-    <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
-    <!-- Mobile: 50vh hero + 50vh campaign cards | Desktop: full hero -->
-    <div class="md:block">
-
-      <!-- Hero section: 50vh on mobile, 90vh on desktop -->
-      <section class="relative overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-[#DDEAF6] to-[#C8D8E8] h-[50vh] md:min-h-[90vh] flex items-center">
-        <div class="absolute inset-0 overflow-hidden pointer-events-none">
-          <svg class="absolute -bottom-1 left-0 w-full hidden md:block" viewBox="0 0 1440 120" fill="none">
-            <path d="M0,60 C360,120 1080,0 1440,60 L1440,120 L0,120 Z" fill="white"/>
-          </svg>
-          <svg class="absolute top-10 right-[-2rem] opacity-10 w-96 h-96" viewBox="0 0 200 200">
-            <circle cx="100" cy="80" r="60" fill="#1B2B4B"/>
-            <ellipse cx="100" cy="145" rx="70" ry="15" fill="#1B2B4B"/>
-            <path d="M90,20 Q100,0 110,20 Q120,0 130,20" stroke="#1B2B4B" stroke-width="4" fill="none"/>
-          </svg>
-        </div>
-        <div class="relative max-w-4xl mx-auto px-6 py-10 md:py-24 text-center w-full">
-          <img src="/logo.jpg" alt="Sibling Coffee" class="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-full shadow-xl mb-4 md:mb-8 object-cover" />
-          <h1 class="text-3xl md:text-6xl font-bold text-[#1B2B4B] leading-tight mb-2 md:mb-4">Sibling Coffee</h1>
-          <p class="text-base md:text-xl text-[#1B2B4B]/70 mb-6 md:mb-10">พบกันทุกเช้า ที่ไหนก็ได้ ☕</p>
-          <div class="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center">
-            <NuxtLink
-              to="/member/orders/new"
-              class="px-6 md:px-8 py-3 md:py-4 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-all shadow-lg hover:-translate-y-0.5 text-sm md:text-base"
-            >สั่งออนไลน์</NuxtLink>
-            <NuxtLink
-              to="/member/register"
-              class="px-6 md:px-8 py-3 md:py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl border-2 border-[#C8D8E8] hover:bg-[#F0F4F8] transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
-            >สมัครสมาชิกฟรี</NuxtLink>
-          </div>
-        </div>
-      </section>
-
-      <!-- Mobile campaign cards: 50vh, shown only on mobile -->
-      <div v-if="data?.campaigns.length" class="md:hidden h-[50vh] relative overflow-hidden">
-        <!-- Stack of campaign cards filling the space -->
-        <div class="h-full grid" :class="data.campaigns.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
-          <div
-            v-for="(camp, i) in data.campaigns.slice(0, 2)"
-            :key="camp.id"
-            class="relative overflow-hidden"
-            :class="i === 0 && data.campaigns.length === 1 ? 'col-span-2' : ''"
-          >
-            <!-- Background image or gradient -->
-            <img
-              v-if="camp.imageUrl"
-              :src="camp.imageUrl"
-              :alt="camp.name"
-              class="absolute inset-0 w-full h-full object-cover"
-            />
-            <div
-              v-else
-              class="absolute inset-0"
-              :class="i % 2 === 0
-                ? 'bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b]'
-                : 'bg-gradient-to-br from-[#C8D8E8] to-[#DDEAF6]'"
-            />
-            <!-- Overlay -->
-            <div class="absolute inset-0 bg-black/40" />
-            <!-- Content -->
-            <div class="relative h-full flex flex-col justify-end p-4">
-              <p class="text-xs font-medium text-white/70 uppercase tracking-wide mb-1">โปรโมชัน</p>
-              <p class="text-white font-bold text-base leading-tight line-clamp-2">{{ camp.name }}</p>
-              <p v-if="camp.description" class="text-white/70 text-xs mt-1 line-clamp-2">{{ camp.description }}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Fallback space when no campaigns on mobile -->
-      <div v-else-if="data !== null" class="md:hidden" />
-
-    </div>
-
-    <!-- ─── PWA Install Banner ───────────────────────────────────────────── -->
-    <Transition name="slide-down">
-      <div v-if="canInstall" class="bg-[#1B2B4B]/95 text-white px-4 py-3">
-        <div class="max-w-4xl mx-auto flex items-center gap-3">
-          <img src="/logo.jpg" alt="" class="w-9 h-9 rounded-full object-cover flex-shrink-0" />
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold leading-tight">ติดตั้ง Sibling Coffee</p>
-            <p class="text-xs text-white/60 leading-tight">เพิ่มไปหน้าจอหลักเพื่อใช้งานง่ายขึ้น</p>
-          </div>
-          <button
-            class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg hover:bg-[#F0F4F8] flex-shrink-0"
-            @click="install"
-          >ติดตั้ง</button>
-          <button class="text-white/50 hover:text-white p-1 flex-shrink-0" @click="dismiss">
-            <Icon name="mdi:close" class="text-lg" />
-          </button>
-        </div>
-      </div>
-    </Transition>
-
     <!-- ─── Truck Location Banner ────────────────────────────────────────── -->
     <section v-if="data?.truckLocation" class="text-white py-4" :class="data.truckLocation.isOpen ? 'bg-green-700' : 'bg-[#1B2B4B]'">
       <div class="max-w-4xl mx-auto px-6 flex items-center justify-between gap-4">
@@ -222,10 +129,119 @@ const marqueeProducts = computed(() => {
       </div>
     </section>
 
+    <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
+    <!-- Mobile: 50vh hero + 50vh campaign cards | Desktop: full hero -->
+    <div class="md:block">
+
+      <!-- Hero section: 50vh on mobile, 90vh on desktop -->
+      <section class="relative overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-[#DDEAF6] to-[#C8D8E8] h-[50vh] md:min-h-[90vh] flex items-center">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+          <svg class="absolute -bottom-1 left-0 w-full hidden md:block" viewBox="0 0 1440 120" fill="none">
+            <path d="M0,60 C360,120 1080,0 1440,60 L1440,120 L0,120 Z" fill="white"/>
+          </svg>
+          <svg class="absolute top-10 right-[-2rem] opacity-10 w-96 h-96" viewBox="0 0 200 200">
+            <circle cx="100" cy="80" r="60" fill="#1B2B4B"/>
+            <ellipse cx="100" cy="145" rx="70" ry="15" fill="#1B2B4B"/>
+            <path d="M90,20 Q100,0 110,20 Q120,0 130,20" stroke="#1B2B4B" stroke-width="4" fill="none"/>
+          </svg>
+        </div>
+        <div class="relative max-w-4xl mx-auto px-6 py-10 md:py-24 text-center w-full">
+          <img src="/logo.jpg" alt="Sibling Coffee" class="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-full shadow-xl mb-4 md:mb-8 object-cover" />
+          <h1 class="text-3xl md:text-6xl font-bold text-[#1B2B4B] leading-tight mb-2 md:mb-4">Sibling Coffee</h1>
+          <p class="text-base md:text-xl text-[#1B2B4B]/70 mb-6 md:mb-10">พบกันที่ ที่คุณอยากดื่มกาแฟ</p>
+          <div class="flex flex-col sm:flex-row items-center gap-3 md:gap-4 justify-center">
+            <NuxtLink
+              to="/member/orders/new"
+              class="inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-all shadow-lg hover:-translate-y-0.5 text-sm md:text-base"
+            >
+              สั่งออนไลน์
+              <span v-if="member" class="w-3.5 h-3.5 rounded-full bg-white/40 animate-ping inline-block" />
+            </NuxtLink>
+            <NuxtLink
+              to="/member/register"
+              class="inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl border-2 border-[#C8D8E8] hover:bg-[#F0F4F8] transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
+            >
+              สมัครสมาชิกฟรี
+              <span v-if="!member" class="w-3.5 h-3.5 rounded-full bg-gray-400/60 animate-ping inline-block" />
+            </NuxtLink>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- ─── PWA Install Banner ───────────────────────────────────────────── -->
+    <Transition name="slide-down">
+      <div v-if="canInstall" class="bg-[#1B2B4B]/95 text-white px-4 py-3">
+        <div class="max-w-4xl mx-auto flex items-center gap-3">
+          <img src="/logo.jpg" alt="" class="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold leading-tight">ติดตั้ง Sibling Coffee</p>
+            <p class="text-xs text-white/60 leading-tight">เพิ่มไปหน้าจอหลักเพื่อใช้งานง่ายขึ้น</p>
+          </div>
+          <button
+            class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg hover:bg-[#F0F4F8] flex-shrink-0"
+            @click="install"
+          >ติดตั้ง</button>
+          <button class="text-white/50 hover:text-white p-1 flex-shrink-0" @click="dismiss">
+            <Icon name="mdi:close" class="text-lg" />
+          </button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- ─── Campaigns (desktop full section) ────────────────────────────── -->
+    <section v-if="data?.campaigns.length" class="py-6 bg-[#F8FAFC]">
+      <div class="max-w-5xl mx-auto px-6">
+        <h2 class="text-xl font-bold text-[#1B2B4B] text-center mb-3">โปรโมชัน & แคมเปญ</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div
+            v-for="campaign in data.campaigns"
+            :key="campaign.id"
+            class="relative rounded-2xl overflow-hidden shadow hover:shadow-lg transition-shadow aspect-video"
+          >
+            <!-- NEW badge -->
+            <div class="absolute top-3 right-3 z-10 flex items-center gap-1 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
+              <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
+              NEW
+            </div>
+
+            <!-- image mode -->
+            <template v-if="campaign.displayMode !== 'banner'">
+              <img
+                v-if="campaign.imageUrl"
+                :src="campaign.imageUrl"
+                :alt="campaign.name"
+                class="absolute inset-0 w-full h-full object-cover"
+              />
+              <div v-else class="absolute inset-0 bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b]" />
+              <!-- <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+              <div class="relative h-full flex flex-col justify-end p-6">
+                <h3 class="font-bold text-white text-xl leading-snug">{{ campaign.name }}</h3>
+                <p v-if="campaign.description" class="text-white/75 text-sm mt-1">{{ campaign.description }}</p>
+              </div> -->
+            </template>
+
+            <!-- banner mode -->
+            <template v-else>
+              <div class="absolute inset-0" :style="`background: ${campaign.bannerColor || '#1B2B4B'}`" />
+              <div class="relative h-full flex items-center gap-6 p-6">
+                <img v-if="campaign.imageUrl" :src="campaign.imageUrl" class="w-24 h-24 rounded-2xl object-cover border-2 border-white/20 shrink-0" alt="" />
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-semibold text-white/60 uppercase tracking-widest mb-2">โปรโมชัน</p>
+                  <h3 class="font-bold text-white text-xl leading-snug">{{ campaign.name }}</h3>
+                  <p v-if="campaign.description" class="text-white/75 text-sm mt-2">{{ campaign.description }}</p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- ─── Menu Marquee ─────────────────────────────────────────────────── -->
-    <section class="py-16 bg-white overflow-hidden">
-      <div class="max-w-5xl mx-auto px-6 mb-10">
-        <h2 class="text-3xl font-bold text-[#1B2B4B] text-center">เมนูแนะนำ</h2>
+    <section class="py-4 bg-white overflow-hidden">
+      <div class="max-w-5xl mx-auto px-6 mb-4">
+        <h2 class="text-xl font-bold text-[#1B2B4B] text-center">เมนูแนะนำ</h2>
       </div>
 
       <!-- Loading skeleton -->
@@ -257,36 +273,6 @@ const marqueeProducts = computed(() => {
                 <p class="font-semibold text-[#1B2B4B] text-sm leading-snug line-clamp-2">{{ product.name }}</p>
                 <p class="text-xs text-[#1B2B4B]/50 mt-0.5">{{ product.category.name }}</p>
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ─── Campaigns (desktop full section) ────────────────────────────── -->
-    <section v-if="data?.campaigns.length" class="py-20 bg-[#F8FAFC]">
-      <div class="max-w-5xl mx-auto px-6">
-        <h2 class="text-3xl font-bold text-[#1B2B4B] text-center mb-12">โปรโมชัน & แคมเปญ</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div
-            v-for="campaign in data.campaigns"
-            :key="campaign.id"
-            class="relative rounded-2xl overflow-hidden shadow hover:shadow-lg transition-shadow min-h-[220px] flex flex-col justify-end"
-          >
-            <!-- Background image or gradient -->
-            <img
-              v-if="campaign.imageUrl"
-              :src="campaign.imageUrl"
-              :alt="campaign.name"
-              class="absolute inset-0 w-full h-full object-cover"
-            />
-            <div v-else class="absolute inset-0 bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b]" />
-            <!-- Overlay -->
-            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-            <!-- Content -->
-            <div class="relative p-6">
-              <h3 class="font-bold text-white text-xl leading-snug">{{ campaign.name }}</h3>
-              <p v-if="campaign.description" class="text-white/75 text-sm mt-1">{{ campaign.description }}</p>
             </div>
           </div>
         </div>
@@ -382,8 +368,9 @@ const marqueeProducts = computed(() => {
         <h2 class="text-3xl font-bold text-white mb-3">ทำไมต้องสมัครสมาชิก?</h2>
         <p class="text-[#C8D8E8] mb-12">สมัครฟรี ใช้เวลาไม่ถึง 1 นาที</p>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-12">
-          <div v-for="b in benefits" :key="b.icon" class="bg-white/10 rounded-2xl p-5">
-            <Icon :name="b.icon" class="text-4xl mb-3" />
+          <div v-for="b in benefits" :key="b.title" class="bg-white/10 rounded-2xl p-5 flex flex-col items-center text-center">
+            <img v-if="b.image" :src="b.image" :alt="b.title" class="w-10 h-10 object-contain mb-3" />
+            <Icon v-else :name="b.icon!" class="text-4xl mb-3" />
             <p class="font-semibold text-white text-sm">{{ b.title }}</p>
             <p class="text-[#C8D8E8] text-xs mt-1">{{ b.desc }}</p>
           </div>

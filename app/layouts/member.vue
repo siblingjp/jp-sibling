@@ -8,8 +8,10 @@
   <div v-else class="min-h-screen bg-gray-50 pb-20">
     <header class="bg-white shadow-sm sticky top-0 z-50">
       <nav class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
-        <NuxtLink to="/" class="text-lg font-bold text-[#1B2B4B]">
-          {{ $config.public.appName }}
+        <NuxtLink to="/" class="flex items-center gap-2.5">
+          <img src="/logo-text.png" alt="Sibling Coffee" class="h-8 w-auto block sm:hidden" />
+          <img src="/logo.jpg" alt="Sibling Coffee" class="hidden sm:block w-8 h-8 rounded-full object-cover" />
+          <span class="hidden sm:block font-bold text-[#1B2B4B] text-lg">{{ $config.public.appName }}</span>
         </NuxtLink>
         <button class="text-gray-500 hover:text-red-600 text-sm" @click="handleLogout">ออกจากระบบ</button>
       </nav>

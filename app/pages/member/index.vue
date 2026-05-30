@@ -64,6 +64,9 @@ interface Campaign {
   id: string
   name: string
   description: string | null
+  imageUrl: string | null
+  displayMode: string | null
+  bannerColor: string | null
   expiredAt: string | null
   memberOnly: boolean
   minTier: string | null
@@ -116,6 +119,32 @@ function formatCouponValue(c: CampaignCoupon) {
       </div>
     </Transition>
 
+    <!-- Store status -->
+    <div v-if="truckLocation" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+        :class="isOpen ? 'bg-green-100' : 'bg-red-100'">
+        <Icon :name="isOpen ? 'mdi:store' : 'mdi:store-off'" class="text-xl"
+          :class="isOpen ? 'text-green-600' : 'text-red-500'" />
+      </div>
+      <div class="flex-1 min-w-0">
+        <p class="font-semibold text-sm" :class="isOpen ? 'text-green-700' : 'text-red-600'">
+          {{ truckLocation.name }} · {{ isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }}
+        </p>
+        <p class="text-xs text-gray-400 truncate">{{ storeHoursText }}</p>
+        <p v-if="truckLocation.description" class="text-xs text-gray-400 truncate">{{ truckLocation.description }}</p>
+      </div>
+      <a
+        v-if="truckLocation.mapUrl"
+        :href="truckLocation.mapUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="flex items-center gap-1 text-xs text-[#1B2B4B] font-medium hover:underline flex-shrink-0"
+      >
+        <Icon name="mdi:map-marker" class="w-4 h-4 text-red-400" />
+        แผนที่
+      </a>
+    </div>
+
     <!-- Member card -->
     <div class="bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b] rounded-2xl p-6 text-white shadow-lg">
       <div class="flex items-center gap-4 mb-5">
@@ -139,32 +168,6 @@ function formatCouponValue(c: CampaignCoupon) {
         <p class="text-4xl font-bold">{{ (member?.points ?? 0).toLocaleString() }}</p>
         <p class="text-white/70 text-sm mt-1">1 แต้ม = ฿1 ส่วนลด</p>
       </div>
-    </div>
-
-    <!-- Store status -->
-    <div v-if="truckLocation" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3">
-      <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-        :class="isOpen ? 'bg-green-100' : 'bg-red-100'">
-        <Icon :name="isOpen ? 'mdi:store-check' : 'mdi:store-off'" class="text-xl"
-          :class="isOpen ? 'text-green-600' : 'text-red-500'" />
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="font-semibold text-sm" :class="isOpen ? 'text-green-700' : 'text-red-600'">
-          {{ truckLocation.name }} · {{ isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }}
-        </p>
-        <p class="text-xs text-gray-400 truncate">{{ storeHoursText }}</p>
-        <p v-if="truckLocation.description" class="text-xs text-gray-400 truncate">{{ truckLocation.description }}</p>
-      </div>
-      <a
-        v-if="truckLocation.mapUrl"
-        :href="truckLocation.mapUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="flex items-center gap-1 text-xs text-[#1B2B4B] font-medium hover:underline flex-shrink-0"
-      >
-        <Icon name="mdi:map-marker" class="w-4 h-4 text-red-400" />
-        แผนที่
-      </a>
     </div>
 
     <!-- Tier progress -->
@@ -200,23 +203,63 @@ function formatCouponValue(c: CampaignCoupon) {
           :key="camp.id"
           class="bg-white rounded-2xl shadow overflow-hidden"
         >
+          <!-- Banner mode header -->
           <button
+            v-if="camp.displayMode === 'banner'"
             type="button"
-            class="w-full flex items-center justify-between p-4 text-left"
+            class="w-full text-left relative flex items-center gap-4 px-4 py-4"
+            :style="`background: ${camp.bannerColor || '#1B2B4B'}`"
             @click="toggleCampaign(camp.id)"
           >
+            <img v-if="camp.imageUrl" :src="camp.imageUrl" class="w-12 h-12 rounded-xl object-cover shrink-0 border-2 border-white/20" alt="" />
             <div class="flex-1 min-w-0">
-              <p class="font-semibold text-gray-900 truncate">{{ camp.name }}</p>
-              <p v-if="camp.description" class="text-xs text-gray-400 mt-0.5 truncate">{{ camp.description }}</p>
-              <p v-if="camp.expiredAt" class="text-xs text-gray-400 mt-0.5">
+              <p class="font-semibold text-white truncate">{{ camp.name }}</p>
+              <p v-if="camp.description" class="text-xs text-white/70 mt-0.5 truncate">{{ camp.description }}</p>
+              <p v-if="camp.expiredAt" class="text-xs text-white/50 mt-0.5">
                 ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) }}
               </p>
             </div>
-            <div class="flex items-center gap-2 ml-3 flex-shrink-0">
-              <span class="text-xs bg-[#F0F4F8] text-[#1B2B4B] px-2 py-0.5 rounded-full font-medium">
-                {{ camp.coupons.length }} คูปอง
-              </span>
-              <Icon :name="expandedCampaign === camp.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5 text-gray-400" />
+            <div class="flex items-center gap-2 ml-2 flex-shrink-0">
+              <span class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
+              <Icon :name="expandedCampaign === camp.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5 text-white/70" />
+            </div>
+          </button>
+
+          <!-- Image mode header -->
+          <button
+            v-else
+            type="button"
+            class="w-full text-left"
+            @click="toggleCampaign(camp.id)"
+          >
+            <div v-if="camp.imageUrl" class="relative aspect-video overflow-hidden">
+              <img :src="camp.imageUrl" class="w-full h-full object-cover" alt="" />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div class="absolute bottom-0 left-0 right-0 p-3 flex items-end justify-between">
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-white truncate">{{ camp.name }}</p>
+                  <p v-if="camp.expiredAt" class="text-xs text-white/60 mt-0.5">
+                    ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) }}
+                  </p>
+                </div>
+                <div class="flex items-center gap-1.5 ml-2 flex-shrink-0">
+                  <span class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
+                  <Icon :name="expandedCampaign === camp.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5 text-white/70" />
+                </div>
+              </div>
+            </div>
+            <div v-else class="flex items-center justify-between p-4">
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-gray-900 truncate">{{ camp.name }}</p>
+                <p v-if="camp.description" class="text-xs text-gray-400 mt-0.5 truncate">{{ camp.description }}</p>
+                <p v-if="camp.expiredAt" class="text-xs text-gray-400 mt-0.5">
+                  ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) }}
+                </p>
+              </div>
+              <div class="flex items-center gap-2 ml-3 flex-shrink-0">
+                <span class="text-xs bg-[#F0F4F8] text-[#1B2B4B] px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
+                <Icon :name="expandedCampaign === camp.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5 text-gray-400" />
+              </div>
             </div>
           </button>
 
@@ -250,7 +293,7 @@ function formatCouponValue(c: CampaignCoupon) {
         to="/member/orders/new"
         class="bg-[#1B2B4B] text-white rounded-2xl p-5 text-center shadow hover:bg-[#2a3f6b] transition-colors"
       >
-        <Icon name="flat-color-icons:shop" class="text-4xl mb-2" />
+        <img src="/logo-icon-white.png" alt="สั่งกาแฟ" class="w-10 h-10 object-contain mx-auto mb-2" />
         <p class="font-semibold">สั่งอาหาร</p>
         <p class="text-xs text-[#C8D8E8] mt-0.5">สั่งออนไลน์</p>
       </NuxtLink>
@@ -277,7 +320,8 @@ function formatCouponValue(c: CampaignCoupon) {
         to="/member/qr"
         class="bg-white rounded-2xl p-5 text-center shadow hover:shadow-md transition-shadow border border-gray-100"
       >
-        <Icon name="flat-color-icons:phone-android" class="text-4xl mb-2" />
+        <Icon name="mdi:qrcode" class="text-4xl mb-2" />
+        <!-- <Icon name="flat-color-icons:qrcode" class="text-4xl mb-2" /> -->
         <p class="font-semibold text-gray-800">QR ของฉัน</p>
         <p class="text-xs text-gray-500 mt-0.5">แสดงที่เคาน์เตอร์</p>
       </NuxtLink>

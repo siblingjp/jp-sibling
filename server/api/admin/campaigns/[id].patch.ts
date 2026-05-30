@@ -3,6 +3,9 @@ import { z } from 'zod'
 const schema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
+  imageUrl: z.string().url().optional().nullable(),
+  displayMode: z.enum(['image', 'banner']).optional(),
+  bannerColor: z.string().optional().nullable(),
   startAt: z.string().datetime().optional().nullable(),
   expiredAt: z.string().datetime().optional().nullable(),
   isActive: z.boolean().optional(),
@@ -61,6 +64,9 @@ export default defineEventHandler(async (event) => {
         data: {
           ...(body.name !== undefined && { name: body.name }),
           ...(body.description !== undefined && { description: body.description }),
+          ...(body.imageUrl !== undefined && { imageUrl: body.imageUrl }),
+          ...(body.displayMode !== undefined && { displayMode: body.displayMode }),
+          ...(body.bannerColor !== undefined && { bannerColor: body.bannerColor }),
           ...(body.isActive !== undefined && { isActive: body.isActive }),
           ...(body.memberOnly !== undefined && { memberOnly: body.memberOnly }),
           ...(body.minTier !== undefined && { minTier: body.minTier }),

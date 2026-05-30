@@ -9,6 +9,7 @@ const { showSuccess, showError, showConfirm } = useAlert()
 type Tier = 'SILVER' | 'GOLD' | 'VIP'
 type CouponType = 'POINT_REDEEM' | 'PROMOTION' | 'DISCOUNT'
 type BenefitType = 'DISCOUNT' | 'FREE_ITEM'
+type DisplayMode = 'image' | 'banner'
 
 interface CouponDetail {
   id: string
@@ -32,6 +33,9 @@ interface Campaign {
   id: string
   name: string
   description: string | null
+  imageUrl: string | null
+  displayMode: DisplayMode | null
+  bannerColor: string | null
   startAt: string | null
   expiredAt: string | null
   isActive: boolean
@@ -72,6 +76,9 @@ const isSaving = ref(false)
 const form = reactive({
   name: '',
   description: '',
+  imageUrl: '',
+  displayMode: 'image' as DisplayMode,
+  bannerColor: '#1B2B4B',
   startAt: '',
   expiredAt: '',
   isActive: true,
@@ -80,7 +87,6 @@ const form = reactive({
   couponIds: [] as string[],
 })
 
-// client-side date validation error
 const dateError = ref('')
 
 watch([() => form.startAt, () => form.expiredAt], () => {
@@ -91,7 +97,6 @@ watch([() => form.startAt, () => form.expiredAt], () => {
   }
 })
 
-// warn when a selected coupon's dates conflict with campaign dates
 const couponDateWarnings = computed(() => {
   if (!form.startAt && !form.expiredAt) return []
   const campStart = form.startAt ? new Date(form.startAt) : null
@@ -110,6 +115,9 @@ const couponDateWarnings = computed(() => {
 function resetForm() {
   form.name = ''
   form.description = ''
+  form.imageUrl = ''
+  form.displayMode = 'image'
+  form.bannerColor = '#1B2B4B'
   form.startAt = ''
   form.expiredAt = ''
   form.isActive = true
@@ -122,6 +130,7 @@ function resetForm() {
 function openNew() {
   editingId.value = null
   resetForm()
+  allCoupons.value = []
   showForm.value = true
 }
 
@@ -129,6 +138,9 @@ function openEdit(c: Campaign) {
   editingId.value = c.id
   form.name = c.name
   form.description = c.description ?? ''
+  form.imageUrl = c.imageUrl ?? ''
+  form.displayMode = c.displayMode ?? 'image'
+  form.bannerColor = c.bannerColor ?? '#1B2B4B'
   form.startAt = c.startAt ? c.startAt.slice(0, 16) : ''
   form.expiredAt = c.expiredAt ? c.expiredAt.slice(0, 16) : ''
   form.isActive = c.isActive
@@ -136,6 +148,10 @@ function openEdit(c: Campaign) {
   form.minTier = c.minTier ?? ''
   form.couponIds = c.coupons.map(cc => cc.coupon.id)
   dateError.value = ''
+  // seed allCoupons จาก campaign data ที่มีอยู่แล้ว เพื่อให้ selectedCoupons แสดงได้ทันที
+  const existing = c.coupons.map(cc => cc.coupon)
+  const existingIds = new Set(existing.map(x => x.id))
+  allCoupons.value = [...existing, ...allCoupons.value.filter(x => !existingIds.has(x.id))]
   showForm.value = true
 }
 
@@ -150,6 +166,9 @@ async function handleSave() {
     const body = {
       name: form.name,
       description: form.description || null,
+      imageUrl: form.imageUrl || null,
+      displayMode: form.displayMode,
+      bannerColor: form.bannerColor || null,
       startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
       expiredAt: form.expiredAt ? new Date(form.expiredAt).toISOString() : null,
       isActive: form.isActive,
@@ -220,13 +239,16 @@ const selectedCoupons = computed(() =>
 async function openCouponPicker() {
   couponSearch.value = ''
   showCouponPicker.value = true
-  if (allCoupons.value.length > 0) return
+  // ถ้ามีข้อมูลครบแล้ว (มากกว่า coupon ที่ select อยู่) ไม่ต้อง fetch ใหม่
+  if (allCoupons.value.length > form.couponIds.length) return
   couponPickerLoading.value = true
   try {
     const res = await http.get<{ data: { data: CouponDetail[] } }>(
       `${API_ENDPOINTS.ADMIN.COUPONS.LIST}?size=200`,
     )
-    allCoupons.value = res.data?.data ?? []
+    const fetched = res.data?.data ?? []
+    const existingIds = new Set(allCoupons.value.map(x => x.id))
+    allCoupons.value = [...allCoupons.value, ...fetched.filter(x => !existingIds.has(x.id))]
   } catch {
     // silent
   } finally {
@@ -319,8 +341,8 @@ onMounted(() => load())
     <!-- Campaign Cards -->
     <div v-else class="grid gap-4">
       <div v-for="c in campaigns" :key="c.id" class="bg-white rounded-2xl shadow p-5 flex flex-col gap-3">
-        <!-- Card Header -->
         <div class="flex items-start justify-between gap-3">
+          <img v-if="c.imageUrl" :src="c.imageUrl" class="w-16 h-16 rounded-xl object-cover shrink-0 border border-gray-100" alt="" />
           <div class="flex-1 min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <h2 class="font-bold text-gray-900 text-base">{{ c.name }}</h2>
@@ -395,7 +417,7 @@ onMounted(() => load())
     <Teleport to="body">
       <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/50" @click="showForm = false" />
-        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+        <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
           <div class="sticky top-0 bg-white rounded-t-2xl px-6 py-4 border-b border-gray-100 flex items-center justify-between">
             <h2 class="text-lg font-bold" style="color: #1B2B4B;">
               {{ editingId ? 'แก้ไขแคมเปญ' : 'สร้างแคมเปญใหม่' }}
@@ -403,172 +425,291 @@ onMounted(() => load())
             <button class="text-gray-400 hover:text-gray-600 text-xl leading-none" @click="showForm = false">&times;</button>
           </div>
 
-          <form class="p-6 space-y-4" @submit.prevent="handleSave">
-            <!-- Name -->
-            <div>
-              <label class="block text-xs font-medium text-gray-500 mb-1">ชื่อแคมเปญ <span class="text-red-500">*</span></label>
-              <input
-                v-model="form.name"
-                type="text"
-                required
-                placeholder="เช่น แคมเปญช่วงเปิดเทอม"
-                class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <!-- Description -->
-            <div>
-              <label class="block text-xs font-medium text-gray-500 mb-1">รายละเอียด</label>
-              <textarea
-                v-model="form.description"
-                rows="2"
-                placeholder="รายละเอียดแคมเปญ..."
-                class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-              />
-            </div>
-
-            <!-- Dates -->
-            <div class="grid grid-cols-2 gap-3">
+          <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Left: Form fields -->
+            <form class="space-y-4" @submit.prevent="handleSave">
+              <!-- Name -->
               <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">วันเริ่มต้น</label>
+                <label class="block text-xs font-medium text-gray-500 mb-1">ชื่อแคมเปญ <span class="text-red-500">*</span></label>
                 <input
-                  v-model="form.startAt"
-                  type="datetime-local"
-                  class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 transition"
-                  :class="dateError ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-500'"
+                  v-model="form.name"
+                  type="text"
+                  required
+                  placeholder="เช่น แคมเปญช่วงเปิดเทอม"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+
+              <!-- Description -->
               <div>
-                <label class="block text-xs font-medium text-gray-500 mb-1">วันสิ้นสุด</label>
-                <input
-                  v-model="form.expiredAt"
-                  type="datetime-local"
-                  class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 transition"
-                  :class="dateError ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-500'"
+                <label class="block text-xs font-medium text-gray-500 mb-1">รายละเอียด</label>
+                <textarea
+                  v-model="form.description"
+                  rows="2"
+                  placeholder="รายละเอียดแคมเปญ..."
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
-            </div>
-            <p v-if="dateError" class="text-xs text-red-500 -mt-2">{{ dateError }}</p>
 
-            <!-- Tier -->
-            <div>
-              <label class="block text-xs font-medium text-gray-500 mb-1">ระดับสมาชิกขั้นต่ำ</label>
-              <select
-                v-model="form.minTier"
-                class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">ทุกระดับ</option>
-                <option value="SILVER">Silver</option>
-                <option value="GOLD">Gold</option>
-                <option value="VIP">VIP</option>
-              </select>
-            </div>
-
-            <!-- Toggles -->
-            <div class="flex flex-col gap-2">
-              <label class="flex items-center gap-3 cursor-pointer">
-                <div
-                  class="relative w-10 h-5 rounded-full transition"
-                  :class="form.isActive ? 'bg-green-500' : 'bg-gray-300'"
-                  @click="form.isActive = !form.isActive"
-                >
-                  <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" :class="form.isActive ? 'translate-x-5' : ''" />
-                </div>
-                <span class="text-sm text-gray-700 font-medium">เปิดใช้งานแคมเปญ</span>
-              </label>
-              <label class="flex items-center gap-3 cursor-pointer">
-                <div
-                  class="relative w-10 h-5 rounded-full transition"
-                  :class="form.memberOnly ? 'bg-blue-500' : 'bg-gray-300'"
-                  @click="form.memberOnly = !form.memberOnly"
-                >
-                  <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" :class="form.memberOnly ? 'translate-x-5' : ''" />
-                </div>
-                <span class="text-sm text-gray-700 font-medium">เฉพาะสมาชิกเท่านั้น</span>
-              </label>
-            </div>
-
-            <!-- Coupon Picker -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <label class="text-xs font-medium text-gray-500">
-                  คูปองในแคมเปญ
-                  <span v-if="form.couponIds.length > 0" class="ml-1 px-1.5 py-0.5 rounded text-xs font-bold" style="background:#C8D8E8;color:#1B2B4B;">
-                    {{ form.couponIds.length }} เลือก
-                  </span>
-                </label>
-                <button
-                  type="button"
-                  class="text-xs font-semibold px-3 py-1.5 rounded-lg transition hover:opacity-80"
-                  style="background:#C8D8E8;color:#1B2B4B;"
-                  @click="openCouponPicker"
-                >
-                  + เลือกคูปอง
-                </button>
-              </div>
-
-              <!-- Date conflict warnings -->
-              <div v-if="couponDateWarnings.length > 0" class="mb-2 space-y-1">
-                <p v-for="w in couponDateWarnings" :key="w" class="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5">
-                  ⚠️ {{ w }}
-                </p>
-              </div>
-
-              <!-- Selected coupons — detailed cards -->
-              <div v-if="selectedCoupons.length === 0" class="text-xs text-gray-400 italic py-2">
-                ยังไม่ได้เลือกคูปอง
-              </div>
-              <div v-else class="space-y-2">
-                <div
-                  v-for="c in selectedCoupons"
-                  :key="c.id"
-                  class="flex gap-3 px-3 py-2.5 rounded-xl border"
-                  :class="couponDateConflict(c) ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-gray-50'"
-                >
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 flex-wrap">
-                      <span class="font-mono text-xs font-bold text-gray-700 bg-gray-200 px-1.5 py-0.5 rounded">{{ c.code }}</span>
-                      <span class="text-xs px-1.5 py-0.5 rounded-full font-semibold" :class="typeColor[c.type]">{{ typeLabel[c.type] }}</span>
-                      <span class="text-sm font-bold" :class="c.discountKind === 'PERCENT' ? 'text-blue-700' : 'text-emerald-700'">
-                        {{ discountLabel(c) }}
-                      </span>
-                    </div>
-                    <p class="text-sm text-gray-800 font-medium mt-0.5 truncate">{{ c.name }}</p>
-                    <div class="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
-                      <span>ใช้แล้ว {{ couponUsageLabel(c) }} สิทธิ์</span>
-                      <span v-if="couponSubtext(c)">{{ couponSubtext(c) }}</span>
-                      <span v-if="c.startAt || c.expiredAt">
-                        {{ c.startAt ? formatDate(c.startAt) : 'ไม่จำกัดต้น' }} – {{ c.expiredAt ? formatDate(c.expiredAt) : 'ไม่จำกัดปลาย' }}
-                      </span>
-                    </div>
-                    <p v-if="couponDateConflict(c)" class="text-xs text-orange-600 mt-1">⚠️ ช่วงวันที่ขัดแย้งกับแคมเปญ</p>
-                  </div>
+              <!-- Display Mode -->
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-2">รูปแบบการแสดง</label>
+                <div class="flex gap-2">
                   <button
                     type="button"
-                    class="text-gray-400 hover:text-red-500 text-xl leading-none shrink-0 self-start mt-0.5"
-                    @click="removeCoupon(c.id)"
-                  >×</button>
+                    class="flex-1 py-2 rounded-xl border text-xs font-semibold transition"
+                    :class="form.displayMode === 'image'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:bg-gray-50'"
+                    @click="form.displayMode = 'image'"
+                  >
+                    รูปภาพเป็นหลัก
+                  </button>
+                  <button
+                    type="button"
+                    class="flex-1 py-2 rounded-xl border text-xs font-semibold transition"
+                    :class="form.displayMode === 'banner'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:bg-gray-50'"
+                    @click="form.displayMode = 'banner'"
+                  >
+                    แบนเนอร์ + ข้อความ
+                  </button>
                 </div>
               </div>
-            </div>
 
-            <!-- Actions -->
-            <div class="flex gap-3 pt-2">
-              <button
-                type="button"
-                class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 font-medium"
-                @click="showForm = false"
-              >ยกเลิก</button>
-              <button
-                type="submit"
-                class="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition"
-                style="background: #1B2B4B;"
-                :disabled="isSaving || !form.name || !!dateError || couponDateWarnings.length > 0"
-              >
-                {{ isSaving ? 'กำลังบันทึก...' : editingId ? 'บันทึกการเปลี่ยนแปลง' : 'สร้างแคมเปญ' }}
-              </button>
+              <!-- Image upload -->
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">รูปภาพแคมเปญ</label>
+                <AdminImageUpload v-model="form.imageUrl" folder="campaigns" />
+              </div>
+
+              <!-- Banner color (only for banner mode) -->
+              <div v-if="form.displayMode === 'banner'">
+                <label class="block text-xs font-medium text-gray-500 mb-1">สีพื้นหลัง</label>
+                <div class="flex items-center gap-3">
+                  <input
+                    v-model="form.bannerColor"
+                    type="color"
+                    class="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer p-0.5"
+                  />
+                  <input
+                    v-model="form.bannerColor"
+                    type="text"
+                    maxlength="7"
+                    placeholder="#1B2B4B"
+                    class="flex-1 px-3 py-2 border border-gray-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <div class="flex gap-1.5">
+                    <button
+                      v-for="preset in ['#1B2B4B','#7C3AED','#DC2626','#059669','#D97706','#0EA5E9']"
+                      :key="preset"
+                      type="button"
+                      class="w-6 h-6 rounded-full border-2 transition"
+                      :style="`background:${preset};border-color:${form.bannerColor===preset?'#3B82F6':'transparent'}`"
+                      @click="form.bannerColor = preset"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Dates -->
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1">วันเริ่มต้น</label>
+                  <input
+                    v-model="form.startAt"
+                    type="datetime-local"
+                    class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 transition"
+                    :class="dateError ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-500'"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1">วันสิ้นสุด</label>
+                  <input
+                    v-model="form.expiredAt"
+                    type="datetime-local"
+                    class="w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 transition"
+                    :class="dateError ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-500'"
+                  />
+                </div>
+              </div>
+              <p v-if="dateError" class="text-xs text-red-500 -mt-2">{{ dateError }}</p>
+
+              <!-- Tier -->
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">ระดับสมาชิกขั้นต่ำ</label>
+                <select
+                  v-model="form.minTier"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">ทุกระดับ</option>
+                  <option value="SILVER">Silver</option>
+                  <option value="GOLD">Gold</option>
+                  <option value="VIP">VIP</option>
+                </select>
+              </div>
+
+              <!-- Toggles -->
+              <div class="flex flex-col gap-2">
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <div
+                    class="relative w-10 h-5 rounded-full transition"
+                    :class="form.isActive ? 'bg-green-500' : 'bg-gray-300'"
+                    @click="form.isActive = !form.isActive"
+                  >
+                    <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" :class="form.isActive ? 'translate-x-5' : ''" />
+                  </div>
+                  <span class="text-sm text-gray-700 font-medium">เปิดใช้งานแคมเปญ</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <div
+                    class="relative w-10 h-5 rounded-full transition"
+                    :class="form.memberOnly ? 'bg-blue-500' : 'bg-gray-300'"
+                    @click="form.memberOnly = !form.memberOnly"
+                  >
+                    <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" :class="form.memberOnly ? 'translate-x-5' : ''" />
+                  </div>
+                  <span class="text-sm text-gray-700 font-medium">เฉพาะสมาชิกเท่านั้น</span>
+                </label>
+              </div>
+
+              <!-- Coupon Picker -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="text-xs font-medium text-gray-500">
+                    คูปองในแคมเปญ
+                    <span v-if="form.couponIds.length > 0" class="ml-1 px-1.5 py-0.5 rounded text-xs font-bold" style="background:#C8D8E8;color:#1B2B4B;">
+                      {{ form.couponIds.length }} เลือก
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    class="text-xs font-semibold px-3 py-1.5 rounded-lg transition hover:opacity-80"
+                    style="background:#C8D8E8;color:#1B2B4B;"
+                    @click="openCouponPicker"
+                  >
+                    + เลือกคูปอง
+                  </button>
+                </div>
+
+                <div v-if="couponDateWarnings.length > 0" class="mb-2 space-y-1">
+                  <p v-for="w in couponDateWarnings" :key="w" class="text-xs text-orange-600 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5">
+                    ⚠️ {{ w }}
+                  </p>
+                </div>
+
+                <div v-if="selectedCoupons.length === 0" class="text-xs text-gray-400 italic py-2">
+                  ยังไม่ได้เลือกคูปอง
+                </div>
+                <div v-else class="space-y-2">
+                  <div
+                    v-for="c in selectedCoupons"
+                    :key="c.id"
+                    class="flex gap-3 px-3 py-2.5 rounded-xl border"
+                    :class="couponDateConflict(c) ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-gray-50'"
+                  >
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2 flex-wrap">
+                        <span class="font-mono text-xs font-bold text-gray-700 bg-gray-200 px-1.5 py-0.5 rounded">{{ c.code }}</span>
+                        <span class="text-xs px-1.5 py-0.5 rounded-full font-semibold" :class="typeColor[c.type]">{{ typeLabel[c.type] }}</span>
+                        <span class="text-sm font-bold" :class="c.discountKind === 'PERCENT' ? 'text-blue-700' : 'text-emerald-700'">
+                          {{ discountLabel(c) }}
+                        </span>
+                      </div>
+                      <p class="text-sm text-gray-800 font-medium mt-0.5 truncate">{{ c.name }}</p>
+                      <div class="flex flex-wrap gap-3 mt-1 text-xs text-gray-500">
+                        <span>ใช้แล้ว {{ couponUsageLabel(c) }} สิทธิ์</span>
+                        <span v-if="couponSubtext(c)">{{ couponSubtext(c) }}</span>
+                        <span v-if="c.startAt || c.expiredAt">
+                          {{ c.startAt ? formatDate(c.startAt) : 'ไม่จำกัดต้น' }} – {{ c.expiredAt ? formatDate(c.expiredAt) : 'ไม่จำกัดปลาย' }}
+                        </span>
+                      </div>
+                      <p v-if="couponDateConflict(c)" class="text-xs text-orange-600 mt-1">⚠️ ช่วงวันที่ขัดแย้งกับแคมเปญ</p>
+                    </div>
+                    <button
+                      type="button"
+                      class="text-gray-400 hover:text-red-500 text-xl leading-none shrink-0 self-start mt-0.5"
+                      @click="removeCoupon(c.id)"
+                    >×</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 font-medium"
+                  @click="showForm = false"
+                >ยกเลิก</button>
+                <button
+                  type="submit"
+                  class="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition"
+                  style="background: #1B2B4B;"
+                  :disabled="isSaving || !form.name || !!dateError || couponDateWarnings.length > 0"
+                >
+                  {{ isSaving ? 'กำลังบันทึก...' : editingId ? 'บันทึกการเปลี่ยนแปลง' : 'สร้างแคมเปญ' }}
+                </button>
+              </div>
+            </form>
+
+            <!-- Right: Preview -->
+            <div class="flex flex-col gap-3">
+              <p class="text-xs font-medium text-gray-500">ตัวอย่างการแสดงผล</p>
+
+              <!-- Image mode preview -->
+              <div v-if="form.displayMode === 'image'" class="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+                <div class="relative aspect-video bg-gray-100">
+                  <img
+                    v-if="form.imageUrl"
+                    :src="form.imageUrl"
+                    class="w-full h-full object-cover"
+                    alt="preview"
+                  />
+                  <div v-else class="w-full h-full flex items-center justify-center text-gray-400 text-sm">
+                    ยังไม่มีรูปภาพ
+                  </div>
+                  <!-- badges overlay -->
+                  <div v-if="form.memberOnly || form.minTier" class="absolute top-2 left-2 flex gap-1">
+                    <span v-if="form.memberOnly" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-600 text-white shadow">เฉพาะสมาชิก</span>
+                    <span v-if="form.minTier" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500 text-white shadow">{{ form.minTier }}+</span>
+                  </div>
+                </div>
+                <div class="p-3 bg-white">
+                  <p class="font-bold text-gray-900 text-sm">{{ form.name || 'ชื่อแคมเปญ' }}</p>
+                  <p v-if="form.description" class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ form.description }}</p>
+                </div>
+              </div>
+
+              <!-- Banner mode preview -->
+              <div v-else class="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+                <div
+                  class="relative px-5 py-6 flex items-center gap-4"
+                  :style="`background: ${form.bannerColor}`"
+                >
+                  <div v-if="form.imageUrl" class="shrink-0">
+                    <img :src="form.imageUrl" class="w-16 h-16 rounded-xl object-cover border-2 border-white/30" alt="" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex gap-1.5 mb-1.5 flex-wrap">
+                      <span v-if="form.memberOnly" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-white/20 text-white">เฉพาะสมาชิก</span>
+                      <span v-if="form.minTier" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-400/80 text-white">{{ form.minTier }}+</span>
+                    </div>
+                    <p class="font-bold text-white text-base leading-tight">{{ form.name || 'ชื่อแคมเปญ' }}</p>
+                    <p v-if="form.description" class="text-white/70 text-xs mt-1 line-clamp-2">{{ form.description }}</p>
+                    <p v-if="form.expiredAt" class="text-white/50 text-xs mt-2">สิ้นสุด {{ formatDate(form.expiredAt) }}</p>
+                  </div>
+                </div>
+                <div class="px-4 py-2.5 bg-white text-xs text-gray-400">
+                  {{ form.couponIds.length > 0 ? `${form.couponIds.length} คูปอง` : 'ยังไม่มีคูปอง' }}
+                </div>
+              </div>
+
+              <!-- Mini note -->
+              <p class="text-xs text-gray-400 text-center">ตัวอย่างอาจแตกต่างจากหน้าจริงเล็กน้อย</p>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </Teleport>
@@ -578,7 +719,6 @@ onMounted(() => load())
       <div v-if="showCouponPicker" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div class="absolute inset-0 bg-black/60" @click="showCouponPicker = false" />
         <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
-          <!-- Picker header -->
           <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <div>
               <h3 class="font-bold text-gray-900">เลือกคูปอง</h3>
@@ -587,7 +727,6 @@ onMounted(() => load())
             <button class="text-gray-400 hover:text-gray-600 text-xl leading-none" @click="showCouponPicker = false">&times;</button>
           </div>
 
-          <!-- Search -->
           <div class="px-5 py-3 border-b border-gray-100">
             <input
               v-model="couponSearch"
@@ -597,7 +736,6 @@ onMounted(() => load())
             />
           </div>
 
-          <!-- List -->
           <div class="flex-1 overflow-y-auto divide-y divide-gray-100">
             <div v-if="couponPickerLoading" class="text-center py-8 text-gray-400 text-sm">กำลังโหลด...</div>
             <div v-else-if="filteredCoupons.length === 0" class="text-center py-8 text-gray-400 text-sm">ไม่พบคูปอง</div>
@@ -637,7 +775,6 @@ onMounted(() => load())
             </label>
           </div>
 
-          <!-- Footer -->
           <div class="px-5 py-4 border-t border-gray-100 flex justify-end">
             <button
               type="button"

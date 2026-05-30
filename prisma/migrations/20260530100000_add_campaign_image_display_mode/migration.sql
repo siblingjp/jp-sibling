@@ -1,0 +1,3 @@
+ALTER TABLE "campaigns" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+ALTER TABLE "campaigns" ADD COLUMN IF NOT EXISTS "displayMode" TEXT DEFAULT 'image';
+ALTER TABLE "campaigns" ADD COLUMN IF NOT EXISTS "bannerColor" TEXT;
