@@ -206,6 +206,7 @@ model Campaign {
   id          String    @id @default(cuid())
   name        String
   description String?
+  imageUrl    String?
   startAt     DateTime?
   expiredAt   DateTime?
   isActive    Boolean   @default(true)
@@ -419,6 +420,7 @@ model TruckLocation {
   closeTime   String?
   daysOfWeek  String?
   isActive    Boolean  @default(true)
+  isOpen      Boolean  @default(false)
   updatedAt   DateTime @updatedAt
 
   @@map("truck_locations")

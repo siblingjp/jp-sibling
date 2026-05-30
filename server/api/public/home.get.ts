@@ -16,7 +16,7 @@ export default defineEventHandler(async () => {
           OR: [{ startAt: null }, { startAt: { lte: now } }],
           AND: [{ OR: [{ expiredAt: null }, { expiredAt: { gte: now } }] }],
         },
-        select: { id: true, name: true, description: true },
+        select: { id: true, name: true, description: true, imageUrl: true },
         orderBy: { createdAt: 'desc' },
         take: 4,
       }),

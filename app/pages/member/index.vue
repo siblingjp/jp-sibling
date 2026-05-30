@@ -3,6 +3,7 @@ definePageMeta({ layout: 'member', middleware: 'member' })
 
 const { member } = useMemberAuth()
 const http = useHttpClient()
+const { canInstall, install, dismiss } = usePwaInstall()
 
 // ─── Tier config ─────────────────────────────────────────────────────────────
 const tierConfig = computed(() => {
@@ -31,24 +32,11 @@ interface TruckLocation {
   openTime: string | null
   closeTime: string | null
   daysOfWeek: string | null
+  isOpen: boolean
 }
 const truckLocation = ref<TruckLocation | null>(null)
 
-function parseTime(t: string | null) {
-  if (!t) return null
-  const [h, m] = t.split(':').map(Number)
-  return h + (m ?? 0) / 60
-}
-
-const isOpen = computed(() => {
-  if (!truckLocation.value) return false
-  const open = parseTime(truckLocation.value.openTime)
-  const close = parseTime(truckLocation.value.closeTime)
-  if (open === null || close === null) return false
-  const now = new Date()
-  const h = now.getHours() + now.getMinutes() / 60
-  return h >= open && h < close
-})
+const isOpen = computed(() => truckLocation.value?.isOpen ?? false)
 
 const storeHoursText = computed(() => {
   if (!truckLocation.value) return ''
@@ -110,6 +98,24 @@ function formatCouponValue(c: CampaignCoupon) {
 
 <template>
   <div class="max-w-lg mx-auto space-y-5">
+    <!-- PWA Install Banner -->
+    <Transition name="slide-down">
+      <div v-if="canInstall" class="bg-[#1B2B4B] rounded-2xl p-4 flex items-center gap-3 shadow">
+        <img src="/logo.jpg" alt="" class="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold text-white leading-tight">ติดตั้งแอปบนหน้าจอ</p>
+          <p class="text-xs text-white/60 leading-tight">เปิดได้เร็วขึ้น ใช้งานแบบ app</p>
+        </div>
+        <button
+          class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg hover:bg-[#F0F4F8] flex-shrink-0"
+          @click="install"
+        >ติดตั้ง</button>
+        <button class="text-white/40 hover:text-white p-1 flex-shrink-0" @click="dismiss">
+          <Icon name="mdi:close" class="text-base" />
+        </button>
+      </div>
+    </Transition>
+
     <!-- Member card -->
     <div class="bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b] rounded-2xl p-6 text-white shadow-lg">
       <div class="flex items-center gap-4 mb-5">
@@ -290,3 +296,8 @@ function formatCouponValue(c: CampaignCoupon) {
     </NuxtLink>
   </div>
 </template>
+
+<style scoped>
+.slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; }
+.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-12px); }
+</style>

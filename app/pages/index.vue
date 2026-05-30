@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { API_ENDPOINTS } from '~/composables/constants/api'
-
 definePageMeta({ layout: 'public' })
 
 const http = useHttpClient()
@@ -8,8 +6,8 @@ const { member, fetchMe } = useMemberAuth()
 
 interface HomeData {
   products: { id: string; name: string; imageUrl: string | null; category: { name: string } }[]
-  campaigns: { id: string; name: string; description: string | null }[]
-  truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null } | null
+  campaigns: { id: string; name: string; description: string | null; imageUrl: string | null }[]
+  truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean } | null
   topRequests: { id: string; name: string; description: string | null; voteCount: number }[]
 }
 
@@ -26,6 +24,7 @@ const submitting = ref(false)
 const voting = ref(false)
 const formError = ref('')
 const { showSuccess, showError } = useAlert()
+const { canInstall, install, dismiss } = usePwaInstall()
 
 const benefits = [
   { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'อัตราแลก 1pt = 1฿' },
@@ -83,54 +82,129 @@ async function refreshRequests() {
 }
 
 const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCount), 1))
+
+// duplicate products for seamless marquee loop
+const marqueeProducts = computed(() => {
+  const p = data.value?.products ?? []
+  return p.length > 0 ? [...p, ...p] : []
+})
 </script>
 
 <template>
   <div>
     <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
-    <section class="relative overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-[#DDEAF6] to-[#C8D8E8] min-h-[90vh] flex items-center">
-      <div class="absolute inset-0 overflow-hidden pointer-events-none">
-        <svg class="absolute -bottom-1 left-0 w-full" viewBox="0 0 1440 120" fill="none">
-          <path d="M0,60 C360,120 1080,0 1440,60 L1440,120 L0,120 Z" fill="white"/>
-        </svg>
-        <svg class="absolute top-10 right-[-2rem] opacity-10 w-96 h-96" viewBox="0 0 200 200">
-          <circle cx="100" cy="80" r="60" fill="#1B2B4B"/>
-          <ellipse cx="100" cy="145" rx="70" ry="15" fill="#1B2B4B"/>
-          <path d="M90,20 Q100,0 110,20 Q120,0 130,20" stroke="#1B2B4B" stroke-width="4" fill="none"/>
-        </svg>
-      </div>
-      <div class="relative max-w-4xl mx-auto px-6 py-24 text-center">
-        <img src="/logo.jpg" alt="Sibling Coffee" class="w-32 h-32 mx-auto rounded-full shadow-xl mb-8 object-cover" />
-        <h1 class="text-5xl md:text-6xl font-bold text-[#1B2B4B] leading-tight mb-4">Sibling Coffee</h1>
-        <p class="text-xl text-[#1B2B4B]/70 mb-10">พบกันทุกเช้า ที่ไหนก็ได้ ☕</p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <NuxtLink
-            to="/member/orders/new"
-            class="px-8 py-4 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-all shadow-lg hover:-translate-y-0.5"
+    <!-- Mobile: 50vh hero + 50vh campaign cards | Desktop: full hero -->
+    <div class="md:block">
+
+      <!-- Hero section: 50vh on mobile, 90vh on desktop -->
+      <section class="relative overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-[#DDEAF6] to-[#C8D8E8] h-[50vh] md:min-h-[90vh] flex items-center">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+          <svg class="absolute -bottom-1 left-0 w-full hidden md:block" viewBox="0 0 1440 120" fill="none">
+            <path d="M0,60 C360,120 1080,0 1440,60 L1440,120 L0,120 Z" fill="white"/>
+          </svg>
+          <svg class="absolute top-10 right-[-2rem] opacity-10 w-96 h-96" viewBox="0 0 200 200">
+            <circle cx="100" cy="80" r="60" fill="#1B2B4B"/>
+            <ellipse cx="100" cy="145" rx="70" ry="15" fill="#1B2B4B"/>
+            <path d="M90,20 Q100,0 110,20 Q120,0 130,20" stroke="#1B2B4B" stroke-width="4" fill="none"/>
+          </svg>
+        </div>
+        <div class="relative max-w-4xl mx-auto px-6 py-10 md:py-24 text-center w-full">
+          <img src="/logo.jpg" alt="Sibling Coffee" class="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-full shadow-xl mb-4 md:mb-8 object-cover" />
+          <h1 class="text-3xl md:text-6xl font-bold text-[#1B2B4B] leading-tight mb-2 md:mb-4">Sibling Coffee</h1>
+          <p class="text-base md:text-xl text-[#1B2B4B]/70 mb-6 md:mb-10">พบกันทุกเช้า ที่ไหนก็ได้ ☕</p>
+          <div class="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center">
+            <NuxtLink
+              to="/member/orders/new"
+              class="px-6 md:px-8 py-3 md:py-4 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-all shadow-lg hover:-translate-y-0.5 text-sm md:text-base"
+            >สั่งออนไลน์</NuxtLink>
+            <NuxtLink
+              to="/member/register"
+              class="px-6 md:px-8 py-3 md:py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl border-2 border-[#C8D8E8] hover:bg-[#F0F4F8] transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
+            >สมัครสมาชิกฟรี</NuxtLink>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mobile campaign cards: 50vh, shown only on mobile -->
+      <div v-if="data?.campaigns.length" class="md:hidden h-[50vh] relative overflow-hidden">
+        <!-- Stack of campaign cards filling the space -->
+        <div class="h-full grid" :class="data.campaigns.length === 1 ? 'grid-cols-1' : 'grid-cols-2'">
+          <div
+            v-for="(camp, i) in data.campaigns.slice(0, 2)"
+            :key="camp.id"
+            class="relative overflow-hidden"
+            :class="i === 0 && data.campaigns.length === 1 ? 'col-span-2' : ''"
           >
-            สั่งออนไลน์
-          </NuxtLink>
-          <NuxtLink
-            to="/member/register"
-            class="px-8 py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl border-2 border-[#C8D8E8] hover:bg-[#F0F4F8] transition-all shadow hover:-translate-y-0.5"
-          >
-            สมัครสมาชิกฟรี
-          </NuxtLink>
+            <!-- Background image or gradient -->
+            <img
+              v-if="camp.imageUrl"
+              :src="camp.imageUrl"
+              :alt="camp.name"
+              class="absolute inset-0 w-full h-full object-cover"
+            />
+            <div
+              v-else
+              class="absolute inset-0"
+              :class="i % 2 === 0
+                ? 'bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b]'
+                : 'bg-gradient-to-br from-[#C8D8E8] to-[#DDEAF6]'"
+            />
+            <!-- Overlay -->
+            <div class="absolute inset-0 bg-black/40" />
+            <!-- Content -->
+            <div class="relative h-full flex flex-col justify-end p-4">
+              <p class="text-xs font-medium text-white/70 uppercase tracking-wide mb-1">โปรโมชัน</p>
+              <p class="text-white font-bold text-base leading-tight line-clamp-2">{{ camp.name }}</p>
+              <p v-if="camp.description" class="text-white/70 text-xs mt-1 line-clamp-2">{{ camp.description }}</p>
+            </div>
+          </div>
         </div>
       </div>
-    </section>
+      <!-- Fallback space when no campaigns on mobile -->
+      <div v-else-if="data !== null" class="md:hidden" />
 
-    <!-- ─── Truck Location Banner ─────────────────────────────────────────── -->
-    <section v-if="data?.truckLocation" class="bg-[#1B2B4B] text-white py-5">
-      <div class="max-w-4xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div class="flex items-center gap-3">
-          <Icon name="flat-color-icons:globe" class="text-2xl flex-shrink-0" />
-          <div>
-            <p class="font-bold text-lg">{{ data.truckLocation.name }}</p>
-            <p class="text-white/70 text-sm">
-              {{ data.truckLocation.daysOfWeek }}
+    </div>
+
+    <!-- ─── PWA Install Banner ───────────────────────────────────────────── -->
+    <Transition name="slide-down">
+      <div v-if="canInstall" class="bg-[#1B2B4B]/95 text-white px-4 py-3">
+        <div class="max-w-4xl mx-auto flex items-center gap-3">
+          <img src="/logo.jpg" alt="" class="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold leading-tight">ติดตั้ง Sibling Coffee</p>
+            <p class="text-xs text-white/60 leading-tight">เพิ่มไปหน้าจอหลักเพื่อใช้งานง่ายขึ้น</p>
+          </div>
+          <button
+            class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg hover:bg-[#F0F4F8] flex-shrink-0"
+            @click="install"
+          >ติดตั้ง</button>
+          <button class="text-white/50 hover:text-white p-1 flex-shrink-0" @click="dismiss">
+            <Icon name="mdi:close" class="text-lg" />
+          </button>
+        </div>
+      </div>
+    </Transition>
+
+    <!-- ─── Truck Location Banner ────────────────────────────────────────── -->
+    <section v-if="data?.truckLocation" class="text-white py-4" :class="data.truckLocation.isOpen ? 'bg-green-700' : 'bg-[#1B2B4B]'">
+      <div class="max-w-4xl mx-auto px-6 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+            :class="data.truckLocation.isOpen ? 'bg-white/20' : 'bg-white/10'">
+            <Icon :name="data.truckLocation.isOpen ? 'mdi:store-check' : 'mdi:store-off'" class="text-lg" />
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="font-bold">{{ data.truckLocation.name }}</p>
+              <span class="text-xs px-2 py-0.5 rounded-full font-semibold"
+                :class="data.truckLocation.isOpen ? 'bg-white/20 text-white' : 'bg-red-500/80 text-white'">
+                {{ data.truckLocation.isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }}
+              </span>
+            </div>
+            <p class="text-white/70 text-sm truncate">
+              <span v-if="data.truckLocation.daysOfWeek">{{ data.truckLocation.daysOfWeek }}</span>
               <span v-if="data.truckLocation.openTime && data.truckLocation.closeTime">
-                · {{ data.truckLocation.openTime }}–{{ data.truckLocation.closeTime }}
+                {{ data.truckLocation.daysOfWeek ? ' · ' : '' }}{{ data.truckLocation.openTime }}–{{ data.truckLocation.closeTime }}
               </span>
             </p>
           </div>
@@ -140,39 +214,56 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
           :href="data.truckLocation.mapUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-sm font-medium transition-colors flex-shrink-0"
+          class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-medium transition-colors flex-shrink-0"
         >
-          ดูแผนที่ →
+          <Icon name="mdi:map-marker" class="text-base text-red-300" />
+          แผนที่
         </a>
       </div>
     </section>
 
-    <!-- ─── Menu ──────────────────────────────────────────────────────────── -->
-    <section class="py-20 bg-white">
-      <div class="max-w-5xl mx-auto px-6">
-        <h2 class="text-3xl font-bold text-[#1B2B4B] text-center mb-12">เมนูแนะนำ</h2>
-        <div v-if="data?.products.length" class="flex gap-5 overflow-x-auto pb-4 snap-x snap-mandatory">
-          <div v-for="product in data.products" :key="product.id" class="flex-shrink-0 w-44 snap-start">
+    <!-- ─── Menu Marquee ─────────────────────────────────────────────────── -->
+    <section class="py-16 bg-white overflow-hidden">
+      <div class="max-w-5xl mx-auto px-6 mb-10">
+        <h2 class="text-3xl font-bold text-[#1B2B4B] text-center">เมนูแนะนำ</h2>
+      </div>
+
+      <!-- Loading skeleton -->
+      <div v-if="!data" class="flex gap-5 px-6">
+        <div v-for="i in 5" :key="i" class="flex-shrink-0 w-40 h-52 bg-gray-100 rounded-2xl animate-pulse" />
+      </div>
+
+      <!-- Empty -->
+      <div v-else-if="!data.products.length" class="text-center text-gray-400 py-8">ยังไม่มีเมนู</div>
+
+      <!-- Marquee -->
+      <div v-else class="relative">
+        <!-- Fade edges -->
+        <div class="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
+        <div class="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
+
+        <div class="flex gap-5 marquee-track">
+          <div
+            v-for="(product, idx) in marqueeProducts"
+            :key="`${product.id}-${idx}`"
+            class="flex-shrink-0 w-40"
+          >
             <div class="bg-[#F8FAFC] rounded-2xl overflow-hidden shadow hover:shadow-md transition-shadow">
-              <div class="w-full h-40 bg-[#DDEAF6] flex items-center justify-center overflow-hidden">
+              <div class="w-full h-36 bg-[#DDEAF6] flex items-center justify-center overflow-hidden">
                 <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="w-full h-full object-cover" />
                 <Icon v-else name="flat-color-icons:shop" class="text-5xl" />
               </div>
               <div class="p-3">
-                <p class="font-semibold text-[#1B2B4B] text-sm leading-snug">{{ product.name }}</p>
+                <p class="font-semibold text-[#1B2B4B] text-sm leading-snug line-clamp-2">{{ product.name }}</p>
                 <p class="text-xs text-[#1B2B4B]/50 mt-0.5">{{ product.category.name }}</p>
               </div>
             </div>
           </div>
         </div>
-        <div v-else-if="data" class="text-center text-gray-400 py-8">ยังไม่มีเมนู</div>
-        <div v-else class="flex gap-5 overflow-x-auto pb-4">
-          <div v-for="i in 4" :key="i" class="flex-shrink-0 w-44 h-56 bg-gray-100 rounded-2xl animate-pulse" />
-        </div>
       </div>
     </section>
 
-    <!-- ─── Campaigns ─────────────────────────────────────────────────────── -->
+    <!-- ─── Campaigns (desktop full section) ────────────────────────────── -->
     <section v-if="data?.campaigns.length" class="py-20 bg-[#F8FAFC]">
       <div class="max-w-5xl mx-auto px-6">
         <h2 class="text-3xl font-bold text-[#1B2B4B] text-center mb-12">โปรโมชัน & แคมเปญ</h2>
@@ -180,21 +271,29 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
           <div
             v-for="campaign in data.campaigns"
             :key="campaign.id"
-            class="bg-white rounded-2xl overflow-hidden shadow hover:shadow-lg transition-shadow"
+            class="relative rounded-2xl overflow-hidden shadow hover:shadow-lg transition-shadow min-h-[220px] flex flex-col justify-end"
           >
-            <div class="h-44 bg-gradient-to-br from-[#C8D8E8] to-[#DDEAF6] flex items-center justify-center">
-              <Icon name="flat-color-icons:advertising" class="text-6xl" />
-            </div>
-            <div class="p-5">
-              <h3 class="font-bold text-[#1B2B4B] text-lg">{{ campaign.name }}</h3>
-              <p v-if="campaign.description" class="text-sm text-gray-500 mt-1">{{ campaign.description }}</p>
+            <!-- Background image or gradient -->
+            <img
+              v-if="campaign.imageUrl"
+              :src="campaign.imageUrl"
+              :alt="campaign.name"
+              class="absolute inset-0 w-full h-full object-cover"
+            />
+            <div v-else class="absolute inset-0 bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b]" />
+            <!-- Overlay -->
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+            <!-- Content -->
+            <div class="relative p-6">
+              <h3 class="font-bold text-white text-xl leading-snug">{{ campaign.name }}</h3>
+              <p v-if="campaign.description" class="text-white/75 text-sm mt-1">{{ campaign.description }}</p>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ─── Location Voting ───────────────────────────────────────────────── -->
+    <!-- ─── Location Voting ──────────────────────────────────────────────── -->
     <section class="py-20 bg-white">
       <div class="max-w-2xl mx-auto px-6">
         <div class="text-center mb-10">
@@ -213,7 +312,6 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
                 </div>
               </div>
               <button
-                @click="vote(req.id)"
                 :disabled="voting || !!myVotedId"
                 class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all flex-shrink-0 ml-3"
                 :class="myVotedId === req.id
@@ -221,6 +319,7 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
                   : myVotedId
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : 'bg-[#C8D8E8] text-[#1B2B4B] hover:bg-[#b0c8e0]'"
+                @click="vote(req.id)"
               >
                 <span>{{ myVotedId === req.id ? '✓' : '👍' }}</span>
                 <span>{{ req.voteCount }}</span>
@@ -238,15 +337,12 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
           ยังไม่มีคำขอสัปดาห์นี้ เป็นคนแรกได้เลย!
         </div>
 
-        <!-- Request form -->
         <div class="text-center">
           <button
             v-if="!showRequestForm"
-            @click="showRequestForm = true"
             class="px-6 py-3 border-2 border-[#C8D8E8] text-[#1B2B4B] font-semibold rounded-2xl hover:bg-[#F0F4F8] transition-colors"
-          >
-            + เสนอสถานที่ใหม่
-          </button>
+            @click="showRequestForm = true"
+          >+ เสนอสถานที่ใหม่</button>
           <div v-else class="bg-[#F8FAFC] rounded-2xl p-6 text-left">
             <h3 class="font-bold text-[#1B2B4B] mb-4">เสนอสถานที่</h3>
             <div v-if="formError" class="mb-3 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{{ formError }}</div>
@@ -265,18 +361,14 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
               />
               <div class="flex gap-3">
                 <button
-                  @click="submitRequest"
                   :disabled="!requestForm.name || submitting"
                   class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b] disabled:opacity-50 transition-colors"
-                >
-                  {{ submitting ? 'กำลังส่ง...' : 'เสนอสถานที่' }}
-                </button>
+                  @click="submitRequest"
+                >{{ submitting ? 'กำลังส่ง...' : 'เสนอสถานที่' }}</button>
                 <button
-                  @click="showRequestForm = false"
                   class="flex-1 py-3 bg-white border border-[#C8D8E8] text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  ยกเลิก
-                </button>
+                  @click="showRequestForm = false"
+                >ยกเลิก</button>
               </div>
             </div>
           </div>
@@ -284,7 +376,7 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
       </div>
     </section>
 
-    <!-- ─── Member Benefits ───────────────────────────────────────────────── -->
+    <!-- ─── Member Benefits ──────────────────────────────────────────────── -->
     <section class="py-20 bg-[#1B2B4B]">
       <div class="max-w-4xl mx-auto px-6 text-center">
         <h2 class="text-3xl font-bold text-white mb-3">ทำไมต้องสมัครสมาชิก?</h2>
@@ -299,13 +391,11 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
         <NuxtLink
           to="/member/register"
           class="inline-block px-10 py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl hover:bg-[#F0F4F8] transition-all shadow-lg hover:-translate-y-0.5"
-        >
-          สมัครสมาชิกฟรี →
-        </NuxtLink>
+        >สมัครสมาชิกฟรี →</NuxtLink>
       </div>
     </section>
 
-    <!-- ─── Footer ────────────────────────────────────────────────────────── -->
+    <!-- ─── Footer ───────────────────────────────────────────────────────── -->
     <footer class="bg-[#0F1C30] text-[#C8D8E8] py-10">
       <div class="max-w-4xl mx-auto px-6 text-center space-y-3">
         <img src="/logo.jpg" alt="Sibling Coffee" class="w-12 h-12 mx-auto rounded-full object-cover opacity-70" />
@@ -319,3 +409,23 @@ const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCou
     </footer>
   </div>
 </template>
+
+<style scoped>
+.slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; }
+.slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-12px); }
+
+/* Auto-scroll marquee */
+.marquee-track {
+  animation: marquee 30s linear infinite;
+  width: max-content;
+  padding: 0 1.25rem;
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+@keyframes marquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+</style>
