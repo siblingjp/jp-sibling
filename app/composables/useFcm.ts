@@ -25,11 +25,20 @@ export function useFcm() {
 
   async function registerServiceWorker() {
     const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
-    // ส่ง config ให้ sw
-    const sw = registration.installing ?? registration.waiting ?? registration.active
-    if (sw) {
-      // sw.js มี Firebase config hardcoded แล้ว ไม่ต้อง postMessage
-    }
+
+    // รอจนกว่า SW จะ active
+    await new Promise<void>((resolve) => {
+      if (registration.active) return resolve()
+      const sw = registration.installing ?? registration.waiting
+      if (!sw) return resolve()
+      sw.addEventListener('statechange', function handler() {
+        if (sw.state === 'activated') {
+          sw.removeEventListener('statechange', handler)
+          resolve()
+        }
+      })
+    })
+
     return registration
   }
 
@@ -47,15 +56,17 @@ export function useFcm() {
     try {
       initFirebase()
       const registration = await registerServiceWorker()
-      console.log('[FCM] SW registered, requesting permission...')
+      console.log('[FCM] SW registered:', registration.scope, registration.active?.state)
       const permission = await Notification.requestPermission()
       console.log('[FCM] Permission:', permission)
       if (permission !== 'granted') return
 
+      console.log('[FCM] Getting token...')
       const token = await getToken(messaging!, {
         vapidKey: config.public.firebaseVapidKey,
         serviceWorkerRegistration: registration,
       })
+      console.log('[FCM] Token:', token ? token.slice(0, 20) + '...' : 'EMPTY')
 
       if (!token) return
 
