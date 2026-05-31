@@ -77,8 +77,8 @@ export default defineNuxtConfig({
   pwa: {
     registerType: 'autoUpdate',
     strategies: 'injectManifest',
-    srcDir: '.',
-    filename: 'public/sw.js',
+    srcDir: new URL('./public', import.meta.url).pathname,
+    filename: 'sw.js',
     manifest: {
       name: 'Sibling Coffee',
       short_name: 'Sibling',
