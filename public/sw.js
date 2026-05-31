@@ -25,7 +25,7 @@ messaging.onBackgroundMessage((payload) => {
 })
 
 // ─── Workbox Precache (injected by vite-pwa) ──────────────────────────────────
-self.__WB_MANIFEST
+workbox.precaching.precacheAndRoute(self.__WB_MANIFEST)
 
 workbox.routing.registerRoute(
   /^\/api\//,
