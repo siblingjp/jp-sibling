@@ -9,7 +9,7 @@ admin.initializeApp({
 })
 
 const tokens = [
-  'cJZsQJt0Fh0a6OwaRu5nxi:APA91bGs6FVjoxpdGuMadDZpxucDK6dfZslGFqao6jt8lfXMY6hldMFGeP03SX67BoBrIcjcWwTm11-3IDSqJ0kGJYolmXWARCDcoFEMI7zro_IVna0xVgY',
+  'eipEE8tyFg7qDc-08LznjR:APA91bGDD11JPCVFe0bOiQuqzhoPTEI05_D6HQswN6XFDadEZfvBJiRphT_4iG71pwwXgRn8zdt3HOle62-45CSjB_AfMK8TNTYav3n35fbUBp4fxNRWF3c',
 ]
 
 for (const token of tokens) {

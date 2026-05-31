@@ -78,10 +78,17 @@ export function useFcm() {
 
       await http.post('/api/member/fcm/token', { token, platform })
 
-      // รับ foreground message
+      // รับ foreground message — ใช้ SW showNotification แทน new Notification()
       onMessage(messaging!, (payload) => {
         const { title, body } = payload.notification ?? {}
-        if (title) new Notification(title, { body: body ?? '', icon: '/icons/icon-192x192.png' })
+        const url = (payload.data as Record<string, string>)?.url ?? '/member/orders'
+        if (title) {
+          registration.showNotification(title, {
+            body: body ?? '',
+            icon: '/icons/icon-192x192.png',
+            data: { url },
+          })
+        }
       })
     } catch (e) {
       console.error('[FCM] Error:', e)
