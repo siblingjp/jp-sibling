@@ -43,6 +43,11 @@
 const store = useMemberStore()
 const { logout } = useMemberAuth()
 const router = useRouter()
+const { requestAndRegister } = useFcm()
+
+onMounted(() => {
+  requestAndRegister()
+})
 
 async function handleLogout() {
   await logout()

@@ -24,6 +24,8 @@
     "@pinia/nuxt": "^0.11.1",
     "@prisma/client": "^6.9.0",
     "@vite-pwa/nuxt": "^1.1.1",
+    "firebase": "^12.14.0",
+    "firebase-admin": "^13.10.0",
     "jsqr": "^1.4.0",
     "nuxt": "^4.4.6",
     "nuxt-auth-utils": "^0.5.29",

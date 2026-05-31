@@ -40,8 +40,19 @@ export default defineNuxtConfig({
         clientSecret: process.env.GG_CLIENT_SECRET || '',
       },
     },
+    firebase: {
+      projectId: process.env.FIREBASE_PROJECT_ID || '',
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
+      privateKey: process.env.FIREBASE_PRIVATE_KEY || '',
+    },
     public: {
       appName: process.env.APP_NAME || 'MyApp',
+      firebaseApiKey: process.env.FIREBASE_API_KEY || '',
+      firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
+      firebaseProjectId: process.env.FIREBASE_PROJECT_ID || '',
+      firebaseMessagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || '',
+      firebaseAppId: process.env.FIREBASE_APP_ID || '',
+      firebaseVapidKey: process.env.FIREBASE_VAPID_KEY || '',
     },
   },
 

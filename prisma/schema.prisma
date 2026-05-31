@@ -359,6 +359,7 @@ model Member {
   couponUses       CouponUse[]
   locationRequests LocationRequest[]
   locationVotes    LocationVote[]
+  fcmTokens        FcmToken[]
 
   @@map("members")
 }
@@ -458,4 +459,19 @@ model LocationVote {
   @@unique([requestId, memberId])
   @@unique([memberId, weekYear])
   @@map("location_votes")
+}
+
+// ─── FCM Push Notifications ───────────────────────────────────────────────────
+
+model FcmToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  platform  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@map("fcm_tokens")
 }

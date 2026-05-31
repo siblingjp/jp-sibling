@@ -70,6 +70,23 @@ export default defineEventHandler(async (event) => {
       return result
     }, { timeout: 15000, maxWait: 5000 })
 
+    // ส่ง push notification ให้ member
+    if (updated.memberId) {
+      const statusMessages: Record<string, { title: string; body: string }> = {
+        PREPARING: { title: '☕ กำลังเตรียมออเดอร์', body: `ออเดอร์ #${updated.queueNo} กำลังถูกเตรียม` },
+        READY:     { title: '✅ ออเดอร์พร้อมแล้ว!', body: `ออเดอร์ #${updated.queueNo} พร้อมรับได้เลยครับ` },
+        COMPLETED: { title: '🎉 เสร็จสิ้น', body: `ออเดอร์ #${updated.queueNo} เสร็จสิ้น ได้รับ ${updated.pointsEarned} แต้ม` },
+        CANCELLED: { title: '❌ ยกเลิกออเดอร์', body: `ออเดอร์ #${updated.queueNo} ถูกยกเลิก` },
+      }
+      const msg = statusMessages[data.status]
+      if (msg) {
+        sendPushToMember(updated.memberId, {
+          ...msg,
+          data: { url: `/member/orders/${id}`, orderId: id },
+        }).catch(() => {})
+      }
+    }
+
     return okResponse(updated)
   } catch (e: any) {
     console.error('[PATCH /pos/orders/:id] ERROR:', e?.message, e?.code, e?.meta)
