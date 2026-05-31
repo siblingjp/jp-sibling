@@ -7,6 +7,7 @@ const http = useHttpClient()
 
 interface MemberOrder {
   id: string
+  queueNo: number | null
   status: string
   total: string | number
   pointsEarned: number
@@ -118,9 +119,14 @@ function formatDate(d: string) {
         class="block bg-white rounded-2xl shadow p-5 hover:shadow-md transition-shadow"
       >
         <div class="flex items-start justify-between mb-3">
-          <div>
-            <p class="text-sm text-gray-400 font-mono">{{ order.id.slice(-8).toUpperCase() }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(order.createdAt) }}</p>
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-[#1B2B4B] flex items-center justify-center flex-shrink-0">
+              <span class="text-white font-black text-lg leading-none">#{{ order.queueNo ?? '–' }}</span>
+            </div>
+            <div>
+              <p class="text-xs text-gray-400 font-mono">{{ order.id.slice(-8).toUpperCase() }}</p>
+              <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(order.createdAt) }}</p>
+            </div>
           </div>
           <span class="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" :class="statusColor[order.status]">
             <Icon :name="statusIcon[order.status] ?? 'mdi:help-circle'" class="w-3.5 h-3.5" />

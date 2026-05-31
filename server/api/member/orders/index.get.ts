@@ -6,7 +6,14 @@ export default defineEventHandler(async (event) => {
     const orders = await prisma.order.findMany({
       where: { memberId: session.member.id },
       orderBy: { createdAt: 'desc' },
-      include: {
+      select: {
+        id: true,
+        queueNo: true,
+        status: true,
+        total: true,
+        pointsEarned: true,
+        pointsRedeemed: true,
+        createdAt: true,
         items: {
           include: {
             product: { select: { id: true, name: true, imageUrl: true } },
