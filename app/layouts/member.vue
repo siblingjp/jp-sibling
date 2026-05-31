@@ -17,6 +17,21 @@
       </nav>
     </header>
 
+    <!-- Notification permission banner (iOS ต้องการ user gesture) -->
+    <Transition name="slide-down">
+      <div v-if="showNotifBanner" class="bg-[#1B2B4B] px-4 py-3 flex items-center gap-3">
+        <Icon name="mdi:bell-ring" class="text-white text-xl flex-shrink-0" />
+        <p class="text-white text-sm flex-1">เปิดการแจ้งเตือนเพื่อรับสถานะออเดอร์</p>
+        <button
+          class="px-3 py-1 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg flex-shrink-0"
+          @click="enableNotifications"
+        >เปิด</button>
+        <button class="text-white/50 hover:text-white p-1 flex-shrink-0" @click="showNotifBanner = false">
+          <Icon name="mdi:close" class="text-base" />
+        </button>
+      </div>
+    </Transition>
+
     <main class="max-w-2xl mx-auto px-4 py-6">
       <slot />
     </main>
@@ -45,9 +60,24 @@ const { logout } = useMemberAuth()
 const router = useRouter()
 const { requestAndRegister } = useFcm()
 
+const showNotifBanner = ref(false)
+
 onMounted(() => {
-  requestAndRegister()
+  if (!('Notification' in window)) return
+  if (Notification.permission === 'granted') {
+    // มี permission แล้ว register token เลยโดยไม่ต้องขอซ้ำ
+    requestAndRegister()
+  } else if (Notification.permission === 'default') {
+    // ยังไม่เคยถาม — แสดง banner ให้กดเพื่อขอผ่าน user gesture
+    showNotifBanner.value = true
+  }
+  // 'denied' → ไม่แสดงอะไร
 })
+
+async function enableNotifications() {
+  showNotifBanner.value = false
+  await requestAndRegister()
+}
 
 async function handleLogout() {
   await logout()

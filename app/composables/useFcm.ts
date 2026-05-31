@@ -24,20 +24,11 @@ export function useFcm() {
   }
 
   async function registerServiceWorker() {
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
+    const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
     // ส่ง config ให้ sw
     const sw = registration.installing ?? registration.waiting ?? registration.active
     if (sw) {
-      sw.postMessage({
-        type: 'FIREBASE_CONFIG',
-        config: {
-          apiKey: config.public.firebaseApiKey,
-          authDomain: config.public.firebaseAuthDomain,
-          projectId: config.public.firebaseProjectId,
-          messagingSenderId: config.public.firebaseMessagingSenderId,
-          appId: config.public.firebaseAppId,
-        },
-      })
+      // sw.js มี Firebase config hardcoded แล้ว ไม่ต้อง postMessage
     }
     return registration
   }

@@ -76,6 +76,9 @@ export default defineNuxtConfig({
   
   pwa: {
     registerType: 'autoUpdate',
+    strategies: 'injectManifest',
+    srcDir: 'public',
+    filename: 'sw.js',
     manifest: {
       name: 'Sibling Coffee',
       short_name: 'Sibling',
@@ -99,31 +102,8 @@ export default defineNuxtConfig({
         { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ],
     },
-    workbox: {
-      // ห้าม cache API routes ทั้งหมด — ป้องกัน stale session/data
-      navigateFallback: null,
+    injectManifest: {
       globPatterns: ['**/*.{js,css,html,png,jpg,svg,ico,woff,woff2}'],
-      runtimeCaching: [
-        {
-          // Cache static assets (images, fonts) — stale-while-revalidate
-          urlPattern: /\.(png|jpg|jpeg|svg|gif|webp|ico|woff|woff2)$/,
-          handler: 'StaleWhileRevalidate',
-          options: {
-            cacheName: 'static-assets',
-            expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 30 },
-          },
-        },
-        {
-          // ไม่ cache /api/* เลย — ป้องกัน auth/data ผิดพลาด
-          urlPattern: /^\/api\//,
-          handler: 'NetworkOnly',
-        },
-        {
-          // ไม่ cache OAuth redirects
-          urlPattern: /\/auth\/oauth\//,
-          handler: 'NetworkOnly',
-        },
-      ],
     },
     client: {
       installPrompt: true,
