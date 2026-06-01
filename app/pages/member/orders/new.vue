@@ -148,7 +148,7 @@ function toggleOption(groupId: string, optionId: string, multiSelect: boolean) {
   const current = modalOptions[groupId] ?? []
   modalOptions[groupId] = multiSelect
     ? (current.includes(optionId) ? current.filter(id => id !== optionId) : [...current, optionId])
-    : [optionId]
+    : (current.includes(optionId) ? [] : [optionId])
 }
 
 function confirmModal() {
