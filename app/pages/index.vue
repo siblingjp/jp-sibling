@@ -101,6 +101,7 @@ const marqueeProducts = computed(() => {
             <Icon :name="data.truckLocation.isOpen ? 'mdi:store-check' : 'mdi:store-off'" class="text-lg" />
           </div>
           <div class="min-w-0">
+            <p class="text-white/60 text-xs font-medium mb-0.5">วันนี้อยู่ที่</p>
             <div class="flex items-center gap-2 flex-wrap">
               <p class="font-bold">{{ data.truckLocation.name }}</p>
               <span class="text-xs px-2 py-0.5 rounded-full font-semibold"
@@ -148,7 +149,7 @@ const marqueeProducts = computed(() => {
         <div class="relative max-w-4xl mx-auto px-6 py-10 md:py-24 text-center w-full">
           <img src="/logo.jpg" alt="Sibling Coffee" class="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-full shadow-xl mb-4 md:mb-8 object-cover" />
           <h1 class="text-3xl md:text-6xl font-bold text-[#1B2B4B] leading-tight mb-2 md:mb-4">Sibling Coffee</h1>
-          <p class="text-base md:text-xl text-[#1B2B4B]/70 mb-6 md:mb-10">พบกันที่ ที่คุณอยากดื่มกาแฟ</p>
+          <p class="text-base md:text-xl text-[#1B2B4B]/70 mb-6 md:mb-10">พบกันทุกเช้า ที่ไหนก็ได้</p>
           <div class="flex flex-col sm:flex-row items-center gap-3 md:gap-4 justify-center">
             <NuxtLink
               to="/member/orders/new"
@@ -387,9 +388,15 @@ const marqueeProducts = computed(() => {
       <div class="max-w-4xl mx-auto px-6 text-center space-y-3">
         <img src="/logo.jpg" alt="Sibling Coffee" class="w-12 h-12 mx-auto rounded-full object-cover opacity-70" />
         <div class="flex justify-center gap-8 text-sm font-medium">
-          <a href="#" class="hover:text-white transition-colors">LINE OA</a>
-          <a href="#" class="hover:text-white transition-colors">Instagram</a>
-          <a href="#" class="hover:text-white transition-colors">Facebook</a>
+          <a href="https://lin.ee/Yo7V4CO" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 hover:text-white transition-colors">
+            <Icon name="mdi:chat" class="text-base" />LINE OA
+          </a>
+          <a href="https://www.instagram.com/jp.sibling/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 hover:text-white transition-colors">
+            <Icon name="mdi:instagram" class="text-base" />Instagram
+          </a>
+          <a href="https://www.facebook.com/jp.sibling/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 hover:text-white transition-colors">
+            <Icon name="mdi:facebook" class="text-base" />Facebook
+          </a>
         </div>
         <p class="text-xs text-[#C8D8E8]/50">© {{ new Date().getFullYear() }} Sibling Coffee · Food Truck · Bangkok</p>
       </div>

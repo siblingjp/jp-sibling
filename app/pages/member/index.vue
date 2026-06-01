@@ -127,6 +127,7 @@ function formatCouponValue(c: CampaignCoupon) {
           :class="isOpen ? 'text-green-600' : 'text-red-500'" />
       </div>
       <div class="flex-1 min-w-0">
+        <p class="text-xs text-gray-400 font-medium mb-0.5">วันนี้อยู่ที่</p>
         <p class="font-semibold text-sm" :class="isOpen ? 'text-green-700' : 'text-red-600'">
           {{ truckLocation.name }} · {{ isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }}
         </p>
