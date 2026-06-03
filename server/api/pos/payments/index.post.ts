@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 const schema = z.object({
   orderId: z.string(),
-  method: z.enum(['CASH', 'CARD', 'QR']),
+  method: z.enum(['CASH', 'CARD', 'QR', 'THAI_HELP']),
   amount: z.number().positive(),
   transactionRef: z.string().optional(),
 })

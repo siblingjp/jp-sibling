@@ -52,6 +52,14 @@ const paymentBadge: Record<string, string> = {
   CASH: 'bg-gray-100 text-gray-600',
   CARD: 'bg-purple-100 text-purple-700',
   QR: 'bg-cyan-100 text-cyan-700',
+  THAI_HELP: 'bg-orange-100 text-orange-700',
+}
+
+const paymentLabel: Record<string, string> = {
+  CASH: 'เงินสด',
+  CARD: 'บัตร',
+  QR: 'QR พร้อมเพย์',
+  THAI_HELP: 'ไทยช่วยไทยพลัส',
 }
 
 function formatDate(d: string) {
@@ -154,7 +162,7 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
             </td>
             <td class="px-4 py-3 text-center">
               <span v-if="o.payment" class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="paymentBadge[o.payment.method]">
-                {{ o.payment.method }}
+                {{ paymentLabel[o.payment.method] ?? o.payment.method }}
               </span>
               <span v-else class="text-xs text-gray-400">—</span>
             </td>

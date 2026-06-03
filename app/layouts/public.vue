@@ -2,8 +2,8 @@
 const { member, fetchMe } = useMemberAuth()
 const scrolled = ref(false)
 
-onMounted(async () => {
-  await fetchMe()
+onMounted(() => {
+  fetchMe()
   window.addEventListener('scroll', () => { scrolled.value = window.scrollY > 20 }, { passive: true })
 })
 </script>
@@ -16,9 +16,9 @@ onMounted(async () => {
     >
       <nav class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         <NuxtLink to="/" class="flex items-center gap-2.5">
-          <img src="/logo-text.png" alt="Sibling Coffee" class="h-8 w-auto block sm:hidden" />
-          <img src="/logo.jpg" alt="Sibling Coffee" class="hidden sm:block w-8 h-8 rounded-full object-cover" />
-          <span class="hidden sm:block font-bold text-[#1B2B4B] text-lg">Sibling Coffee</span>
+          <img src="/logo-text.png" alt="JP Sibling" class="h-8 w-auto block sm:hidden" />
+          <img src="/logo.jpg" alt="JP Sibling" class="hidden sm:block w-8 h-8 rounded-full object-cover" />
+          <span class="hidden sm:block font-bold text-[#1B2B4B] text-lg">JP Sibling</span>
         </NuxtLink>
 
         <div class="flex items-center gap-4 text-sm font-medium">

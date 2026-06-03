@@ -51,7 +51,7 @@ function isActive(to: string, exact: boolean) {
     <aside class="w-56 bg-white shadow-sm flex-shrink-0 flex flex-col">
       <div class="p-5 border-b">
         <p class="text-xs font-medium text-gray-400 uppercase tracking-widest mb-0.5">ระบบหลังบ้าน</p>
-        <h1 class="text-base font-bold text-gray-900">Sibling Coffee</h1>
+        <h1 class="text-base font-bold text-gray-900">JP Sibling</h1>
       </div>
 
       <nav class="flex-1 p-3 overflow-y-auto space-y-4">

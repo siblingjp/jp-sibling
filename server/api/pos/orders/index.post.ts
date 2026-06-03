@@ -13,6 +13,7 @@ const itemSchema = z.object({
 
 const schema = z.object({
   note: z.string().optional(),
+  pickupTime: z.string().optional(),
   memberId: z.string().optional(),
   discountKind: z.enum(['PERCENT', 'AMOUNT']).optional(),
   discountValue: z.number().min(0).optional(),
@@ -108,6 +109,7 @@ export default defineEventHandler(async (event) => {
         data: {
           queueNo,
           note: data.note,
+          pickupTime: data.pickupTime ?? null,
           subtotal,
           discountKind: data.discountKind ?? null,
           discountValue: data.discountValue ?? null,

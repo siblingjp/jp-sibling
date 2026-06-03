@@ -10,6 +10,8 @@ export default defineEventHandler(async (event) => {
 
     await prisma.product.update({ where: { id }, data: { isActive: false } })
 
+    invalidateCache('pos:products')
+    invalidateCache('member:products')
     return okResponse(null, 'Product deleted')
   } catch (e) {
     handleError(e)

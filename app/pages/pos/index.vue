@@ -30,6 +30,9 @@ const filteredProducts = computed(() => {
   return list
 })
 
+// ─── Mobile tab ──────────────────────────────────────────────────────────────
+const mobileTab = ref<'products' | 'cart'>('products')
+
 // ─── Option Modal ────────────────────────────────────────────────────────────
 const optionModalProduct = ref<PosProduct | null>(null)
 const editingCartId = ref<string | null>(null)
@@ -37,6 +40,7 @@ const editingCartId = ref<string | null>(null)
 function openProduct(product: PosProduct) {
   if (product.optionGroups.length === 0) {
     store.addToCart(product, [], '', 1)
+    mobileTab.value = 'cart'
     return
   }
   optionModalProduct.value = product
@@ -58,6 +62,7 @@ function handleOptionConfirm(options: PosOption[], note: string, qty: number) {
     store.updateCartItem(editingCartId.value, qty, note, options)
   } else {
     store.addToCart(optionModalProduct.value, options, note, qty)
+    mobileTab.value = 'cart'
   }
   optionModalProduct.value = null
   editingCartId.value = null
@@ -132,7 +137,7 @@ const showPayment = ref(false)
 const lastOrderQueue = ref<number | null>(null)
 const showSuccess2 = ref(false)
 
-async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, ref?: string) {
+async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP', amount: number, ref?: string) {
   try {
     const order = await store.checkout(method, amount, ref)
     lastOrderQueue.value = order.queueNo
@@ -146,9 +151,31 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
 </script>
 
 <template>
-  <div class="flex h-full">
+  <div class="flex h-full flex-col md:flex-row">
+
+    <!-- Mobile tab bar -->
+    <div class="flex md:hidden border-b border-gray-200 bg-white flex-shrink-0">
+      <button
+        class="flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+        :class="mobileTab === 'products' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'"
+        @click="mobileTab = 'products'"
+      >
+        <Icon name="mdi:grid" class="text-base" />สินค้า
+      </button>
+      <button
+        class="flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 relative"
+        :class="mobileTab === 'cart' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'"
+        @click="mobileTab = 'cart'"
+      >
+        <Icon name="mdi:cart" class="text-base" />ตะกร้า
+        <span v-if="store.cart.length > 0" class="absolute top-1.5 right-[calc(50%-28px)] bg-blue-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+          {{ store.cart.length }}
+        </span>
+      </button>
+    </div>
+
     <!-- Product Area -->
-    <div class="flex-1 flex flex-col min-w-0 bg-gray-50">
+    <div class="flex-1 flex flex-col min-w-0 bg-gray-50 min-h-0" :class="mobileTab === 'cart' ? 'hidden md:flex' : 'flex'">
       <!-- Search + Category Filter -->
       <div class="px-4 pt-4 pb-3 bg-white border-b border-gray-200 space-y-3">
         <input
@@ -202,7 +229,7 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
     </div>
 
     <!-- Cart Panel -->
-    <div class="w-80 xl:w-96 flex-shrink-0 flex flex-col">
+    <div class="w-full md:w-80 xl:w-96 flex-shrink-0 flex flex-col min-h-0" :class="mobileTab === 'products' ? 'hidden md:flex' : 'flex'">
       <PosCartPanel
         :cart="store.cart"
         :member="store.member"
@@ -218,6 +245,8 @@ async function handleCheckout(method: 'CASH' | 'CARD' | 'QR', amount: number, re
         :total="store.total"
         :discounts="store.discounts"
         :is-submitting="store.isSubmitting"
+        :pickup-time="store.pickupTime"
+        @update-pickup-time="store.pickupTime = $event"
         @remove-item="store.removeFromCart"
         @edit-item="openEditItem"
         :applied-coupon="store.appliedCoupon"

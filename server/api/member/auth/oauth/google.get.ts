@@ -20,13 +20,14 @@ export default defineEventHandler(async (event) => {
     // Step 2: exchange code -> token
     const tokenRes = await $fetch<any>('https://oauth2.googleapis.com/token', {
       method: 'POST',
-      body: {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
         code,
         client_id: config.oauth.google.clientId,
         client_secret: config.oauth.google.clientSecret,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
-      },
+      }).toString(),
     })
 
     // Step 3: get user info

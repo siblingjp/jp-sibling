@@ -5,11 +5,17 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  confirm: [method: 'CASH' | 'CARD' | 'QR', amount: number, ref?: string]
+  confirm: [method: 'CASH' | 'QR' | 'THAI_HELP', amount: number, ref?: string]
   cancel: []
 }>()
 
-const method = ref<'CASH' | 'CARD' | 'QR'>('CASH')
+const method = ref<'CASH' | 'QR' | 'THAI_HELP'>('CASH')
+
+const methodLabel: Record<string, string> = {
+  CASH: 'เงินสด',
+  QR: 'QR พร้อมเพย์',
+  THAI_HELP: 'ไทยช่วยไทยพลัส',
+}
 const cashReceived = ref(0)
 const transactionRef = ref('')
 
@@ -55,13 +61,13 @@ function handleConfirm() {
         <!-- Method -->
         <div class="grid grid-cols-3 gap-2">
           <button
-            v-for="m in (['CASH', 'CARD', 'QR'] as const)"
+            v-for="m in (['CASH', 'QR', 'THAI_HELP'] as const)"
             :key="m"
             type="button"
             class="py-2.5 rounded-lg border text-sm font-medium transition-colors"
             :class="method === m ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
             @click="method = m"
-          >{{ m }}</button>
+          >{{ methodLabel[m] }}</button>
         </div>
 
         <!-- CASH -->
@@ -91,7 +97,7 @@ function handleConfirm() {
           </div>
         </div>
 
-        <!-- CARD / QR -->
+        <!-- QR / THAI_HELP -->
         <div v-else>
           <label class="block text-xs text-gray-500 mb-1">เลขอ้างอิง (ไม่บังคับ)</label>
           <input

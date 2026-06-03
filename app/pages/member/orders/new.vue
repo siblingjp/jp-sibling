@@ -539,6 +539,15 @@ const steps = [
       >
         {{ uploadingSlip ? 'กำลังอัปโหลดสลิป...' : placing ? 'กำลังสั่ง...' : 'ยืนยันการสั่ง' }}
       </button>
+
+      <!-- Cancel order -->
+      <button
+        :disabled="placing"
+        class="w-full py-3 border border-red-300 text-red-500 font-medium rounded-2xl hover:bg-red-50 disabled:opacity-50 transition-colors text-sm"
+        @click="cart = []; step = 1"
+      >
+        ยกเลิกออเดอร์
+      </button>
     </div>
 
     <!-- ════════════════════════════════════════════════════════════
@@ -581,8 +590,8 @@ const steps = [
 
     <!-- ── Option modal ── -->
     <Teleport to="body">
-      <div v-if="modalProduct" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
-        <div class="bg-white rounded-2xl w-full max-w-md max-h-[85vh] overflow-y-auto shadow-2xl">
+      <div v-if="modalProduct" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:bg-black/40 sm:p-4">
+        <div class="bg-white sm:rounded-2xl w-full sm:max-w-md h-full sm:h-auto sm:max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col">
           <div class="p-6 border-b border-gray-100">
             <h3 class="text-lg font-bold text-gray-900">{{ modalProduct.name }}</h3>
             <p class="text-[#2a3f6b] font-semibold mt-1">฿{{ Number(modalProduct.price).toFixed(0) }}</p>
@@ -628,7 +637,7 @@ const steps = [
               </div>
             </div>
           </div>
-          <div class="p-6 pt-0 flex gap-3">
+          <div class="p-6 pt-0 flex gap-3 sm:mt-0 mt-auto sticky bottom-0 bg-white border-t border-gray-100 sm:border-none sm:static">
             <button @click="modalProduct = null" class="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">ยกเลิก</button>
             <button @click="confirmModal" class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b]">เพิ่มลงออเดอร์</button>
           </div>

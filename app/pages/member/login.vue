@@ -110,6 +110,12 @@ async function handleLogin() {
           <NuxtLink to="/member/register" class="text-[#1B2B4B] font-medium hover:underline">สมัครสมาชิก</NuxtLink>
         </p>
       </div>
+
+      <div class="text-center mt-6">
+        <NuxtLink to="/" class="text-sm text-[#1B2B4B]/50 hover:text-[#1B2B4B] transition-colors">
+          กลับหน้าหลัก
+        </NuxtLink>
+      </div>
     </div>
   </div>
 </template>

@@ -44,10 +44,32 @@ async function updateStatus(id: string, status: string) {
 watch(statusFilter, load)
 onMounted(load)
 
-// auto refresh ทุก 30 วินาที
+// auto refresh
+const autoRefresh = ref(true)
+const refreshInterval = 30
+const countdown = ref(refreshInterval)
 let interval: ReturnType<typeof setInterval>
-onMounted(() => { interval = setInterval(load, 30000) })
-onUnmounted(() => clearInterval(interval))
+let countdownInterval: ReturnType<typeof setInterval>
+
+function startAutoRefresh() {
+  countdown.value = refreshInterval
+  interval = setInterval(() => { load(); countdown.value = refreshInterval }, refreshInterval * 1000)
+  countdownInterval = setInterval(() => { if (countdown.value > 0) countdown.value-- }, 1000)
+}
+
+function stopAutoRefresh() {
+  clearInterval(interval)
+  clearInterval(countdownInterval)
+}
+
+function toggleAutoRefresh() {
+  autoRefresh.value = !autoRefresh.value
+  if (autoRefresh.value) startAutoRefresh()
+  else stopAutoRefresh()
+}
+
+onMounted(startAutoRefresh)
+onUnmounted(stopAutoRefresh)
 
 const nextStatus: Record<string, string> = {
   PENDING: 'PREPARING',
@@ -83,20 +105,29 @@ function formatPrice(n: number) {
 <template>
   <div class="flex flex-col h-full bg-gray-50">
     <!-- Header -->
-    <div class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4">
-      <h1 class="text-lg font-semibold text-gray-900">คิวออเดอร์</h1>
-      <div class="flex items-center gap-3">
+    <div class="bg-white border-b border-gray-200 px-3 md:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <h1 class="text-base font-semibold text-gray-900 flex-shrink-0">คิวออเดอร์</h1>
+      <div class="flex items-center gap-2 flex-wrap">
         <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
           <button
             v-for="opt in statusOptions"
             :key="opt.value"
-            class="px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+            class="px-2 md:px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap"
             :class="statusFilter === opt.value ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'"
             @click="statusFilter = opt.value"
           >{{ opt.label }}</button>
         </div>
-        <button class="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700" @click="load">
-          รีเฟรช
+        <button class="p-1.5 md:px-3 md:py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 flex items-center gap-1.5" @click="load">
+          <Icon name="mdi:refresh" class="text-base" />
+          <span class="hidden md:inline">รีเฟรช</span>
+        </button>
+        <button
+          class="p-1.5 md:px-3 md:py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
+          :class="autoRefresh ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+          @click="toggleAutoRefresh"
+        >
+          <Icon :name="autoRefresh ? 'mdi:autorenew' : 'mdi:autorenew-off'" class="text-base" />
+          <span class="hidden sm:inline">{{ autoRefresh ? `auto (${countdown}s)` : 'auto: ปิด' }}</span>
         </button>
       </div>
     </div>
@@ -109,7 +140,8 @@ function formatPrice(n: number) {
         <div
           v-for="order in orders"
           :key="order.id"
-          class="bg-white rounded-xl shadow-sm p-4 space-y-3"
+          class="bg-white rounded-xl shadow-sm p-4 space-y-3 cursor-pointer hover:shadow-md transition-shadow"
+          @click="navigateTo(`/pos/orders/${order.id}`)"
         >
           <!-- Queue No & Status -->
           <div class="flex items-center justify-between">
@@ -167,7 +199,7 @@ function formatPrice(n: number) {
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-2">
+          <div class="flex gap-2" @click.stop>
             <button
               v-if="nextStatus[order.status]"
               class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"

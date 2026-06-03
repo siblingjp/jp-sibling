@@ -52,6 +52,8 @@ export default defineEventHandler(async (event) => {
       },
     })
 
+    invalidateCache('pos:products')
+    invalidateCache('member:products')
     return okResponse(product)
   } catch (e) {
     handleError(e)

@@ -18,6 +18,7 @@ const props = defineProps<{
   total: number
   discounts: readonly PosDiscount[]
   isSubmitting: boolean
+  pickupTime: string
 }>()
 
 const emit = defineEmits<{
@@ -36,6 +37,7 @@ const emit = defineEmits<{
   badgeCreated: [badge: any]
   scanCoupon: []
   scanMember: []
+  updatePickupTime: [v: string]
 }>()
 
 const discountInput = ref(0)
@@ -330,6 +332,17 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
         <div class="flex justify-between font-bold text-gray-900 text-base pt-1 border-t border-gray-100">
           <span>รวมทั้งหมด</span><span>฿{{ total.toFixed(2) }}</span>
         </div>
+      </div>
+
+      <!-- Pickup Time -->
+      <div>
+        <label class="text-xs text-gray-500 mb-1 block">เวลารับ (ไม่บังคับ)</label>
+        <input
+          :value="pickupTime"
+          type="time"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          @input="emit('updatePickupTime', ($event.target as HTMLInputElement).value)"
+        />
       </div>
 
       <!-- Checkout Button -->

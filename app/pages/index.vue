@@ -24,7 +24,8 @@ const submitting = ref(false)
 const voting = ref(false)
 const formError = ref('')
 const { showSuccess, showError } = useAlert()
-const { canInstall, install, dismiss } = usePwaInstall()
+const { canInstall, platform, hasNativePrompt, install } = usePwaInstall()
+const dismissedBanner = ref(false)
 
 const benefits = [
   { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'อัตราแลก 1pt = 1฿' },
@@ -34,7 +35,6 @@ const benefits = [
 ]
 
 onMounted(async () => {
-  await fetchMe()
   const res = await http.get<{ success: boolean; data: HomeData }>('/api/public/home')
   data.value = res.data ?? null
   allRequests.value = data.value?.topRequests ?? []
@@ -147,8 +147,8 @@ const marqueeProducts = computed(() => {
           </svg>
         </div>
         <div class="relative max-w-4xl mx-auto px-6 py-10 md:py-24 text-center w-full">
-          <img src="/logo.jpg" alt="Sibling Coffee" class="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-full shadow-xl mb-4 md:mb-8 object-cover" />
-          <h1 class="text-3xl md:text-6xl font-bold text-[#1B2B4B] leading-tight mb-2 md:mb-4">Sibling Coffee</h1>
+          <img src="/logo.jpg" alt="JP Sibling" class="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-full shadow-xl mb-4 md:mb-8 object-cover" />
+          <h1 class="text-3xl md:text-6xl font-bold text-[#1B2B4B] leading-tight mb-2 md:mb-4">JP Sibling</h1>
           <p class="text-base md:text-xl text-[#1B2B4B]/70 mb-6 md:mb-10">พบกันทุกเช้า ที่ไหนก็ได้</p>
           <div class="flex flex-col sm:flex-row items-center gap-3 md:gap-4 justify-center">
             <NuxtLink
@@ -172,18 +172,41 @@ const marqueeProducts = computed(() => {
 
     <!-- ─── PWA Install Banner ───────────────────────────────────────────── -->
     <Transition name="slide-down">
-      <div v-if="canInstall" class="bg-[#1B2B4B]/95 text-white px-4 py-3">
+      <div v-if="canInstall && !dismissedBanner" class="bg-[#1B2B4B]/95 text-white px-4 py-3">
         <div class="max-w-4xl mx-auto flex items-center gap-3">
           <img src="/logo.jpg" alt="" class="w-9 h-9 rounded-full object-cover flex-shrink-0" />
-          <div class="flex-1 min-w-0">
-            <p class="text-sm font-semibold leading-tight">ติดตั้ง Sibling Coffee</p>
-            <p class="text-xs text-white/60 leading-tight">เพิ่มไปหน้าจอหลักเพื่อใช้งานง่ายขึ้น</p>
-          </div>
-          <button
-            class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg hover:bg-[#F0F4F8] flex-shrink-0"
-            @click="install"
-          >ติดตั้ง</button>
-          <button class="text-white/50 hover:text-white p-1 flex-shrink-0" @click="dismiss">
+
+          <!-- Android Chrome / Desktop: native prompt -->
+          <template v-if="hasNativePrompt">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold leading-tight">ติดตั้ง JP Sibling</p>
+              <p class="text-xs text-white/60 leading-tight">เพิ่มไปหน้าจอหลักเพื่อใช้งานง่ายขึ้น</p>
+            </div>
+            <button
+              class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg flex-shrink-0"
+              @click="install"
+            >ติดตั้ง</button>
+          </template>
+
+          <!-- iOS Safari: แนะนำ manual -->
+          <template v-else-if="platform === 'ios-safari'">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold leading-tight">ติดตั้ง JP Sibling บน iPhone</p>
+              <p class="text-xs text-white/60 leading-tight">
+                กดปุ่ม <Icon name="mdi:export-variant" class="inline text-sm align-middle" /> แชร์ (Share) แล้วเลือก "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"
+              </p>
+            </div>
+          </template>
+
+          <!-- iOS Chrome/Firefox: แนะนำให้เปิดด้วย Safari -->
+          <template v-else-if="platform === 'ios-other'">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold leading-tight">ติดตั้งผ่าน Safari</p>
+              <p class="text-xs text-white/60 leading-tight">เปิดลิงก์นี้ด้วย Safari แล้วกด "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"</p>
+            </div>
+          </template>
+
+          <button class="text-white/50 hover:text-white p-1 flex-shrink-0" @click="dismissedBanner = true">
             <Icon name="mdi:close" class="text-lg" />
           </button>
         </div>
@@ -308,7 +331,7 @@ const marqueeProducts = computed(() => {
                     : 'bg-[#C8D8E8] text-[#1B2B4B] hover:bg-[#b0c8e0]'"
                 @click="vote(req.id)"
               >
-                <span>{{ myVotedId === req.id ? '✓' : '👍' }}</span>
+                <Icon :name="myVotedId === req.id ? 'mdi:check' : 'mdi:thumb-up'" class="text-base" />
                 <span>{{ req.voteCount }}</span>
               </button>
             </div>
@@ -386,7 +409,7 @@ const marqueeProducts = computed(() => {
     <!-- ─── Footer ───────────────────────────────────────────────────────── -->
     <footer class="bg-[#0F1C30] text-[#C8D8E8] py-10">
       <div class="max-w-4xl mx-auto px-6 text-center space-y-3">
-        <img src="/logo.jpg" alt="Sibling Coffee" class="w-12 h-12 mx-auto rounded-full object-cover opacity-70" />
+        <img src="/logo.jpg" alt="JP Sibling" class="w-12 h-12 mx-auto rounded-full object-cover opacity-70" />
         <div class="flex justify-center gap-8 text-sm font-medium">
           <a href="https://lin.ee/Yo7V4CO" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 hover:text-white transition-colors">
             <Icon name="mdi:chat" class="text-base" />LINE OA
@@ -398,7 +421,7 @@ const marqueeProducts = computed(() => {
             <Icon name="mdi:facebook" class="text-base" />Facebook
           </a>
         </div>
-        <p class="text-xs text-[#C8D8E8]/50">© {{ new Date().getFullYear() }} Sibling Coffee · Food Truck · Bangkok</p>
+        <p class="text-xs text-[#C8D8E8]/50">© {{ new Date().getFullYear() }} <NuxtLink to="/admin" class="hover:text-white transition-colors">JP Sibling</NuxtLink> · Coffee Truck · Chiang Mai</p>
       </div>
     </footer>
   </div>

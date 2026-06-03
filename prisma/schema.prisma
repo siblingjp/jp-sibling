@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Auth & Users ─────────────────────────────────────────────────────────────
@@ -251,6 +252,7 @@ enum PaymentMethod {
   CASH
   CARD
   QR
+  THAI_HELP
 }
 
 model Order {

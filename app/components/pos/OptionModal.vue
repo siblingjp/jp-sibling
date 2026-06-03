@@ -64,8 +64,8 @@ function handleConfirm() {
       v-if="product"
       class="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
     >
-      <div class="absolute inset-0 bg-black/40" @click="emit('cancel')" />
-      <div class="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[90vh] flex flex-col">
+      <div class="absolute inset-0 bg-black/40 hidden sm:block" @click="emit('cancel')" />
+      <div class="relative bg-white w-full sm:max-w-md sm:rounded-2xl shadow-xl flex flex-col h-full sm:h-auto sm:max-h-[90vh]">
         <!-- Header -->
         <div class="px-5 pt-5 pb-3 border-b border-gray-100">
           <h2 class="text-lg font-semibold text-gray-900">{{ product.name }}</h2>
@@ -112,7 +112,7 @@ function handleConfirm() {
         </div>
 
         <!-- Footer -->
-        <div class="px-5 py-4 border-t border-gray-100 space-y-3">
+        <div class="px-5 py-4 border-t border-gray-100 space-y-3 sticky bottom-0 bg-white sm:static">
           <!-- Qty -->
           <div class="flex items-center justify-center gap-4">
             <button

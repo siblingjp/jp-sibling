@@ -86,6 +86,7 @@ export const API_ENDPOINTS = {
     ORDERS: {
       LIST: '/api/pos/orders',
       CREATE: '/api/pos/orders',
+      SHOW: (id: string) => `/api/pos/orders/${id}`,
       UPDATE: (id: string) => `/api/pos/orders/${id}`,
     },
     PAYMENTS: {

@@ -9,8 +9,8 @@
     <header class="bg-white shadow-sm sticky top-0 z-50">
       <nav class="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
         <NuxtLink to="/" class="flex items-center gap-2.5">
-          <img src="/logo-text.png" alt="Sibling Coffee" class="h-8 w-auto block sm:hidden" />
-          <img src="/logo.jpg" alt="Sibling Coffee" class="hidden sm:block w-8 h-8 rounded-full object-cover" />
+          <img src="/logo-text.png" alt="JP Sibling" class="h-8 w-auto block sm:hidden" />
+          <img src="/logo.jpg" alt="JP Sibling" class="hidden sm:block w-8 h-8 rounded-full object-cover" />
           <span class="hidden sm:block font-bold text-[#1B2B4B] text-lg">{{ $config.public.appName }}</span>
         </NuxtLink>
         <button class="text-gray-500 hover:text-red-600 text-sm" @click="handleLogout">ออกจากระบบ</button>
@@ -46,7 +46,7 @@
           class="flex-1 flex flex-col items-center py-3 gap-1 text-xs transition-colors"
           :class="isActive(item) ? 'text-[#1B2B4B]' : 'text-gray-400 hover:text-gray-600'"
         >
-          <Icon :name="item.icon" class="text-2xl" />
+          <Icon :name="isActive(item) ? item.activeIcon : item.icon" class="text-2xl" />
           <span class="font-medium">{{ item.label }}</span>
         </NuxtLink>
       </div>
@@ -62,16 +62,19 @@ const { requestAndRegister } = useFcm()
 
 const showNotifBanner = ref(false)
 
-onMounted(() => {
+onMounted(async () => {
+  if (!store.initialized) await store.fetchMe()
+  if (!store.member) {
+    await router.push('/member/login')
+    return
+  }
+
   if (!('Notification' in window)) return
   if (Notification.permission === 'granted') {
-    // มี permission แล้ว register token เลยโดยไม่ต้องขอซ้ำ
     requestAndRegister()
   } else if (Notification.permission === 'default') {
-    // ยังไม่เคยถาม — แสดง banner ให้กดเพื่อขอผ่าน user gesture
     showNotifBanner.value = true
   }
-  // 'denied' → ไม่แสดงอะไร
 })
 
 async function enableNotifications() {
@@ -85,11 +88,11 @@ async function handleLogout() {
 }
 
 const navItems = [
-  { to: '/member', icon: 'flat-color-icons:home', label: 'หน้าแรก', exact: true },
-  { to: '/member/orders', icon: 'flat-color-icons:list', label: 'ออเดอร์', exact: false },
-  { to: '/member/redeem', icon: 'mdi:gift', label: 'แลกแต้ม', exact: false },
-  { to: '/member/coupons', icon: 'mdi:ticket-percent', label: 'คูปอง', exact: false },
-  { to: '/member/profile', icon: 'flat-color-icons:businessman', label: 'โปรไฟล์', exact: false },
+  { to: '/member', icon: 'mdi:home', activeIcon: 'flat-color-icons:home', label: 'หน้าแรก', exact: true },
+  { to: '/member/orders', icon: 'mdi:clipboard-list', activeIcon: 'flat-color-icons:list', label: 'ออเดอร์', exact: false },
+  { to: '/member/redeem', icon: 'mdi:gift', activeIcon: 'mdi:gift', label: 'แลกแต้ม', exact: false },
+  { to: '/member/coupons', icon: 'mdi:ticket-percent', activeIcon: 'mdi:ticket-percent', label: 'คูปอง', exact: false },
+  { to: '/member/profile', icon: 'mdi:account', activeIcon: 'flat-color-icons:businessman', label: 'โปรไฟล์', exact: false },
 ]
 
 function isActive(item: typeof navItems[number]) {

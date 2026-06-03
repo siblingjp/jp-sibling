@@ -3,6 +3,9 @@ export default defineEventHandler(async (event) => {
     const session = await getUserSession(event)
     if (!session.member) throw unauthorized()
 
+    const cached = getCache('member:products')
+    if (cached) return okResponse(cached)
+
     const products = await prisma.product.findMany({
       where: { isActive: true },
       orderBy: [{ category: { name: 'asc' } }, { name: 'asc' }],
@@ -24,6 +27,7 @@ export default defineEventHandler(async (event) => {
       },
     })
 
+    setCache('member:products', products, 300)
     return okResponse(products)
   } catch (e) {
     handleError(e)

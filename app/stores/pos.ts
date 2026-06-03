@@ -130,6 +130,7 @@ export const usePosStore = defineStore('pos', () => {
     discountAmount.value = 0
     pointsToRedeem.value = 0
     orderNote.value = ''
+    pickupTime.value = ''
     appliedCoupon.value = null
     couponDiscount.value = 0
   }
@@ -205,6 +206,7 @@ export const usePosStore = defineStore('pos', () => {
 
   // ─── Order Note ─────────────────────────────────────────────────────────────
   const orderNote = ref('')
+  const pickupTime = ref('')
 
   // ─── Computed Totals ────────────────────────────────────────────────────────
   const subtotal = computed(() => cart.value.reduce((s, i) => s + i.subtotal, 0))
@@ -234,12 +236,13 @@ export const usePosStore = defineStore('pos', () => {
   const isSubmitting = ref(false)
   const lastOrder = ref<any>(null)
 
-  async function checkout(paymentMethod: 'CASH' | 'CARD' | 'QR', paymentAmount: number, transactionRef?: string) {
+  async function checkout(paymentMethod: 'CASH' | 'QR' | 'THAI_HELP', paymentAmount: number, transactionRef?: string) {
     if (cart.value.length === 0) throw new Error('Cart is empty')
     isSubmitting.value = true
     try {
       const orderPayload = {
         note: orderNote.value || undefined,
+        pickupTime: pickupTime.value || undefined,
         memberId: member.value?.id,
         discountKind: discountMode.value === 'badge' && discountBadge.value
           ? discountBadge.value.kind
@@ -294,6 +297,7 @@ export const usePosStore = defineStore('pos', () => {
     discountAmount: readonly(discountAmount),
     pointsToRedeem,
     orderNote,
+    pickupTime,
     subtotal,
     discountCalc,
     maxRedeemable,

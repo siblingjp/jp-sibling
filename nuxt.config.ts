@@ -65,6 +65,16 @@ export default defineNuxtConfig({
     ],
   },
 
+  router: {
+    options: {
+      strict: false,
+    },
+  },
+
+  routeRules: {
+    '/member/**': { ssr: false },
+  },
+
   nitro: {
     experimental: {
       openAPI: true,
@@ -80,9 +90,9 @@ export default defineNuxtConfig({
     srcDir: new URL('./public', import.meta.url).pathname,
     filename: 'sw.js',
     manifest: {
-      name: 'Sibling Coffee',
-      short_name: 'Sibling',
-      description: 'Sibling Coffee — Member & Order App',
+      name: 'JP Sibling',
+      short_name: 'JP Sibling',
+      description: 'JP Sibling — Member & Order App',
       theme_color: '#1B2B4B',
       background_color: '#ffffff',
       display: 'standalone',
