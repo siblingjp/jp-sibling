@@ -107,6 +107,7 @@ const couponInput = ref('')
 
 // pickup & slip
 const pickupTime = ref('')
+const orderNote = ref('')
 const slipFile = ref<File | null>(null)
 const slipPreview = ref('')
 const uploadingSlip = ref(false)
@@ -270,6 +271,7 @@ async function placeOrder() {
           options: item.selectedOptions,
           note: item.note || undefined,
         })),
+        note: orderNote.value || undefined,
         couponCode: appliedCouponCode.value || undefined,
         pickupTime: pickupTime.value,
         slipUrl: uploaded.publicUrl,
@@ -446,6 +448,17 @@ const steps = [
         </button>
       </div>
 
+      <!-- Note -->
+      <div class="bg-white rounded-2xl shadow p-4">
+        <p class="text-sm font-semibold text-gray-700 mb-2">หมายเหตุ (ไม่บังคับ)</p>
+        <textarea
+          v-model="orderNote"
+          rows="2"
+          placeholder="เช่น ไม่เอาน้ำแข็ง, หวานน้อย..."
+          class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8] resize-none"
+        />
+      </div>
+
       <!-- Total -->
       <div class="bg-white rounded-2xl shadow p-4 space-y-2">
         <div class="flex justify-between text-sm text-gray-500">
@@ -540,14 +553,6 @@ const steps = [
         {{ uploadingSlip ? 'กำลังอัปโหลดสลิป...' : placing ? 'กำลังสั่ง...' : 'ยืนยันการสั่ง' }}
       </button>
 
-      <!-- Cancel order -->
-      <button
-        :disabled="placing"
-        class="w-full py-3 border border-red-300 text-red-500 font-medium rounded-2xl hover:bg-red-50 disabled:opacity-50 transition-colors text-sm"
-        @click="cart = []; step = 1"
-      >
-        ยกเลิกออเดอร์
-      </button>
     </div>
 
     <!-- ════════════════════════════════════════════════════════════

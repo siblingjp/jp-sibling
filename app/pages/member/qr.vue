@@ -4,8 +4,27 @@ definePageMeta({ layout: 'member', middleware: 'member' })
 const { member } = useMemberAuth()
 
 const qrUrl = computed(() =>
-  `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(member.value?.id ?? '')}&margin=10`
+  `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(member.value?.id ?? '')}&margin=10`
 )
+
+const saving = ref(false)
+
+async function saveQR() {
+  if (!member.value) return
+  saving.value = true
+  try {
+    const res = await fetch(qrUrl.value)
+    const blob = await res.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `qr-${member.value.name ?? member.value.id}.png`
+    a.click()
+    URL.revokeObjectURL(url)
+  } finally {
+    saving.value = false
+  }
+}
 </script>
 
 <template>
@@ -31,6 +50,15 @@ const qrUrl = computed(() =>
           <p class="text-xs text-[#2a3f6b]">ยอดแต้มปัจจุบัน</p>
         </div>
       </div>
+
+      <button
+        :disabled="saving"
+        class="w-full py-3 rounded-xl bg-[#1B2B4B] text-white font-semibold text-sm flex items-center justify-center gap-2 hover:bg-[#2a3f6b] disabled:opacity-50 transition-colors"
+        @click="saveQR"
+      >
+        <Icon name="mdi:download" class="text-lg" />
+        {{ saving ? 'กำลังบันทึก...' : 'บันทึก QR Code' }}
+      </button>
     </div>
 
     <p class="text-center text-xs text-gray-400">

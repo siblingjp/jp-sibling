@@ -129,15 +129,6 @@ function formatDate(d: string) {
           </p>
         </div>
 
-        <!-- Cancel button — only for PENDING / PREPARING -->
-        <button
-          v-if="['PENDING', 'PREPARING'].includes(order.status)"
-          :disabled="cancelling"
-          @click="cancelOrder"
-          class="mt-4 w-full py-2.5 border border-red-300 text-red-600 font-semibold rounded-xl hover:bg-red-50 disabled:opacity-50 transition-colors text-sm"
-        >
-          {{ cancelling ? 'กำลังยกเลิก...' : 'ยกเลิกออเดอร์' }}
-        </button>
       </div>
 
       <!-- Items -->
