@@ -35,14 +35,8 @@ export function usePwaInstall() {
     !isInStandaloneMode.value && platform.value !== 'unsupported'
   )
 
-  const isIOS = computed(() => {
-    if (!import.meta.client) return false
-    const ua = navigator.userAgent
-    return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-  })
-
-  // native prompt ใช้ได้จริงเฉพาะ non-iOS เท่านั้น
-  const hasNativePrompt = computed(() => !isIOS.value && !!$pwa?.showInstallPrompt)
+  // สำหรับ Android Chrome ใช้ native prompt
+  const hasNativePrompt = computed(() => !!$pwa?.showInstallPrompt)
 
   async function install() {
     if (hasNativePrompt.value) await $pwa?.install()

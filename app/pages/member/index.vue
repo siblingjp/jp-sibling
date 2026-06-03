@@ -3,7 +3,12 @@ definePageMeta({ layout: 'member', middleware: 'member' })
 
 const { member } = useMemberAuth()
 const http = useHttpClient()
-const { canInstall, install, dismiss } = usePwaInstall()
+const { canInstall, platform, hasNativePrompt, install, dismiss } = usePwaInstall()
+
+async function copyUrlAndDismiss() {
+  await navigator.clipboard.writeText(window.location.href)
+  dismiss()
+}
 
 // ─── Tier config ─────────────────────────────────────────────────────────────
 const tierConfig = computed(() => {
@@ -105,14 +110,41 @@ function formatCouponValue(c: CampaignCoupon) {
     <Transition name="slide-down">
       <div v-if="canInstall" class="bg-[#1B2B4B] rounded-2xl p-4 flex items-center gap-3 shadow">
         <img src="/logo.jpg" alt="" class="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-        <div class="flex-1 min-w-0">
-          <p class="text-sm font-semibold text-white leading-tight">ติดตั้งแอปบนหน้าจอ</p>
-          <p class="text-xs text-white/60 leading-tight">เปิดได้เร็วขึ้น ใช้งานแบบ app</p>
-        </div>
-        <button
-          class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg hover:bg-[#F0F4F8] flex-shrink-0"
-          @click="install"
-        >ติดตั้ง</button>
+
+        <!-- Android / Desktop: native prompt -->
+        <template v-if="hasNativePrompt">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-white leading-tight">ติดตั้งแอปบนหน้าจอ</p>
+            <p class="text-xs text-white/60 leading-tight">เปิดได้เร็วขึ้น ใช้งานแบบ app</p>
+          </div>
+          <button
+            class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg hover:bg-[#F0F4F8] flex-shrink-0"
+            @click="install"
+          >ติดตั้ง</button>
+        </template>
+
+        <!-- iOS Safari: manual -->
+        <template v-else-if="platform === 'ios-safari'">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-white leading-tight">ติดตั้ง JP Sibling บน iPhone</p>
+            <p class="text-xs text-white/60 leading-tight">
+              กดปุ่ม <Icon name="mdi:export-variant" class="inline text-sm align-middle" /> แชร์ (Share) แล้วเลือก "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"
+            </p>
+          </div>
+        </template>
+
+        <!-- iOS Chrome: ต้องเปิดด้วย Safari -->
+        <template v-else-if="platform === 'ios-other'">
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-white leading-tight">ติดตั้งผ่าน Safari</p>
+            <p class="text-xs text-white/60 leading-tight">Chrome บน iOS ไม่รองรับ — คัดลอกลิงก์แล้วเปิดใน Safari จากนั้นกด "เพิ่มไปยังหน้าจอโฮม"</p>
+          </div>
+          <button
+            class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg hover:bg-[#F0F4F8] flex-shrink-0"
+            @click="copyUrlAndDismiss"
+          >คัดลอกลิงก์</button>
+        </template>
+
         <button class="text-white/40 hover:text-white p-1 flex-shrink-0" @click="dismiss">
           <Icon name="mdi:close" class="text-base" />
         </button>

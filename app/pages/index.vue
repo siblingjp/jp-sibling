@@ -27,6 +27,11 @@ const { showSuccess, showError } = useAlert()
 const { canInstall, platform, hasNativePrompt, install } = usePwaInstall()
 const dismissedBanner = ref(false)
 
+async function copyUrlAndDismiss() {
+  await navigator.clipboard.writeText(window.location.href)
+  dismissedBanner.value = true
+}
+
 
 const benefits = [
   { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'อัตราแลก 1pt = 1฿' },
@@ -189,14 +194,26 @@ const marqueeProducts = computed(() => {
             >ติดตั้ง</button>
           </template>
 
-          <!-- iOS Safari / Chrome iOS: แนะนำ manual -->
-          <template v-else-if="platform === 'ios-safari' || platform === 'ios-other'">
+          <!-- iOS Safari: manual -->
+          <template v-else-if="platform === 'ios-safari'">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold leading-tight">ติดตั้ง JP Sibling บน iPhone</p>
               <p class="text-xs text-white/60 leading-tight">
                 กดปุ่ม <Icon name="mdi:export-variant" class="inline text-sm align-middle" /> แชร์ (Share) แล้วเลือก "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"
               </p>
             </div>
+          </template>
+
+          <!-- iOS Chrome: ต้องเปิดด้วย Safari -->
+          <template v-else-if="platform === 'ios-other'">
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-semibold leading-tight">ติดตั้งผ่าน Safari</p>
+              <p class="text-xs text-white/60 leading-tight">Chrome บน iOS ไม่รองรับ — คัดลอกลิงก์แล้วเปิดใน Safari จากนั้นกด "เพิ่มไปยังหน้าจอโฮม"</p>
+            </div>
+            <button
+              class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg flex-shrink-0"
+              @click="copyUrlAndDismiss"
+            >คัดลอกลิงก์</button>
           </template>
 
           <button class="text-white/50 hover:text-white p-1 flex-shrink-0" @click="dismissedBanner = true">
