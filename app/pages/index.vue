@@ -27,6 +27,7 @@ const { showSuccess, showError } = useAlert()
 const { canInstall, platform, hasNativePrompt, install } = usePwaInstall()
 const dismissedBanner = ref(false)
 
+
 const benefits = [
   { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'อัตราแลก 1pt = 1฿' },
   { icon: 'mdi:gift', title: 'แต้มแลกลด', desc: 'ใช้แต้มแลกส่วนลด' },
@@ -188,21 +189,13 @@ const marqueeProducts = computed(() => {
             >ติดตั้ง</button>
           </template>
 
-          <!-- iOS Safari: แนะนำ manual -->
-          <template v-else-if="platform === 'ios-safari'">
+          <!-- iOS Safari / Chrome iOS: แนะนำ manual -->
+          <template v-else-if="platform === 'ios-safari' || platform === 'ios-other'">
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold leading-tight">ติดตั้ง JP Sibling บน iPhone</p>
               <p class="text-xs text-white/60 leading-tight">
                 กดปุ่ม <Icon name="mdi:export-variant" class="inline text-sm align-middle" /> แชร์ (Share) แล้วเลือก "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"
               </p>
-            </div>
-          </template>
-
-          <!-- iOS Chrome/Firefox: แนะนำให้เปิดด้วย Safari -->
-          <template v-else-if="platform === 'ios-other'">
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold leading-tight">ติดตั้งผ่าน Safari</p>
-              <p class="text-xs text-white/60 leading-tight">เปิดลิงก์นี้ด้วย Safari แล้วกด "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"</p>
             </div>
           </template>
 

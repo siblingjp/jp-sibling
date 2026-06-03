@@ -483,6 +483,14 @@ const steps = [
           alt="QR Code ชำระเงิน"
           class="w-56 h-56 object-contain rounded-xl border border-gray-200"
         />
+        <a
+          href="/images/qr_code_payment.jpg"
+          download="qr-payment.jpg"
+          class="flex items-center gap-1.5 text-sm text-[#1B2B4B] font-medium hover:underline"
+        >
+          <Icon name="mdi:download" class="text-base" />
+          บันทึก QR Code
+        </a>
         <p class="text-xs text-gray-400 text-center">โอนเงินแล้วกด "อัปโหลดสลิป" เพื่อดำเนินการต่อ</p>
       </div>
 
