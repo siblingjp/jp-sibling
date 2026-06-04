@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PosProduct, PosOption, CartItem, PosDiscount } from '~/stores/pos'
+import { API_ENDPOINTS } from '~/composables/constants/api'
 
 definePageMeta({ layout: 'pos', middleware: 'auth' })
 
@@ -11,18 +12,27 @@ onMounted(async () => {
 })
 
 // ─── Product Grid ───────────────────────────────────────────────────────────
+const FEATURED_ID = '__featured__'
 const search = ref('')
-const selectedCategory = ref<string | null>(null)
+const selectedCategory = ref<string | null>(FEATURED_ID)
+
+const hasFeatured = computed(() => store.products.some((p) => p.isFeatured))
 
 const categories = computed(() => {
   const map = new Map<string, string>()
   store.products.forEach((p) => map.set(p.category.id, p.category.name))
-  return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  const cats = Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  if (hasFeatured.value) return [{ id: FEATURED_ID, name: '⭐ แนะนำ' }, ...cats]
+  return cats
 })
 
 const filteredProducts = computed(() => {
   let list = [...store.products]
-  if (selectedCategory.value) list = list.filter((p) => p.categoryId === selectedCategory.value)
+  if (selectedCategory.value === FEATURED_ID) {
+    list = list.filter((p) => p.isFeatured)
+  } else if (selectedCategory.value) {
+    list = list.filter((p) => p.categoryId === selectedCategory.value)
+  }
   if (search.value) {
     const q = search.value.toLowerCase()
     list = list.filter((p) => p.name.toLowerCase().includes(q))
@@ -132,15 +142,37 @@ async function handleCouponUseScan(id: string) {
   }
 }
 
+// ─── Queue Reserve ───────────────────────────────────────────────────────────
+async function handleReserveQueue() {
+  try {
+    await store.reserveQueue()
+  } catch {
+    showError('ไม่สามารถจองหมายเลขคิวได้')
+  }
+}
+
+async function handleCancelReserve() {
+  // cancel reserved order เป็น CANCELLED แล้ว clear
+  if (store.reservedOrderId) {
+    try {
+      const http = useHttpClient()
+      await http.patch(API_ENDPOINTS.POS.ORDERS.UPDATE(store.reservedOrderId), { status: 'CANCELLED' })
+    } catch { /* ถ้า cancel ไม่ได้ก็แค่ clear local */ }
+  }
+  store.clearReservedQueue()
+}
+
 // ─── Checkout ────────────────────────────────────────────────────────────────
 const showPayment = ref(false)
 const lastOrderQueue = ref<number | null>(null)
+const lastOrderUnpaid = ref(false)
 const showSuccess2 = ref(false)
 
-async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP', amount: number, ref?: string) {
+async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string) {
   try {
     const order = await store.checkout(method, amount, ref)
     lastOrderQueue.value = order.queueNo
+    lastOrderUnpaid.value = method === 'UNPAID'
     showPayment.value = false
     showSuccess2.value = true
     setTimeout(() => { showSuccess2.value = false }, 4000)
@@ -178,6 +210,27 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP', amount: numbe
     <div class="flex-1 flex flex-col min-w-0 bg-gray-50 min-h-0" :class="mobileTab === 'cart' ? 'hidden md:flex' : 'flex'">
       <!-- Search + Category Filter -->
       <div class="px-4 pt-4 pb-3 bg-white border-b border-gray-200 space-y-3">
+        <!-- ยังไม่มีคิวที่จอง -->
+        <button
+          v-if="!store.reservedQueueNo"
+          type="button"
+          class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-60"
+          :disabled="store.isReserving"
+          @click="handleReserveQueue"
+        >
+          <Icon name="mdi:ticket-outline" class="text-lg" />
+          {{ store.isReserving ? 'กำลังจอง...' : 'จองหมายเลขคิว' }}
+        </button>
+        <!-- มีคิวที่จองแล้ว -->
+        <div v-else class="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200">
+          <Icon name="mdi:ticket-confirmation-outline" class="text-indigo-600 text-lg flex-shrink-0" />
+          <span class="text-sm font-semibold text-indigo-700 flex-1">คิวที่จอง: <span class="text-xl font-black">#{{ store.reservedQueueNo }}</span></span>
+          <button
+            type="button"
+            class="text-xs text-red-500 hover:text-red-700 underline flex-shrink-0"
+            @click="handleCancelReserve"
+          >ยกเลิก</button>
+        </div>
         <input
           v-model="search"
           type="text"
@@ -187,7 +240,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP', amount: numbe
         <div class="flex gap-2 overflow-x-auto pb-1">
           <button
             class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0"
-            :class="!selectedCategory ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+            :class="selectedCategory === null ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             @click="selectedCategory = null"
           >ทั้งหมด</button>
           <button
@@ -209,12 +262,11 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP', amount: numbe
             v-for="p in filteredProducts"
             :key="p.id"
             type="button"
-            class="bg-white rounded-xl p-3 text-left shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all active:scale-95"
+            class="bg-white rounded-xl p-3 text-left shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all active:scale-95 relative"
             @click="openProduct(p)"
           >
-            <div
-              class="w-full aspect-square rounded-lg bg-gray-100 mb-2 overflow-hidden"
-            >
+            <span v-if="p.isFeatured" class="absolute top-2 right-2 text-yellow-400 text-base leading-none">★</span>
+            <div class="w-full aspect-square rounded-lg bg-gray-100 mb-2 overflow-hidden">
               <img v-if="p.imageUrl" :src="p.imageUrl" :alt="p.name" class="w-full h-full object-cover" />
               <div v-else class="w-full h-full flex items-center justify-center">
                 <Icon name="flat-color-icons:shop" class="text-4xl" />
@@ -369,9 +421,10 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP', amount: numbe
     <Transition name="slide-up">
       <div
         v-if="showSuccess2"
-        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-green-600 text-white px-6 py-3 rounded-2xl shadow-lg font-semibold text-lg"
+        class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 text-white px-6 py-3 rounded-2xl shadow-lg font-semibold text-lg"
+        :class="lastOrderUnpaid ? 'bg-orange-500' : 'bg-green-600'"
       >
-        ออเดอร์ #{{ lastOrderQueue }} สำเร็จ!
+        {{ lastOrderUnpaid ? `ออเดอร์ #${lastOrderQueue} (ค้างชำระ)` : `ออเดอร์ #${lastOrderQueue} สำเร็จ!` }}
       </div>
     </Transition>
   </Teleport>

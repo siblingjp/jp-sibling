@@ -8,6 +8,7 @@ const schema = z.object({
   imageUrl: z.string().url().optional().or(z.literal('')).nullable(),
   categoryId: z.string().cuid().optional(),
   isActive: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
   optionGroupIds: z.array(z.string()).optional(),
 })
 

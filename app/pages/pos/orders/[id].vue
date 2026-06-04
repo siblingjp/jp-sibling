@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { API_ENDPOINTS } from '~/composables/constants/api'
+
 definePageMeta({ layout: 'pos', middleware: 'auth' })
 
 const route = useRoute()
@@ -49,11 +51,7 @@ async function load() {
   }
 }
 
-async function updateStatus(status: string) {
-  if (status === 'CANCELLED') {
-    const ok = await showConfirm({ title: 'ยกเลิกออเดอร์', message: 'ต้องการยกเลิกออเดอร์นี้?', confirmText: 'ยกเลิกออเดอร์' })
-    if (!ok) return
-  }
+async function proceedUpdateStatus(status: string) {
   isUpdating.value = true
   try {
     await useHttpClient().patch(API_ENDPOINTS.POS.ORDERS.UPDATE(id), { status })
@@ -65,18 +63,26 @@ async function updateStatus(status: string) {
   }
 }
 
-async function handleNextQueue() {
-  if (!order.value || !nextStatus[order.value.status]) return
-  const currentStatus = order.value.status
-  const toStatus = nextStatus[currentStatus]
+async function updateStatus(status: string) {
+  if (status === 'CANCELLED') {
+    const ok = await showConfirm({ title: 'ยกเลิกออเดอร์', message: 'ต้องการยกเลิกออเดอร์นี้?', confirmText: 'ยกเลิกออเดอร์' })
+    if (!ok) return
+  }
+  if (status === 'COMPLETED' && !order.value?.payment) {
+    pendingCompleteAction.value = () => proceedUpdateStatus('COMPLETED')
+    openPaymentModal()
+    return
+  }
+  await proceedUpdateStatus(status)
+}
 
+async function proceedNextQueue(currentStatus: string) {
+  const toStatus = nextStatus[currentStatus]
   isUpdating.value = true
   try {
     await useHttpClient().patch(API_ENDPOINTS.POS.ORDERS.UPDATE(id), { status: toStatus })
 
-    // find next PREPARING order (for PREPARING→READY case) or next PENDING order
-    const nextFilterStatus = currentStatus === 'PENDING' ? 'PREPARING' : 'PREPARING'
-    const res = await useHttpClient().get<{ data: any[] }>(`${API_ENDPOINTS.POS.ORDERS.LIST}?status=${nextFilterStatus}`)
+    const res = await useHttpClient().get<{ data: any[] }>(`${API_ENDPOINTS.POS.ORDERS.LIST}?status=PREPARING`)
     const nextOrders = (res.data ?? []).filter((o: any) => o.id !== id)
 
     if (nextOrders.length > 0) {
@@ -87,6 +93,84 @@ async function handleNextQueue() {
   } catch (e: any) {
     showError(e?.message ?? 'อัปเดตสถานะไม่สำเร็จ')
     isUpdating.value = false
+  }
+}
+
+async function handleNextQueue() {
+  if (!order.value || !nextStatus[order.value.status]) return
+  const currentStatus = order.value.status
+  const toStatus = nextStatus[currentStatus]
+
+  if (toStatus === 'COMPLETED' && !order.value.payment) {
+    pendingCompleteAction.value = () => proceedNextQueue(currentStatus)
+    openPaymentModal()
+    return
+  }
+  await proceedNextQueue(currentStatus)
+}
+
+// ─── Payment modal ───────────────────────────────────────────────────────────
+const showPaymentModal = ref(false)
+const payMethod = ref<'CASH' | 'QR' | 'THAI_HELP' | 'CARD'>('CASH')
+const payCash = ref(0)
+const payRef = ref('')
+const isSavingPayment = ref(false)
+const pendingCompleteAction = ref<(() => Promise<void>) | null>(null)
+
+const methodLabel: Record<string, string> = {
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'ไทยช่วยไทยพลัส', CARD: 'บัตร',
+}
+
+const orderTotal = computed(() => Number(order.value?.total ?? 0))
+const payChange = computed(() => payMethod.value === 'CASH' ? Math.max(0, payCash.value - orderTotal.value) : 0)
+const payValid = computed(() => payMethod.value === 'CASH' ? payCash.value >= orderTotal.value : true)
+
+const quickAmounts = computed(() => {
+  const t = orderTotal.value
+  return [...new Set([Math.ceil(t / 10) * 10, Math.ceil(t / 20) * 20, Math.ceil(t / 50) * 50, Math.ceil(t / 100) * 100])]
+    .filter(v => v >= t).slice(0, 4)
+})
+
+function openPaymentModal() {
+  payCash.value = orderTotal.value
+  payRef.value = order.value?.payment?.transactionRef ?? ''
+  payMethod.value = order.value?.payment?.method ?? 'CASH'
+  showPaymentModal.value = true
+}
+
+async function savePayment() {
+  if (!payValid.value) return
+  isSavingPayment.value = true
+  try {
+    const amount = payMethod.value === 'CASH' ? payCash.value : orderTotal.value
+    if (order.value.payment) {
+      // แก้ไข payment ที่มีอยู่
+      await useHttpClient().patch(API_ENDPOINTS.POS.PAYMENTS.UPDATE(order.value.payment.id), {
+        method: payMethod.value,
+        amount,
+        transactionRef: payRef.value || null,
+      })
+    } else {
+      // สร้าง payment ใหม่ (order ค้างชำระ)
+      await useHttpClient().post(API_ENDPOINTS.POS.PAYMENTS.CREATE, {
+        orderId: id,
+        method: payMethod.value,
+        amount,
+        transactionRef: payRef.value || undefined,
+      })
+    }
+    showPaymentModal.value = false
+    const action = pendingCompleteAction.value
+    pendingCompleteAction.value = null
+    if (action) {
+      await action()
+    } else {
+      await load()
+    }
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'บันทึกไม่สำเร็จ')
+  } finally {
+    isSavingPayment.value = false
   }
 }
 
@@ -198,14 +282,38 @@ onMounted(load)
       </div>
 
       <!-- Payment -->
-      <div v-if="order.payment" class="bg-white rounded-2xl shadow-sm p-4 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <Icon name="mdi:cash-check" class="text-xl text-green-600" />
-          <span class="text-sm font-medium text-gray-700">ชำระแล้ว</span>
+      <div class="bg-white rounded-2xl shadow-sm p-4">
+        <div v-if="order.payment" class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <Icon name="mdi:cash-check" class="text-xl text-green-600" />
+            <div>
+              <p class="text-sm font-semibold text-gray-800">
+                {{ methodLabel[order.payment.method] ?? order.payment.method }}
+              </p>
+              <p class="text-xs text-gray-400">
+                ฿{{ formatPrice(order.payment.amount) }}
+                <span v-if="order.payment.change > 0">· ทอน ฿{{ formatPrice(order.payment.change) }}</span>
+                <span v-if="order.payment.transactionRef"> · {{ order.payment.transactionRef }}</span>
+              </p>
+            </div>
+          </div>
+          <button
+            v-if="order.status !== 'COMPLETED' && order.status !== 'CANCELLED'"
+            class="text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 px-2.5 py-1 rounded-lg"
+            @click="openPaymentModal"
+          >แก้ไข</button>
         </div>
-        <span class="text-sm text-gray-500">
-          {{ ({ CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'ไทยช่วยไทยพลัส', CARD: 'บัตร' } as Record<string,string>)[order.payment.method] ?? order.payment.method }} · ฿{{ formatPrice(order.payment.amount) }}
-        </span>
+        <div v-else class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <Icon name="mdi:cash-remove" class="text-xl text-orange-500" />
+            <span class="text-sm font-semibold text-orange-600">ค้างชำระ</span>
+          </div>
+          <button
+            v-if="order.status !== 'CANCELLED' && order.source !== 'ONLINE'"
+            class="text-xs text-white bg-green-600 hover:bg-green-700 font-medium px-3 py-1.5 rounded-lg"
+            @click="openPaymentModal"
+          >บันทึกการชำระ</button>
+        </div>
       </div>
 
       <!-- Slip (online orders) -->
@@ -252,4 +360,83 @@ onMounted(load)
 
     <div v-else class="flex-1 flex items-center justify-center text-gray-400 text-sm">ไม่พบออเดอร์</div>
   </div>
+
+  <!-- Payment Modal -->
+  <Teleport to="body">
+    <div v-if="showPaymentModal" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="absolute inset-0 bg-black/40" @click="showPaymentModal = false; pendingCompleteAction = null" />
+      <div class="relative bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 space-y-5">
+        <h2 class="text-lg font-semibold text-gray-900 text-center">
+          {{ order?.payment ? 'แก้ไขการชำระเงิน' : pendingCompleteAction ? 'ชำระเงินก่อนเสร็จสิ้น' : 'บันทึกการชำระเงิน' }}
+        </h2>
+
+        <!-- Total -->
+        <div class="bg-gray-50 rounded-xl py-4 text-center">
+          <p class="text-xs text-gray-500 mb-1">ยอดรวม</p>
+          <p class="text-3xl font-bold text-gray-900">฿{{ orderTotal.toFixed(2) }}</p>
+        </div>
+
+        <!-- Method -->
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="m in (['CASH', 'QR', 'THAI_HELP', 'CARD'] as const)"
+            :key="m"
+            type="button"
+            class="py-2.5 rounded-lg border text-sm font-medium transition-colors"
+            :class="payMethod === m ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
+            @click="payMethod = m"
+          >{{ methodLabel[m] }}</button>
+        </div>
+
+        <!-- CASH -->
+        <div v-if="payMethod === 'CASH'" class="space-y-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">รับเงิน</label>
+            <input
+              v-model.number="payCash"
+              type="number" min="0" step="1"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="flex gap-2">
+            <button
+              v-for="amt in quickAmounts" :key="amt" type="button"
+              class="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium transition-colors"
+              @click="payCash = amt"
+            >฿{{ amt }}</button>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">ทอน</span>
+            <span class="font-semibold text-green-600">฿{{ payChange.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <!-- QR / CARD / THAI_HELP -->
+        <div v-else>
+          <label class="block text-xs text-gray-500 mb-1">เลขอ้างอิง (ไม่บังคับ)</label>
+          <input
+            v-model="payRef"
+            type="text" placeholder="Transaction ID / Ref no."
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3">
+          <button
+            type="button"
+            class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
+            @click="showPaymentModal = false; pendingCompleteAction = null"
+          >ยกเลิก</button>
+          <button
+            type="button"
+            class="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors"
+            :class="payValid && !isSavingPayment ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'"
+            :disabled="!payValid || isSavingPayment"
+            @click="savePayment"
+          >{{ isSavingPayment ? 'กำลังบันทึก...' : 'ยืนยัน' }}</button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>

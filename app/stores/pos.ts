@@ -24,6 +24,7 @@ export interface PosProduct {
   name: string
   price: number
   imageUrl: string | null
+  isFeatured: boolean
   categoryId: string
   category: { id: string; name: string; slug: string }
   optionGroups: {
@@ -232,11 +233,35 @@ export const usePosStore = defineStore('pos', () => {
 
   const total = computed(() => Math.max(0, subtotal.value - discountCalc.value - couponDiscount.value - pointsRedeemCapped.value))
 
+  // ─── Queue Reserve ──────────────────────────────────────────────────────────
+  const reservedOrderId = ref<string | null>(null)
+  const reservedQueueNo = ref<number | null>(null)
+  const isReserving = ref(false)
+
+  async function reserveQueue() {
+    isReserving.value = true
+    try {
+      const res = await useHttpClient().post<{ data: { id: string; queueNo: number } }>(API_ENDPOINTS.POS.QUEUE_RESERVE, {})
+      reservedOrderId.value = res.data.id
+      reservedQueueNo.value = res.data.queueNo
+      return res.data
+    } catch (e) {
+      throw new ApiError(e)
+    } finally {
+      isReserving.value = false
+    }
+  }
+
+  function clearReservedQueue() {
+    reservedOrderId.value = null
+    reservedQueueNo.value = null
+  }
+
   // ─── Checkout ───────────────────────────────────────────────────────────────
   const isSubmitting = ref(false)
   const lastOrder = ref<any>(null)
 
-  async function checkout(paymentMethod: 'CASH' | 'QR' | 'THAI_HELP', paymentAmount: number, transactionRef?: string) {
+  async function checkout(paymentMethod: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', paymentAmount: number, transactionRef?: string) {
     if (cart.value.length === 0) throw new Error('Cart is empty')
     isSubmitting.value = true
     try {
@@ -265,18 +290,28 @@ export const usePosStore = defineStore('pos', () => {
         })),
       }
 
-      const orderRes = await useHttpClient().post<{ data: any }>(API_ENDPOINTS.POS.ORDERS.CREATE, orderPayload)
-      const order = orderRes.data
+      let order: any
+      if (reservedOrderId.value) {
+        // fill items เข้า reserved order แทนสร้างใหม่
+        const res = await useHttpClient().post<{ data: any }>(API_ENDPOINTS.POS.ORDERS.FILL(reservedOrderId.value), orderPayload)
+        order = res.data
+      } else {
+        const res = await useHttpClient().post<{ data: any }>(API_ENDPOINTS.POS.ORDERS.CREATE, orderPayload)
+        order = res.data
+      }
 
-      await useHttpClient().post(API_ENDPOINTS.POS.PAYMENTS.CREATE, {
-        orderId: order.id,
-        method: paymentMethod,
-        amount: paymentAmount,
-        transactionRef,
-      })
+      if (paymentMethod !== 'UNPAID') {
+        await useHttpClient().post(API_ENDPOINTS.POS.PAYMENTS.CREATE, {
+          orderId: order.id,
+          method: paymentMethod,
+          amount: paymentAmount,
+          transactionRef,
+        })
+      }
 
       lastOrder.value = order
       clearCart()
+      clearReservedQueue()
       return order
     } catch (e) {
       throw new ApiError(e)
@@ -307,6 +342,9 @@ export const usePosStore = defineStore('pos', () => {
     couponDiscount: readonly(couponDiscount),
     isSubmitting: readonly(isSubmitting),
     lastOrder: readonly(lastOrder),
+    reservedOrderId: readonly(reservedOrderId),
+    reservedQueueNo: readonly(reservedQueueNo),
+    isReserving: readonly(isReserving),
     fetchProducts,
     fetchDiscounts,
     addToCart,
@@ -321,6 +359,8 @@ export const usePosStore = defineStore('pos', () => {
     clearDiscount,
     validateAndApplyCoupon,
     clearCoupon,
+    reserveQueue,
+    clearReservedQueue,
     checkout,
   }
 })

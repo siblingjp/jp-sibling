@@ -11,6 +11,7 @@ export interface Product {
   price: number
   imageUrl: string | null
   isActive: boolean
+  isFeatured: boolean
   categoryId: string
   category: { id: string; name: string }
   createdAt: string
@@ -24,6 +25,7 @@ export interface ProductForm {
   imageUrl?: string
   categoryId: string
   isActive: boolean
+  isFeatured?: boolean
   optionGroupIds?: string[]
 }
 

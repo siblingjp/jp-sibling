@@ -40,6 +40,20 @@ const emit = defineEmits<{
   updatePickupTime: [v: string]
 }>()
 
+// pickup time options: ทุก 10 นาที เริ่มจาก round ถัดไป + 10 นาที, 24 ช่วง (4 ชั่วโมง)
+const pickupOptions = computed(() => {
+  const now = new Date()
+  const options: { value: string; label: string }[] = []
+  const start = new Date(now)
+  start.setMinutes(Math.ceil(start.getMinutes() / 10) * 10 + 10, 0, 0)
+  for (let i = 0; i < 24; i++) {
+    const t = new Date(start.getTime() + i * 10 * 60 * 1000)
+    const value = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+    options.push({ value, label: `${value} น.` })
+  }
+  return options
+})
+
 const discountInput = ref(0)
 const discountName = ref('')
 const showDiscountPanel = ref(false)
@@ -337,12 +351,14 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
       <!-- Pickup Time -->
       <div>
         <label class="text-xs text-gray-500 mb-1 block">เวลารับ (ไม่บังคับ)</label>
-        <input
+        <select
           :value="pickupTime"
-          type="time"
           class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          @input="emit('updatePickupTime', ($event.target as HTMLInputElement).value)"
-        />
+          @change="emit('updatePickupTime', ($event.target as HTMLSelectElement).value)"
+        >
+          <option value="">เลือกเวลารับ...</option>
+          <option v-for="opt in pickupOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+        </select>
       </div>
 
       <!-- Checkout Button -->

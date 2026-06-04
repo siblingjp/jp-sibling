@@ -1,3 +1,23 @@
+const TZ_OFFSET_MS = 7 * 60 * 60 * 1000 // UTC+7 (Bangkok)
+const RESET_HOUR_BKK = 17 // queue reset ที่ 17:00 BKK
+const RESET_OFFSET_MS = RESET_HOUR_BKK * 60 * 60 * 1000
+
+/**
+ * คืน { start, end } เป็น UTC Date ของรอบปัจจุบัน โดย reset ที่ 17:00 BKK
+ * เช่น ขณะนี้ 10:00 BKK → start = เมื่อวาน 17:00 BKK, end = วันนี้ 16:59:59 BKK
+ *      ขณะนี้ 18:00 BKK → start = วันนี้ 17:00 BKK, end = พรุ่งนี้ 16:59:59 BKK
+ */
+export function getTodayRangeBKK(): { start: Date; end: Date } {
+  const nowUTC = Date.now()
+  // เลื่อน "นาฬิกา" ให้ 17:00 BKK กลายเป็น 00:00 ของรอบนั้น
+  const shifted = nowUTC + TZ_OFFSET_MS - RESET_OFFSET_MS
+  const periodStart = shifted - (shifted % 86400000)
+  return {
+    start: new Date(periodStart - TZ_OFFSET_MS + RESET_OFFSET_MS),
+    end:   new Date(periodStart - TZ_OFFSET_MS + RESET_OFFSET_MS + 86399999),
+  }
+}
+
 export interface ParsedQuery {
   page: number
   limit: number

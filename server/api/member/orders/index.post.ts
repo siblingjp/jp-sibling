@@ -78,8 +78,7 @@ export default defineEventHandler(async (event) => {
     const pointsEarned = Math.floor((total / 10) * tierMultiplier)
 
     // Queue number for today
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
-    const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999)
+    const { start: todayStart, end: todayEnd } = getTodayRangeBKK()
     const lastOrder = await prisma.order.findFirst({
       where: { createdAt: { gte: todayStart, lte: todayEnd } },
       orderBy: { queueNo: 'desc' },
@@ -104,6 +103,7 @@ export default defineEventHandler(async (event) => {
         total,
         pointsEarned,
         pointsRedeemed: 0,
+        status: 'PREPARING',
         items: {
           create: itemsData.map(item => ({
             productId: item.productId,
@@ -119,6 +119,14 @@ export default defineEventHandler(async (event) => {
               })),
             },
           })),
+        },
+        payment: {
+          create: {
+            method: 'QR',
+            amount: total,
+            change: 0,
+            transactionRef: null,
+          },
         },
       },
     })

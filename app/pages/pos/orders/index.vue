@@ -8,6 +8,57 @@ const isLoading = ref(false)
 const orders = ref<any[]>([])
 const slipModal = ref<string | null>(null)
 
+// ─── Payment modal (for unpaid READY→COMPLETED) ──────────────────────────────
+const showPaymentModal = ref(false)
+const payTargetOrder = ref<any>(null)
+const payMethod = ref<'CASH' | 'QR' | 'THAI_HELP' | 'CARD'>('CASH')
+const payCash = ref(0)
+const payRef = ref('')
+const isSavingPayment = ref(false)
+
+const methodLabel: Record<string, string> = {
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'ไทยช่วยไทยพลัส', CARD: 'บัตร',
+}
+
+const orderTotal = computed(() => Number(payTargetOrder.value?.total ?? 0))
+const payChange = computed(() => payMethod.value === 'CASH' ? Math.max(0, payCash.value - orderTotal.value) : 0)
+const payValid = computed(() => payMethod.value === 'CASH' ? payCash.value >= orderTotal.value : true)
+const quickAmounts = computed(() => {
+  const t = orderTotal.value
+  return [...new Set([Math.ceil(t / 10) * 10, Math.ceil(t / 20) * 20, Math.ceil(t / 50) * 50, Math.ceil(t / 100) * 100])]
+    .filter(v => v >= t).slice(0, 4)
+})
+
+function openPaymentForOrder(order: any) {
+  payTargetOrder.value = order
+  payCash.value = orderTotal.value
+  payRef.value = ''
+  payMethod.value = 'CASH'
+  showPaymentModal.value = true
+}
+
+async function savePaymentAndComplete() {
+  if (!payValid.value || !payTargetOrder.value) return
+  isSavingPayment.value = true
+  try {
+    const amount = payMethod.value === 'CASH' ? payCash.value : orderTotal.value
+    await useHttpClient().post(API_ENDPOINTS.POS.PAYMENTS.CREATE, {
+      orderId: payTargetOrder.value.id,
+      method: payMethod.value,
+      amount,
+      transactionRef: payRef.value || undefined,
+    })
+    await useHttpClient().patch(API_ENDPOINTS.POS.ORDERS.UPDATE(payTargetOrder.value.id), { status: 'COMPLETED' })
+    showPaymentModal.value = false
+    payTargetOrder.value = null
+    await load()
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'บันทึกไม่สำเร็จ')
+  } finally {
+    isSavingPayment.value = false
+  }
+}
+
 const statusOptions = [
   { value: 'ACTIVE', label: 'ที่ต้องทำ' },
   { value: 'PREPARING', label: 'กำลังทำ' },
@@ -28,13 +79,17 @@ async function load() {
   }
 }
 
-async function updateStatus(id: string, status: string) {
+async function updateStatus(order: any, status: string) {
   if (status === 'CANCELLED') {
     const ok = await showConfirm({ title: 'ยกเลิกออเดอร์', message: 'ต้องการยกเลิกออเดอร์นี้?', confirmText: 'ยกเลิกออเดอร์' })
     if (!ok) return
   }
+  if (status === 'COMPLETED' && !order.payment) {
+    openPaymentForOrder(order)
+    return
+  }
   try {
-    await useHttpClient().patch(API_ENDPOINTS.POS.ORDERS.UPDATE(id), { status })
+    await useHttpClient().patch(API_ENDPOINTS.POS.ORDERS.UPDATE(order.id), { status })
     await load()
   } catch (e: any) {
     showError(e?.message ?? 'Failed to update')
@@ -45,6 +100,7 @@ watch(statusFilter, load)
 onMounted(load)
 
 // auto refresh
+const STORAGE_KEY = 'pos:autoRefresh'
 const autoRefresh = ref(true)
 const refreshInterval = 30
 const countdown = ref(refreshInterval)
@@ -64,11 +120,15 @@ function stopAutoRefresh() {
 
 function toggleAutoRefresh() {
   autoRefresh.value = !autoRefresh.value
+  localStorage.setItem(STORAGE_KEY, String(autoRefresh.value))
   if (autoRefresh.value) startAutoRefresh()
   else stopAutoRefresh()
 }
 
-onMounted(startAutoRefresh)
+onMounted(() => {
+  autoRefresh.value = localStorage.getItem(STORAGE_KEY) !== 'false'
+  if (autoRefresh.value) startAutoRefresh()
+})
 onUnmounted(stopAutoRefresh)
 
 const nextStatus: Record<string, string> = {
@@ -176,10 +236,17 @@ function formatPrice(n: number) {
           <!-- Note -->
           <p v-if="order.note" class="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">{{ order.note }}</p>
 
-          <!-- Total -->
+          <!-- Total + Payment -->
           <div class="flex justify-between text-sm border-t border-gray-100 pt-2">
             <span class="text-gray-500">รวม</span>
-            <span class="font-bold text-gray-900">฿{{ formatPrice(order.total) }}</span>
+            <div class="text-right">
+              <span class="font-bold text-gray-900">฿{{ formatPrice(order.total) }}</span>
+              <span v-if="order.payment" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                {{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'ไทยช่วยไทย', CARD: 'บัตร' } as Record<string,string>)[order.payment.method] ?? order.payment.method }}
+              </span>
+              <span v-else-if="order.status !== 'CANCELLED' && order.source !== 'ONLINE'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-medium">ค้างชำระ</span>
+              <span v-else-if="order.source === 'ONLINE'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">QR</span>
+            </div>
           </div>
 
           <!-- Pickup time & slip -->
@@ -203,14 +270,14 @@ function formatPrice(n: number) {
             <button
               v-if="nextStatus[order.status]"
               class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-              @click="updateStatus(order.id, nextStatus[order.status])"
+              @click="updateStatus(order, nextStatus[order.status])"
             >
               → {{ { PENDING: 'กำลังทำ', PREPARING: 'พร้อมส่ง', READY: 'เสร็จสิ้น' }[order.status] || nextStatus[order.status] }}
             </button>
             <button
               v-if="order.status === 'PENDING'"
               class="px-3 py-2 rounded-lg border border-red-200 text-red-500 text-sm hover:bg-red-50 transition-colors"
-              @click="updateStatus(order.id, 'CANCELLED')"
+              @click="updateStatus(order, 'CANCELLED')"
             >
               ยกเลิก
             </button>
@@ -237,6 +304,78 @@ function formatPrice(n: number) {
             target="_blank"
             class="block w-full text-center py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
           >เปิดในแท็บใหม่</a>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
+  <!-- Payment modal (unpaid READY→COMPLETED) -->
+  <Teleport to="body">
+    <div v-if="showPaymentModal" class="fixed inset-0 z-50 flex items-center justify-center">
+      <div class="absolute inset-0 bg-black/40" @click="showPaymentModal = false; payTargetOrder = null" />
+      <div class="relative bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 space-y-5">
+        <h2 class="text-lg font-semibold text-gray-900 text-center">ชำระเงินก่อนเสร็จสิ้น</h2>
+
+        <div class="bg-gray-50 rounded-xl py-4 text-center">
+          <p class="text-xs text-gray-500 mb-1">ยอดรวม #{{ payTargetOrder?.queueNo }}</p>
+          <p class="text-3xl font-bold text-gray-900">฿{{ orderTotal.toFixed(2) }}</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <button
+            v-for="m in (['CASH', 'QR', 'THAI_HELP', 'CARD'] as const)"
+            :key="m"
+            type="button"
+            class="py-2.5 rounded-lg border text-sm font-medium transition-colors"
+            :class="payMethod === m ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
+            @click="payMethod = m"
+          >{{ methodLabel[m] }}</button>
+        </div>
+
+        <div v-if="payMethod === 'CASH'" class="space-y-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">รับเงิน</label>
+            <input
+              v-model.number="payCash"
+              type="number" min="0" step="1"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-center text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div class="flex gap-2">
+            <button
+              v-for="amt in quickAmounts" :key="amt" type="button"
+              class="flex-1 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-sm font-medium transition-colors"
+              @click="payCash = amt"
+            >฿{{ amt }}</button>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">ทอน</span>
+            <span class="font-semibold text-green-600">฿{{ payChange.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <div v-else>
+          <label class="block text-xs text-gray-500 mb-1">เลขอ้างอิง (ไม่บังคับ)</label>
+          <input
+            v-model="payRef"
+            type="text" placeholder="Transaction ID / Ref no."
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            type="button"
+            class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
+            @click="showPaymentModal = false; payTargetOrder = null"
+          >ยกเลิก</button>
+          <button
+            type="button"
+            class="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors"
+            :class="payValid && !isSavingPayment ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'"
+            :disabled="!payValid || isSavingPayment"
+            @click="savePaymentAndComplete"
+          >{{ isSavingPayment ? 'กำลังบันทึก...' : 'ยืนยัน' }}</button>
         </div>
       </div>
     </div>

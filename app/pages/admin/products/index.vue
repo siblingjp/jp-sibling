@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Product } from '~/stores/products'
+import { API_ENDPOINTS } from '~/composables/constants/api'
 
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
@@ -41,6 +42,15 @@ async function handleDelete(product: Product) {
     load()
   } catch (e: unknown) {
     showError(e instanceof Error ? e.message : 'Failed to delete')
+  }
+}
+
+async function handleToggleFeatured(product: Product) {
+  try {
+    await useHttpClient().patch(API_ENDPOINTS.ADMIN.PRODUCTS.TOGGLE_FEATURED(product.id), {})
+    product.isFeatured = !product.isFeatured
+  } catch (e: unknown) {
+    showError(e instanceof Error ? e.message : 'Failed to update')
   }
 }
 
@@ -102,15 +112,16 @@ function formatPrice(price: number) {
             <th class="text-left px-4 py-3 font-medium text-gray-600">หมวดหมู่</th>
             <th class="text-right px-4 py-3 font-medium text-gray-600">ราคา</th>
             <th class="text-center px-4 py-3 font-medium text-gray-600">สถานะ</th>
+            <th class="text-center px-4 py-3 font-medium text-gray-600">แนะนำ</th>
             <th class="px-4 py-3" />
           </tr>
         </thead>
         <tbody>
           <tr v-if="isLoading">
-            <td colspan="5" class="text-center py-10 text-gray-400">Loading...</td>
+            <td colspan="6" class="text-center py-10 text-gray-400">Loading...</td>
           </tr>
           <tr v-else-if="products.length === 0">
-            <td colspan="5" class="text-center py-10 text-gray-400">No products found</td>
+            <td colspan="6" class="text-center py-10 text-gray-400">No products found</td>
           </tr>
           <tr
             v-for="product in products"
@@ -138,6 +149,15 @@ function formatPrice(price: number) {
               >
                 {{ product.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
               </span>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <button
+                type="button"
+                :title="product.isFeatured ? 'ยกเลิกแนะนำ' : 'ตั้งเป็นแนะนำ'"
+                class="text-xl transition-transform hover:scale-125"
+                :class="product.isFeatured ? 'text-yellow-400' : 'text-gray-200 hover:text-yellow-300'"
+                @click="handleToggleFeatured(product)"
+              >★</button>
             </td>
             <td class="px-4 py-3 text-right">
               <div class="flex justify-end gap-2">

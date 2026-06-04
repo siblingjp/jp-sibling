@@ -17,6 +17,7 @@ export const API_ENDPOINTS = {
       CREATE: '/api/admin/products',
       UPDATE: (id: string) => `/api/admin/products/${id}`,
       DELETE: (id: string) => `/api/admin/products/${id}`,
+      TOGGLE_FEATURED: (id: string) => `/api/admin/products/${id}/featured`,
     },
     OPTION_GROUPS: {
       LIST: '/api/admin/option-groups',
@@ -88,10 +89,13 @@ export const API_ENDPOINTS = {
       CREATE: '/api/pos/orders',
       SHOW: (id: string) => `/api/pos/orders/${id}`,
       UPDATE: (id: string) => `/api/pos/orders/${id}`,
+      FILL: (id: string) => `/api/pos/orders/${id}/fill`,
     },
     PAYMENTS: {
       CREATE: '/api/pos/payments',
+      UPDATE: (id: string) => `/api/pos/payments/${id}`,
     },
+    QUEUE_RESERVE: '/api/pos/queue-reserve',
   },
 
   MEMBER: {

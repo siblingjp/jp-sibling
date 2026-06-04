@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const schema = z.object({
-  status: z.enum(['PREPARING', 'READY', 'COMPLETED', 'CANCELLED']),
+  status: z.enum(['PREPARING', 'READY', 'COMPLETED', 'CANCELLED', 'RESERVED']),
 })
 
 export default defineEventHandler(async (event) => {
@@ -22,6 +22,10 @@ export default defineEventHandler(async (event) => {
     }
     if (data.status === 'CANCELLED' && order.payment) {
       throw badRequest('Cannot cancel a paid order')
+    }
+    // RESERVED order สามารถ cancel ได้เท่านั้น
+    if (order.status === 'RESERVED' && data.status !== 'CANCELLED') {
+      throw badRequest('Reserved order can only be cancelled')
     }
 
     const updated = await prisma.$transaction(async (tx) => {

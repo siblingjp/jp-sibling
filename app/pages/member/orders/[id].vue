@@ -9,6 +9,7 @@ const { showSuccess, showError } = useAlert()
 
 interface OrderDetail {
   id: string
+  queueNo: number
   status: string
   source: string
   subtotal: string | number
@@ -110,7 +111,8 @@ function formatDate(d: string) {
       <div class="bg-white rounded-2xl shadow p-6">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <p class="text-xs text-gray-400 font-mono">{{ order.id.slice(-12).toUpperCase() }}</p>
+            <p class="text-2xl font-black text-gray-900 leading-none">#{{ order.queueNo }}</p>
+            <p class="text-xs text-gray-400 font-mono mt-0.5">{{ order.id.slice(-12).toUpperCase() }}</p>
             <p class="text-sm text-gray-500 mt-0.5">{{ formatDate(order.createdAt) }}</p>
           </div>
           <span class="px-3 py-1.5 text-sm font-semibold rounded-full" :class="statusColor[order.status]">

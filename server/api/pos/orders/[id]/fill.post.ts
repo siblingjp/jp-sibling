@@ -28,7 +28,12 @@ export default defineEventHandler(async (event) => {
     const session = await getUserSession(event)
     if (!session.user) throw unauthorized()
 
+    const id = getRouterParam(event, 'id')!
     const data = validate(schema, await readBody(event))
+
+    const existing = await prisma.order.findUnique({ where: { id } })
+    if (!existing) throw notFound('Order')
+    if (existing.status !== 'RESERVED') throw badRequest('Order is not in RESERVED status')
 
     const productIds = [...new Set(data.items.map((i) => i.productId))]
     const optionIds = [...new Set(data.items.flatMap((i) => i.options.map((o) => o.optionId)))]
@@ -59,7 +64,6 @@ export default defineEventHandler(async (event) => {
 
     const subtotal = itemsCalc.reduce((sum, i) => sum + i.subtotal, 0)
 
-    // discount badge
     let discountAmount = 0
     if (data.discountKind && data.discountValue != null) {
       discountAmount = data.discountKind === 'PERCENT'
@@ -67,7 +71,6 @@ export default defineEventHandler(async (event) => {
         : Math.min(data.discountValue, subtotal)
     }
 
-    // coupon
     let coupon = null
     let couponDiscountAmount = 0
     if (data.couponCode) {
@@ -93,30 +96,22 @@ export default defineEventHandler(async (event) => {
     const tierMultiplier = member?.tier === 'VIP' ? 1.5 : member?.tier === 'GOLD' ? 1.25 : 1.0
     const pointsEarned = member ? Math.floor((total / 10) * tierMultiplier) : 0
 
-    const { start: todayStart, end: todayEnd } = getTodayRangeBKK()
-
-    const lastOrder = await prisma.order.findFirst({
-      where: { createdAt: { gte: todayStart, lte: todayEnd } },
-      orderBy: { queueNo: 'desc' },
-    })
-    const queueNo = (lastOrder?.queueNo ?? 0) + 1
-
     const order = await prisma.$transaction(async (tx) => {
-      const created = await tx.order.create({
+      const updated = await tx.order.update({
+        where: { id },
         data: {
-          queueNo,
+          status: 'PENDING',
           note: data.note,
           pickupTime: data.pickupTime ?? null,
-          subtotal,
+          memberId: data.memberId ?? null,
           discountKind: data.discountKind ?? null,
           discountValue: data.discountValue ?? null,
           discount: discountAmount + couponDiscountAmount,
           couponCode: coupon?.code ?? null,
+          subtotal,
           total,
           pointsEarned,
           pointsRedeemed,
-          userId: session.user!.id,
-          memberId: data.memberId ?? null,
           discountId: data.discountId ?? null,
           items: {
             create: itemsCalc.map(({ item, unitPrice, subtotal: itemSubtotal, itemOptions }) => ({
@@ -140,14 +135,13 @@ export default defineEventHandler(async (event) => {
         },
       })
 
-      // mark coupon used
       if (coupon) {
         await tx.coupon.update({ where: { id: coupon.id }, data: { usedCount: { increment: 1 } } })
         await tx.couponUse.create({
           data: {
             couponId: coupon.id,
             memberId: member?.id ?? null,
-            orderId: created.id,
+            orderId: id,
             isUsed: true,
             usedAt: new Date(),
           },
@@ -157,11 +151,11 @@ export default defineEventHandler(async (event) => {
       if (member && pointsRedeemed > 0) {
         await tx.member.update({ where: { id: member.id }, data: { points: { decrement: pointsRedeemed } } })
         await tx.pointLog.create({
-          data: { memberId: member.id, action: 'REDEEM', amount: pointsRedeemed, note: `Redeem at POS #${queueNo}`, orderId: created.id },
+          data: { memberId: member.id, action: 'REDEEM', amount: pointsRedeemed, note: `Redeem at POS #${existing.queueNo}`, orderId: id },
         })
       }
 
-      return created
+      return updated
     }, { timeout: 15000 })
 
     return okResponse(order)

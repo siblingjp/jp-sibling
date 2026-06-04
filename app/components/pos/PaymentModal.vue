@@ -5,16 +5,17 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  confirm: [method: 'CASH' | 'QR' | 'THAI_HELP', amount: number, ref?: string]
+  confirm: [method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string]
   cancel: []
 }>()
 
-const method = ref<'CASH' | 'QR' | 'THAI_HELP'>('CASH')
+const method = ref<'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID'>('CASH')
 
 const methodLabel: Record<string, string> = {
   CASH: 'เงินสด',
   QR: 'QR พร้อมเพย์',
   THAI_HELP: 'ไทยช่วยไทยพลัส',
+  UNPAID: 'ยังไม่ได้จ่าย',
 }
 const cashReceived = ref(0)
 const transactionRef = ref('')
@@ -26,6 +27,8 @@ const isValid = computed(() => {
   if (method.value === 'CASH') return cashReceived.value >= props.total
   return true
 })
+
+const isUnpaid = computed(() => method.value === 'UNPAID')
 
 const quickAmounts = computed(() => {
   const t = props.total
@@ -40,7 +43,7 @@ const quickAmounts = computed(() => {
 
 function handleConfirm() {
   if (!isValid.value) return
-  const amount = method.value === 'CASH' ? cashReceived.value : props.total
+  const amount = method.value === 'CASH' ? cashReceived.value : method.value === 'UNPAID' ? 0 : props.total
   emit('confirm', method.value, amount, transactionRef.value || undefined)
 }
 </script>
@@ -59,13 +62,15 @@ function handleConfirm() {
         </div>
 
         <!-- Method -->
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-2 gap-2">
           <button
-            v-for="m in (['CASH', 'QR', 'THAI_HELP'] as const)"
+            v-for="m in (['CASH', 'QR', 'THAI_HELP', 'UNPAID'] as const)"
             :key="m"
             type="button"
             class="py-2.5 rounded-lg border text-sm font-medium transition-colors"
-            :class="method === m ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
+            :class="method === m
+              ? m === 'UNPAID' ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-blue-500 bg-blue-50 text-blue-700'
+              : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
             @click="method = m"
           >{{ methodLabel[m] }}</button>
         </div>
@@ -97,6 +102,12 @@ function handleConfirm() {
           </div>
         </div>
 
+        <!-- UNPAID -->
+        <div v-else-if="isUnpaid" class="bg-orange-50 border border-orange-200 rounded-xl p-4 text-center">
+          <p class="text-sm text-orange-700 font-medium">บันทึกออเดอร์โดยยังไม่ชำระเงิน</p>
+          <p class="text-xs text-orange-500 mt-1">ลูกค้าค้างชำระ ฿{{ total.toFixed(2) }}</p>
+        </div>
+
         <!-- QR / THAI_HELP -->
         <div v-else>
           <label class="block text-xs text-gray-500 mb-1">เลขอ้างอิง (ไม่บังคับ)</label>
@@ -118,11 +129,13 @@ function handleConfirm() {
           <button
             type="button"
             class="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors"
-            :class="isValid && !isSubmitting ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'"
+            :class="isValid && !isSubmitting
+              ? isUnpaid ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'
+              : 'bg-gray-300 cursor-not-allowed'"
             :disabled="!isValid || isSubmitting"
             @click="handleConfirm"
           >
-            {{ isSubmitting ? 'กำลังดำเนินการ...' : 'ยืนยันการชำระเงิน' }}
+            {{ isSubmitting ? 'กำลังดำเนินการ...' : isUnpaid ? 'บันทึกออเดอร์ (ค้างชำระ)' : 'ยืนยันการชำระเงิน' }}
           </button>
         </div>
       </div>
