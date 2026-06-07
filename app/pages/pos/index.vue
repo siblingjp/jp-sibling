@@ -259,8 +259,8 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
 
       <!-- Quick Menu -->
       <div v-if="quickItems.length > 0" class="px-4 py-2.5 bg-amber-50 border-b border-amber-100">
-        <p class="text-xs font-medium text-amber-700 mb-2">⚡ เมนูด่วน</p>
         <div class="flex flex-wrap gap-2">
+          <p class="text-xs font-medium text-amber-700 mb-2">⚡ เมนูด่วน</p>
           <button
             v-for="(item, i) in quickItems"
             :key="i"
@@ -333,7 +333,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         @scan-coupon="showCouponScanner = true"
         @update-points-redeem="store.pointsToRedeem = $event"
         @checkout="showPayment = true"
-        @checkout-unpaid="handleCheckout('UNPAID', 0)"
+        @checkout-unpaid="handleCheckout('UNPAID', 0, undefined, true)"
         @badge-created="store.fetchDiscounts()"
       />
     </div>

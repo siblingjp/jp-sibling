@@ -247,6 +247,12 @@ function formatPrice(n: number) {
             </div>
           </div>
 
+          <!-- Pickup time (all orders) -->
+          <div v-if="order.pickupTime" class="flex items-center gap-1 text-xs text-indigo-600 font-medium">
+            <Icon name="mdi:clock-outline" class="text-sm flex-shrink-0" />
+            รับ {{ order.pickupTime }} น.
+          </div>
+
           <!-- Note -->
           <p v-if="order.note" class="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">{{ order.note }}</p>
 

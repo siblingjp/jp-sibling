@@ -69,6 +69,7 @@ const step = ref<1 | 2 | 3>(1)
 interface ShopStatus {
   isOpen: boolean
   canOrder: boolean
+  manualClose: boolean
   nextOpenLabel: string | null
   nextOpenName: string | null
 }
@@ -391,6 +392,19 @@ const steps = [
          STEP 1 — เลือกสินค้า
     ════════════════════════════════════════════════════════════════ -->
     <div v-if="step === 1" class="space-y-3">
+      <!-- Manual close warning banner -->
+      <div v-if="shopStatus?.manualClose && shopStatus?.canOrder" class="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm">
+        <Icon name="mdi:store-clock" class="text-orange-500 text-xl flex-shrink-0 mt-0.5" />
+        <div>
+          <p class="font-medium text-orange-700">ร้านปิดอยู่ในขณะนี้</p>
+          <p v-if="shopStatus.nextOpenLabel" class="text-orange-600 text-xs mt-0.5">
+            จะเปิดอีกครั้ง {{ shopStatus.nextOpenLabel }}
+            <span v-if="shopStatus.nextOpenName"> ที่ {{ shopStatus.nextOpenName }}</span>
+          </p>
+          <p class="text-orange-500 text-xs mt-0.5">คุณสามารถสั่งล่วงหน้าได้</p>
+        </div>
+      </div>
+
       <!-- Search + category -->
       <div class="space-y-2">
         <input

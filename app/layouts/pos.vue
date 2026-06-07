@@ -2,16 +2,16 @@
 const { user } = useAuth()
 const http = useHttpClient()
 
+const isOpen = ref(false)
 const manualClose = ref(false)
 const blockOnlineOrder = ref(false)
 const isToggling = ref(false)
 const showCloseModal = ref(false)
 
-const isOpen = computed(() => !manualClose.value)
-
 async function fetchStatus() {
   try {
-    const res = await http.get<{ data: { truckLocation: { manualClose: boolean; blockOnlineOrder: boolean } | null } }>('/api/public/home')
+    const res = await http.get<{ data: { truckLocation: { isOpen: boolean; manualClose: boolean; blockOnlineOrder: boolean } | null } }>('/api/public/home')
+    isOpen.value = res.data?.truckLocation?.isOpen ?? false
     manualClose.value = res.data?.truckLocation?.manualClose ?? false
     blockOnlineOrder.value = res.data?.truckLocation?.blockOnlineOrder ?? false
   } catch {
@@ -30,6 +30,8 @@ async function applyMode(mode: 'close' | 'closeBlock' | 'reset') {
     )
     manualClose.value = res.data?.manualClose ?? false
     blockOnlineOrder.value = res.data?.blockOnlineOrder ?? false
+    // re-fetch isOpen เพื่อให้ปุ่มสะท้อน timeline จริง
+    await fetchStatus()
   } catch {
     // silent
   } finally {
@@ -62,14 +64,14 @@ async function applyMode(mode: 'close' | 'closeBlock' | 'reset') {
         <button
           :disabled="isToggling"
           class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
-          :class="manualClose
-            ? 'bg-red-100 text-red-600 hover:bg-red-200'
-            : 'bg-green-100 text-green-700 hover:bg-green-200'"
+          :class="isOpen
+            ? 'bg-green-100 text-green-700 hover:bg-green-200'
+            : 'bg-red-100 text-red-600 hover:bg-red-200'"
           @click="showCloseModal = true"
         >
-          <Icon :name="manualClose ? 'mdi:store-off' : 'mdi:store-check'" class="text-base" />
+          <Icon :name="isOpen ? 'mdi:store-check' : 'mdi:store-off'" class="text-base" />
           <span class="hidden sm:inline">
-            {{ manualClose ? (blockOnlineOrder ? 'ปิดร้าน (ปิดออนไลน์)' : 'ปิดร้าน') : 'เปิดอยู่' }}
+            {{ isOpen ? 'เปิดอยู่' : manualClose ? (blockOnlineOrder ? 'ปิดร้าน (ปิดออนไลน์)' : 'ปิดร้าน') : 'ปิดอยู่' }}
           </span>
         </button>
         <span class="text-sm text-gray-500 hidden md:inline truncate max-w-[100px] lg:max-w-none">{{ user?.name }}</span>

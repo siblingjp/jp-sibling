@@ -46,9 +46,9 @@ function isActive(to: string, exact: boolean) {
 </script>
 
 <template>
-  <div class="min-h-screen flex bg-gray-100">
+  <div class="h-screen flex bg-gray-100 overflow-hidden">
     <!-- Sidebar -->
-    <aside class="w-56 bg-white shadow-sm flex-shrink-0 flex flex-col">
+    <aside class="w-56 bg-white shadow-sm flex-shrink-0 flex flex-col h-full">
       <div class="p-5 border-b">
         <p class="text-xs font-medium text-gray-400 uppercase tracking-widest mb-0.5">ระบบหลังบ้าน</p>
         <h1 class="text-base font-bold text-gray-900">JP Sibling</h1>
@@ -88,7 +88,7 @@ function isActive(to: string, exact: boolean) {
     </aside>
 
     <!-- Main -->
-    <div class="flex-1 flex flex-col min-w-0">
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
       <main class="flex-1 overflow-auto p-6">
         <slot />
       </main>

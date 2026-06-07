@@ -31,11 +31,11 @@ export default defineEventHandler(async () => {
     const isOpen = truck.manualClose ? false : timelineOpen
 
     if (isOpen) {
-      return okResponse({ isOpen: true, canOrder: true, nextOpenLabel: null, nextOpenName: null })
+      return okResponse({ isOpen: true, canOrder: true, manualClose: false, nextOpenLabel: null, nextOpenName: null })
     }
 
     if (truck.blockOnlineOrder) {
-      return okResponse({ isOpen: false, canOrder: false, nextOpenLabel: null, nextOpenName: null })
+      return okResponse({ isOpen: false, canOrder: false, manualClose: true, nextOpenLabel: null, nextOpenName: null })
     }
 
     const next = getNextSlot(truck.schedules, now)
@@ -44,6 +44,7 @@ export default defineEventHandler(async () => {
     return okResponse({
       isOpen: false,
       canOrder,
+      manualClose: truck.manualClose,
       nextOpenLabel: next?.label ?? null,
       nextOpenName: next?.name ?? null,
     })
