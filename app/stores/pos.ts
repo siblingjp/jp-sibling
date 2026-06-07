@@ -131,7 +131,7 @@ export const usePosStore = defineStore('pos', () => {
     discountAmount.value = 0
     pointsToRedeem.value = 0
     orderNote.value = ''
-    pickupTime.value = ''
+    pickupTime.value = defaultPickupTime()
     appliedCoupon.value = null
     couponDiscount.value = 0
   }
@@ -207,7 +207,15 @@ export const usePosStore = defineStore('pos', () => {
 
   // ─── Order Note ─────────────────────────────────────────────────────────────
   const orderNote = ref('')
-  const pickupTime = ref('')
+
+  function defaultPickupTime(): string {
+    const now = new Date()
+    const rounded = new Date(now)
+    rounded.setMinutes(Math.ceil(now.getMinutes() / 10) * 10, 0, 0)
+    return rounded.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const pickupTime = ref(defaultPickupTime())
 
   // ─── Computed Totals ────────────────────────────────────────────────────────
   const subtotal = computed(() => cart.value.reduce((s, i) => s + i.subtotal, 0))
@@ -261,7 +269,7 @@ export const usePosStore = defineStore('pos', () => {
   const isSubmitting = ref(false)
   const lastOrder = ref<any>(null)
 
-  async function checkout(paymentMethod: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', paymentAmount: number, transactionRef?: string) {
+  async function checkout(paymentMethod: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', paymentAmount: number, transactionRef?: string, startPreparing?: boolean) {
     if (cart.value.length === 0) throw new Error('Cart is empty')
     isSubmitting.value = true
     try {
@@ -282,6 +290,7 @@ export const usePosStore = defineStore('pos', () => {
         discountId: discountBadge.value?.id,
         couponCode: appliedCoupon.value?.code,
         pointsRedeemed: pointsRedeemCapped.value,
+        startPreparing: paymentMethod === 'UNPAID' && startPreparing === true ? true : undefined,
         items: cart.value.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,
@@ -362,5 +371,6 @@ export const usePosStore = defineStore('pos', () => {
     reserveQueue,
     clearReservedQueue,
     checkout,
+    resetPickupTime: () => { pickupTime.value = defaultPickupTime() },
   }
 })

@@ -38,6 +38,8 @@ interface TruckLocation {
   closeTime: string | null
   daysOfWeek: string | null
   isOpen: boolean
+  nextOpenLabel: string | null
+  nextOpenName: string | null
 }
 const truckLocation = ref<TruckLocation | null>(null)
 
@@ -154,17 +156,29 @@ function formatCouponValue(c: CampaignCoupon) {
     <!-- Store status -->
     <div v-if="truckLocation" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3">
       <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-        :class="isOpen ? 'bg-green-100' : 'bg-red-100'">
-        <Icon :name="isOpen ? 'mdi:store' : 'mdi:store-off'" class="text-xl"
-          :class="isOpen ? 'text-green-600' : 'text-red-500'" />
+        :class="isOpen ? 'bg-green-100' : 'bg-gray-100'">
+        <Icon :name="isOpen ? 'mdi:store' : 'mdi:store-clock'" class="text-xl"
+          :class="isOpen ? 'text-green-600' : 'text-gray-400'" />
       </div>
       <div class="flex-1 min-w-0">
-        <p class="text-xs text-gray-400 font-medium mb-0.5">วันนี้อยู่ที่</p>
-        <p class="font-semibold text-sm" :class="isOpen ? 'text-green-700' : 'text-red-600'">
-          {{ truckLocation.name }} · {{ isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }}
-        </p>
-        <p class="text-xs text-gray-400 truncate">{{ storeHoursText }}</p>
-        <p v-if="truckLocation.description" class="text-xs text-gray-400 truncate">{{ truckLocation.description }}</p>
+        <template v-if="isOpen">
+          <p class="text-xs text-gray-400 font-medium mb-0.5">วันนี้อยู่ที่</p>
+          <p class="font-semibold text-sm text-green-700">{{ truckLocation.name }} · เปิดอยู่</p>
+          <p class="text-xs text-gray-400 truncate">{{ storeHoursText }}</p>
+          <p v-if="truckLocation.description" class="text-xs text-gray-400 truncate">{{ truckLocation.description }}</p>
+        </template>
+        <template v-else-if="truckLocation.nextOpenLabel">
+          <div class="flex items-center gap-2 mb-0.5">
+            <p class="text-xs text-gray-400 font-medium">ร้านจะเปิดอีกครั้ง</p>
+            <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-600">ปิดอยู่</span>
+          </div>
+          <p class="font-semibold text-sm text-gray-700 leading-snug">{{ truckLocation.nextOpenLabel }}</p>
+          <p class="text-xs text-gray-400 truncate">ที่ {{ truckLocation.nextOpenName }}</p>
+        </template>
+        <template v-else>
+          <p class="text-xs text-gray-400 font-medium mb-0.5">สถานะร้าน</p>
+          <p class="font-semibold text-sm text-gray-500">ปิดอยู่</p>
+        </template>
       </div>
       <a
         v-if="truckLocation.mapUrl"

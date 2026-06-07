@@ -6,6 +6,7 @@ definePageMeta({ layout: 'pos', middleware: 'auth' })
 
 const store = usePosStore()
 const { showError, showSuccess } = useAlert()
+const { resolvedItems: quickItems, addToCart: addQuickItem } = useQuickMenu()
 
 onMounted(async () => {
   await Promise.all([store.fetchProducts(), store.fetchDiscounts()])
@@ -165,14 +166,14 @@ async function handleCancelReserve() {
 // ─── Checkout ────────────────────────────────────────────────────────────────
 const showPayment = ref(false)
 const lastOrderQueue = ref<number | null>(null)
-const lastOrderUnpaid = ref(false)
+const lastOrderStatus = ref<'paid' | 'unpaid' | 'preparing'>('paid')
 const showSuccess2 = ref(false)
 
-async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string) {
+async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string, startPreparing?: boolean) {
   try {
-    const order = await store.checkout(method, amount, ref)
+    const order = await store.checkout(method, amount, ref, startPreparing)
     lastOrderQueue.value = order.queueNo
-    lastOrderUnpaid.value = method === 'UNPAID'
+    lastOrderStatus.value = method !== 'UNPAID' ? 'paid' : startPreparing ? 'preparing' : 'unpaid'
     showPayment.value = false
     showSuccess2.value = true
     setTimeout(() => { showSuccess2.value = false }, 4000)
@@ -209,34 +210,37 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
     <!-- Product Area -->
     <div class="flex-1 flex flex-col min-w-0 bg-gray-50 min-h-0" :class="mobileTab === 'cart' ? 'hidden md:flex' : 'flex'">
       <!-- Search + Category Filter -->
-      <div class="px-4 pt-4 pb-3 bg-white border-b border-gray-200 space-y-3">
-        <!-- ยังไม่มีคิวที่จอง -->
-        <button
-          v-if="!store.reservedQueueNo"
-          type="button"
-          class="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-60"
-          :disabled="store.isReserving"
-          @click="handleReserveQueue"
-        >
-          <Icon name="mdi:ticket-outline" class="text-lg" />
-          {{ store.isReserving ? 'กำลังจอง...' : 'จองหมายเลขคิว' }}
-        </button>
-        <!-- มีคิวที่จองแล้ว -->
-        <div v-else class="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-200">
-          <Icon name="mdi:ticket-confirmation-outline" class="text-indigo-600 text-lg flex-shrink-0" />
-          <span class="text-sm font-semibold text-indigo-700 flex-1">คิวที่จอง: <span class="text-xl font-black">#{{ store.reservedQueueNo }}</span></span>
+      <div class="px-4 pt-3 pb-3 bg-white border-b border-gray-200 space-y-2">
+        <!-- Row: search + จองคิว -->
+        <div class="grid grid-cols-12 gap-2">
+          <input
+            v-model="search"
+            type="text"
+            placeholder="ค้นหาสินค้า..."
+            class="col-span-8 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <!-- ยังไม่มีคิวที่จอง -->
           <button
+            v-if="!store.reservedQueueNo"
             type="button"
-            class="text-xs text-red-500 hover:text-red-700 underline flex-shrink-0"
-            @click="handleCancelReserve"
-          >ยกเลิก</button>
+            class="col-span-4 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 active:scale-95 transition-all disabled:opacity-60"
+            :disabled="store.isReserving"
+            @click="handleReserveQueue"
+          >
+            <Icon name="mdi:ticket-outline" class="text-base flex-shrink-0" />
+            <span class="truncate">{{ store.isReserving ? 'กำลังจอง...' : 'จองคิว' }}</span>
+          </button>
+          <!-- มีคิวที่จองแล้ว -->
+          <div v-else class="col-span-4 flex items-center gap-1.5 px-2 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 min-w-0">
+            <Icon name="mdi:ticket-confirmation-outline" class="text-indigo-600 text-base flex-shrink-0" />
+            <span class="text-sm font-black text-indigo-700 flex-1 truncate">#{{ store.reservedQueueNo }}</span>
+            <button
+              type="button"
+              class="text-xs text-red-500 hover:text-red-700 flex-shrink-0"
+              @click="handleCancelReserve"
+            >✕</button>
+          </div>
         </div>
-        <input
-          v-model="search"
-          type="text"
-          placeholder="ค้นหาสินค้า..."
-          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
         <div class="flex gap-2 overflow-x-auto pb-1">
           <button
             class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0"
@@ -250,6 +254,20 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
             :class="selectedCategory === cat.id ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
             @click="selectedCategory = cat.id"
           >{{ cat.name }}</button>
+        </div>
+      </div>
+
+      <!-- Quick Menu -->
+      <div v-if="quickItems.length > 0" class="px-4 py-2.5 bg-amber-50 border-b border-amber-100">
+        <p class="text-xs font-medium text-amber-700 mb-2">⚡ เมนูด่วน</p>
+        <div class="flex flex-wrap gap-2">
+          <button
+            v-for="(item, i) in quickItems"
+            :key="i"
+            type="button"
+            class="px-3 py-1.5 rounded-full bg-white border border-amber-200 text-xs font-medium text-gray-700 hover:bg-amber-100 hover:border-amber-300 active:scale-95 transition-all whitespace-nowrap shadow-sm"
+            @click="addQuickItem(i); mobileTab = 'cart'"
+          >{{ item.label }}</button>
         </div>
       </div>
 
@@ -299,6 +317,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         :is-submitting="store.isSubmitting"
         :pickup-time="store.pickupTime"
         @update-pickup-time="store.pickupTime = $event"
+        @reset-pickup-time="store.resetPickupTime()"
         @remove-item="store.removeFromCart"
         @edit-item="openEditItem"
         :applied-coupon="store.appliedCoupon"
@@ -314,6 +333,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         @scan-coupon="showCouponScanner = true"
         @update-points-redeem="store.pointsToRedeem = $event"
         @checkout="showPayment = true"
+        @checkout-unpaid="handleCheckout('UNPAID', 0)"
         @badge-created="store.fetchDiscounts()"
       />
     </div>
@@ -422,9 +442,9 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
       <div
         v-if="showSuccess2"
         class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 text-white px-6 py-3 rounded-2xl shadow-lg font-semibold text-lg"
-        :class="lastOrderUnpaid ? 'bg-orange-500' : 'bg-green-600'"
+        :class="lastOrderStatus === 'paid' ? 'bg-green-600' : lastOrderStatus === 'preparing' ? 'bg-blue-600' : 'bg-orange-500'"
       >
-        {{ lastOrderUnpaid ? `ออเดอร์ #${lastOrderQueue} (ค้างชำระ)` : `ออเดอร์ #${lastOrderQueue} สำเร็จ!` }}
+        {{ lastOrderStatus === 'paid' ? `ออเดอร์ #${lastOrderQueue} สำเร็จ!` : lastOrderStatus === 'preparing' ? `ออเดอร์ #${lastOrderQueue} (กำลังทำ)` : `ออเดอร์ #${lastOrderQueue} (ค้างชำระ)` }}
       </div>
     </Transition>
   </Teleport>

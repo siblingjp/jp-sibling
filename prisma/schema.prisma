@@ -273,6 +273,8 @@ model Order {
   couponCode     String?
   pickupTime     String?
   slipUrl        String?
+  slipUrls       String[]
+  acknowledgedAt DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
@@ -419,18 +421,39 @@ model Article {
 // ─── Truck Location ────────────────────────────────────────────────────────────
 
 model TruckLocation {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   name        String
   description String?
   mapUrl      String?
   openTime    String?
   closeTime   String?
   daysOfWeek  String?
-  isActive    Boolean  @default(true)
-  isOpen      Boolean  @default(false)
-  updatedAt   DateTime @updatedAt
+  isActive          Boolean            @default(true)
+  isOpen            Boolean            @default(false)
+  manualClose       Boolean            @default(false)
+  blockOnlineOrder  Boolean            @default(false)
+  updatedAt         DateTime           @updatedAt
+  schedules         LocationSchedule[]
 
   @@map("truck_locations")
+}
+
+model LocationSchedule {
+  id             String        @id @default(cuid())
+  name           String
+  description    String?
+  mapUrl         String?
+  openTime       String
+  closeTime      String
+  daysOfWeek     String
+  isActive       Boolean       @default(true)
+  sortOrder      Int           @default(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  truckLocationId String
+  truckLocation  TruckLocation @relation(fields: [truckLocationId], references: [id])
+
+  @@map("location_schedules")
 }
 
 model LocationRequest {

@@ -7,7 +7,7 @@ const { member, fetchMe } = useMemberAuth()
 interface HomeData {
   products: { id: string; name: string; imageUrl: string | null; category: { name: string } }[]
   campaigns: { id: string; name: string; description: string | null; imageUrl: string | null; displayMode: string | null; bannerColor: string | null }[]
-  truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean } | null
+  truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean; nextOpenLabel: string | null; nextOpenName: string | null } | null
   topRequests: { id: string; name: string; description: string | null; voteCount: number }[]
 }
 
@@ -99,28 +99,34 @@ const marqueeProducts = computed(() => {
 <template>
   <div>
     <!-- ─── Truck Location Banner ────────────────────────────────────────── -->
-    <section v-if="data?.truckLocation" class="text-white py-4" :class="data.truckLocation.isOpen ? 'bg-green-700' : 'bg-[#1B2B4B]'">
+    <section v-if="data?.truckLocation" class="text-white py-4"
+      :class="data.truckLocation.isOpen ? 'bg-green-700' : 'bg-[#1B2B4B]'">
       <div class="max-w-4xl mx-auto px-6 flex items-center justify-between gap-4">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-            :class="data.truckLocation.isOpen ? 'bg-white/20' : 'bg-white/10'">
-            <Icon :name="data.truckLocation.isOpen ? 'mdi:store-check' : 'mdi:store-off'" class="text-lg" />
+          <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-white/15">
+            <Icon :name="data.truckLocation.isOpen ? 'mdi:store-check' : 'mdi:store-clock'" class="text-lg" />
           </div>
           <div class="min-w-0">
-            <p class="text-white/60 text-xs font-medium mb-0.5">วันนี้อยู่ที่</p>
-            <div class="flex items-center gap-2 flex-wrap">
-              <p class="font-bold">{{ data.truckLocation.name }}</p>
-              <span class="text-xs px-2 py-0.5 rounded-full font-semibold"
-                :class="data.truckLocation.isOpen ? 'bg-white/20 text-white' : 'bg-red-500/80 text-white'">
-                {{ data.truckLocation.isOpen ? 'เปิดอยู่' : 'ปิดอยู่' }}
-              </span>
-            </div>
-            <p class="text-white/70 text-sm truncate">
-              <span v-if="data.truckLocation.daysOfWeek">{{ data.truckLocation.daysOfWeek }}</span>
-              <span v-if="data.truckLocation.openTime && data.truckLocation.closeTime">
-                {{ data.truckLocation.daysOfWeek ? ' · ' : '' }}{{ data.truckLocation.openTime }}–{{ data.truckLocation.closeTime }}
-              </span>
-            </p>
+            <template v-if="data.truckLocation.isOpen">
+              <p class="text-white/60 text-xs font-medium mb-0.5">วันนี้อยู่ที่</p>
+              <div class="flex items-center gap-2 flex-wrap">
+                <p class="font-bold">{{ data.truckLocation.name }}</p>
+                <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white">เปิดอยู่</span>
+              </div>
+              <p class="text-white/70 text-sm">{{ data.truckLocation.openTime }}–{{ data.truckLocation.closeTime }}</p>
+            </template>
+            <template v-else-if="data.truckLocation.nextOpenLabel">
+              <div class="flex items-center gap-2 mb-0.5">
+                <p class="text-white/60 text-xs font-medium">ร้านจะเปิดอีกครั้ง</p>
+                <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-500/80 text-white">ปิดอยู่</span>
+              </div>
+              <p class="font-bold leading-snug">{{ data.truckLocation.nextOpenLabel }}</p>
+              <p class="text-white/70 text-sm truncate">ที่ {{ data.truckLocation.nextOpenName }}</p>
+            </template>
+            <template v-else>
+              <p class="text-white/60 text-xs font-medium mb-0.5">สถานะร้าน</p>
+              <p class="font-bold">ปิดอยู่</p>
+            </template>
           </div>
         </div>
         <a
@@ -318,7 +324,7 @@ const marqueeProducts = computed(() => {
       <div class="max-w-2xl mx-auto px-6">
         <div class="text-center mb-10">
           <h2 class="text-3xl font-bold text-[#1B2B4B] mb-3">อยากให้รถมาจอดที่ไหน?</h2>
-          <p class="text-gray-500">เสนอสถานที่และโหวตได้สัปดาห์ละ 1 ครั้ง<br>รถจะไปตามที่โหวตสูงสุด!</p>
+          <p class="text-gray-500">เสนอสถานที่และโหวตได้เดือนละ 1 ครั้ง<br>รถจะไปตามที่โหวตสูงสุด!</p>
         </div>
 
         <div v-if="allRequests.length" class="space-y-3 mb-8">

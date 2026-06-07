@@ -15,7 +15,7 @@ const schema = z.object({
   items: z.array(itemSchema).min(1),
   note: z.string().optional(),
   pickupTime: z.string().optional(),
-  slipUrl: z.string().optional(),
+  slipUrls: z.array(z.string()).min(1, 'กรุณาแนบสลิปอย่างน้อย 1 รูป'),
   couponCode: z.string().optional(),
 })
 
@@ -25,6 +25,9 @@ export default defineEventHandler(async (event) => {
     if (!session.member) throw unauthorized()
 
     const body = validate(schema, await readBody(event))
+
+    // ตรวจสอบว่าสั่งออเดอร์ได้หรือไม่ (เปิดอยู่ หรือ ภายใน 12 ชม. ก่อนเปิดรอบถัดไป)
+    await checkCanOrder()
 
     const productIds = body.items.map(i => i.productId)
     const products = await prisma.product.findMany({
@@ -94,7 +97,8 @@ export default defineEventHandler(async (event) => {
         member: { connect: { id: member.id } },
         note: body.note,
         pickupTime: body.pickupTime,
-        slipUrl: body.slipUrl,
+        slipUrl: body.slipUrls[0],
+        slipUrls: body.slipUrls,
         couponCode: couponCode ?? undefined,
         subtotal,
         discountKind: couponDiscountKind,
@@ -103,7 +107,7 @@ export default defineEventHandler(async (event) => {
         total,
         pointsEarned,
         pointsRedeemed: 0,
-        status: 'PREPARING',
+        status: 'PENDING',
         items: {
           create: itemsData.map(item => ({
             productId: item.productId,
@@ -172,3 +176,67 @@ export default defineEventHandler(async (event) => {
     handleError(e)
   }
 })
+
+async function checkCanOrder() {
+  const now = new Date()
+  const truck = await prisma.truckLocation.findFirst({
+    where: { isActive: true },
+    include: { schedules: { where: { isActive: true }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] } },
+  })
+  if (!truck) return
+
+  const isOpen = truck.schedules.length > 0 ? !!getActiveSchedule(truck.schedules, now) : truck.isOpen
+  if (isOpen) return
+
+  const next = getNextSlot(truck.schedules, now)
+  if (next && next.minutesUntilOpen <= 12 * 60) return
+
+  const msg = next
+    ? `ร้านปิดอยู่ — จะเปิดอีกครั้ง${next.label} ที่ ${next.name}`
+    : 'ร้านปิดอยู่ และยังไม่มีกำหนดเปิดในขณะนี้'
+  throw createError({ statusCode: 403, message: msg })
+}
+
+type Schedule = { id: string; openTime: string; closeTime: string; daysOfWeek: string; name: string }
+
+function toMinutes(t: string) {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+function getActiveSchedule(schedules: Schedule[], now: Date) {
+  const bkk = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }))
+  const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+  const hhmm = bkk.getHours() * 60 + bkk.getMinutes()
+  const todayName = dayNames[bkk.getDay()]
+  for (const s of schedules) {
+    if (!s.daysOfWeek.includes(todayName)) continue
+    if (hhmm >= toMinutes(s.openTime) && hhmm < toMinutes(s.closeTime)) return s
+  }
+  return null
+}
+
+function getNextSlot(schedules: Schedule[], now: Date) {
+  if (!schedules.length) return null
+  const bkk = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }))
+  const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์']
+  const thMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.']
+  const hhmm = bkk.getHours() * 60 + bkk.getMinutes()
+
+  for (let d = 0; d <= 7; d++) {
+    const target = new Date(bkk)
+    target.setDate(target.getDate() + d)
+    const dayName = dayNames[target.getDay()]
+    const candidates = schedules
+      .filter(s => s.daysOfWeek.includes(dayName))
+      .filter(s => d > 0 || toMinutes(s.openTime) > hhmm)
+      .sort((a, b) => toMinutes(a.openTime) - toMinutes(b.openTime))
+    if (!candidates.length) continue
+    const slot = candidates[0]
+    const buddhistYear = target.getFullYear() + 543
+    const label = `วัน${dayNames[target.getDay()]} ที่ ${target.getDate()} ${thMonths[target.getMonth()]} ${buddhistYear} ${slot.openTime} น.`
+    const minutesUntilOpen = d * 24 * 60 + toMinutes(slot.openTime) - hhmm
+    return { label, name: slot.name, minutesUntilOpen }
+  }
+  return null
+}

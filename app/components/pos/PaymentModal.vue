@@ -5,7 +5,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  confirm: [method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string]
+  confirm: [method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string, startPreparing?: boolean]
   cancel: []
 }>()
 
@@ -41,10 +41,10 @@ const quickAmounts = computed(() => {
   return [...new Set(candidates)].filter((v) => v >= t).slice(0, 4)
 })
 
-function handleConfirm() {
+function handleConfirm(startPreparing = false) {
   if (!isValid.value) return
   const amount = method.value === 'CASH' ? cashReceived.value : method.value === 'UNPAID' ? 0 : props.total
-  emit('confirm', method.value, amount, transactionRef.value || undefined)
+  emit('confirm', method.value, amount, transactionRef.value || undefined, startPreparing)
 }
 </script>
 
@@ -120,7 +120,31 @@ function handleConfirm() {
         </div>
 
         <!-- Actions -->
-        <div class="flex gap-3">
+        <div v-if="isUnpaid" class="flex flex-col gap-2">
+          <div class="flex gap-3">
+            <button
+              type="button"
+              class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
+              @click="emit('cancel')"
+            >ยกเลิก</button>
+            <button
+              type="button"
+              class="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors"
+              :class="!isSubmitting ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-300 cursor-not-allowed'"
+              :disabled="isSubmitting"
+              @click="handleConfirm(false)"
+            >{{ isSubmitting ? '...' : 'บันทึก (ค้างชำระ)' }}</button>
+          </div>
+          <button
+            type="button"
+            class="w-full py-2.5 rounded-xl font-semibold text-white transition-colors"
+            :class="!isSubmitting ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'"
+            :disabled="isSubmitting"
+            @click="handleConfirm(true)"
+          >{{ isSubmitting ? 'กำลังดำเนินการ...' : 'บันทึกออเดอร์ (กำลังทำ)' }}</button>
+        </div>
+
+        <div v-else class="flex gap-3">
           <button
             type="button"
             class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
@@ -129,14 +153,10 @@ function handleConfirm() {
           <button
             type="button"
             class="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors"
-            :class="isValid && !isSubmitting
-              ? isUnpaid ? 'bg-orange-500 hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'
-              : 'bg-gray-300 cursor-not-allowed'"
+            :class="isValid && !isSubmitting ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-300 cursor-not-allowed'"
             :disabled="!isValid || isSubmitting"
-            @click="handleConfirm"
-          >
-            {{ isSubmitting ? 'กำลังดำเนินการ...' : isUnpaid ? 'บันทึกออเดอร์ (ค้างชำระ)' : 'ยืนยันการชำระเงิน' }}
-          </button>
+            @click="handleConfirm()"
+          >{{ isSubmitting ? 'กำลังดำเนินการ...' : 'ยืนยันการชำระเงิน' }}</button>
         </div>
       </div>
     </div>

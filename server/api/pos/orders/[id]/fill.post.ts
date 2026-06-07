@@ -20,6 +20,7 @@ const schema = z.object({
   discountId: z.string().optional(),
   couponCode: z.string().optional(),
   pointsRedeemed: z.number().int().min(0).default(0),
+  startPreparing: z.boolean().optional(),
   items: z.array(itemSchema).min(1),
 })
 
@@ -100,7 +101,7 @@ export default defineEventHandler(async (event) => {
       const updated = await tx.order.update({
         where: { id },
         data: {
-          status: 'PENDING',
+          status: data.startPreparing ? 'PREPARING' : 'PENDING',
           note: data.note,
           pickupTime: data.pickupTime ?? null,
           memberId: data.memberId ?? null,

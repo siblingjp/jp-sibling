@@ -5,13 +5,20 @@ export default defineEventHandler(async (event) => {
 
     const { status } = getQuery(event) as { status?: string }
 
-    const where = status && status !== 'ALL'
+    const { start, end } = getTodayRangeBKK()
+
+    const statusFilter = status && status !== 'ALL'
       ? { status: status as any }
       : { status: { notIn: ['COMPLETED', 'CANCELLED'] as any[] } }
 
+    const where = { ...statusFilter, createdAt: { gte: start, lte: end } }
+
     const orders = await prisma.order.findMany({
       where,
-      orderBy: { createdAt: 'asc' },
+      orderBy: [
+        { pickupTime: { sort: 'asc', nulls: 'last' } },
+        { queueNo: 'asc' },
+      ],
       include: {
         items: {
           include: {

@@ -79,6 +79,20 @@ async function load() {
   }
 }
 
+const acknowledgingId = ref<string | null>(null)
+
+async function acknowledge(order: any) {
+  acknowledgingId.value = order.id
+  try {
+    await useHttpClient().post(API_ENDPOINTS.POS.ORDERS.ACKNOWLEDGE(order.id))
+    await load()
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'ไม่สำเร็จ')
+  } finally {
+    acknowledgingId.value = null
+  }
+}
+
 async function updateStatus(order: any, status: string) {
   if (status === 'CANCELLED') {
     const ok = await showConfirm({ title: 'ยกเลิกออเดอร์', message: 'ต้องการยกเลิกออเดอร์นี้?', confirmText: 'ยกเลิกออเดอร์' })
@@ -249,38 +263,69 @@ function formatPrice(n: number) {
             </div>
           </div>
 
-          <!-- Pickup time & slip -->
-          <div v-if="order.source === 'ONLINE'" class="flex items-center justify-between text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
-            <span>
-              <Icon name="mdi:clock-outline" class="inline-block align-middle mr-1" />
-              รับ {{ order.pickupTime ?? '-' }}
-            </span>
+          <!-- Pickup time & slip (ONLINE) -->
+          <div v-if="order.source === 'ONLINE'" class="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span>
+                <Icon name="mdi:clock-outline" class="inline-block align-middle mr-1" />
+                รับ {{ order.pickupTime ?? '-' }}
+              </span>
+              <span v-if="order.acknowledgedAt" class="text-green-600 font-medium flex items-center gap-1">
+                <Icon name="mdi:check-circle" class="w-3.5 h-3.5" />รับทราบแล้ว
+              </span>
+            </div>
+            <div v-if="order.slipUrls?.length" class="flex gap-1.5 flex-wrap">
+              <button
+                v-for="(url, i) in order.slipUrls"
+                :key="i"
+                class="flex items-center gap-1 text-blue-600 font-medium hover:text-blue-800"
+                @click.stop="slipModal = url"
+              >
+                <Icon name="mdi:receipt" class="w-3.5 h-3.5" />
+                สลิป{{ order.slipUrls.length > 1 ? ` ${i + 1}` : '' }}
+              </button>
+            </div>
             <button
-              v-if="order.slipUrl"
+              v-else-if="order.slipUrl"
               class="flex items-center gap-1 text-blue-600 font-medium hover:text-blue-800"
-              @click="slipModal = order.slipUrl"
+              @click.stop="slipModal = order.slipUrl"
             >
-              <Icon name="mdi:receipt" class="w-4 h-4" />
-              ดูสลิป
+              <Icon name="mdi:receipt" class="w-3.5 h-3.5" />ดูสลิป
             </button>
           </div>
 
           <!-- Actions -->
-          <div class="flex gap-2" @click.stop>
-            <button
-              v-if="nextStatus[order.status]"
-              class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-              @click="updateStatus(order, nextStatus[order.status])"
-            >
-              → {{ { PENDING: 'กำลังทำ', PREPARING: 'พร้อมส่ง', READY: 'เสร็จสิ้น' }[order.status] || nextStatus[order.status] }}
-            </button>
+          <div class="flex gap-2 flex-wrap" @click.stop>
+            <!-- ONLINE PENDING: แสดง 2 ปุ่ม -->
+            <template v-if="order.source === 'ONLINE' && order.status === 'PENDING'">
+              <button
+                class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                @click="updateStatus(order, 'PREPARING')"
+              >→ กำลังทำ</button>
+              <button
+                v-if="!order.acknowledgedAt"
+                :disabled="acknowledgingId === order.id"
+                class="flex-1 py-2 rounded-lg bg-amber-100 text-amber-700 text-sm font-medium hover:bg-amber-200 transition-colors disabled:opacity-50"
+                @click="acknowledge(order)"
+              >{{ acknowledgingId === order.id ? '...' : 'รับทราบ' }}</button>
+            </template>
+
+            <!-- อื่นๆ: ปุ่มเดียว next status -->
+            <template v-else>
+              <button
+                v-if="nextStatus[order.status]"
+                class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                @click="updateStatus(order, nextStatus[order.status])"
+              >
+                → {{ { PENDING: 'กำลังทำ', PREPARING: 'พร้อมส่ง', READY: 'เสร็จสิ้น' }[order.status] || nextStatus[order.status] }}
+              </button>
+            </template>
+
             <button
               v-if="order.status === 'PENDING'"
               class="px-3 py-2 rounded-lg border border-red-200 text-red-500 text-sm hover:bg-red-50 transition-colors"
               @click="updateStatus(order, 'CANCELLED')"
-            >
-              ยกเลิก
-            </button>
+            >ยกเลิก</button>
           </div>
         </div>
       </div>

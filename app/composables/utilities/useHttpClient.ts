@@ -6,6 +6,7 @@ interface RequestOptions {
   method?: Method
   body?: unknown
   query?: Record<string, unknown>
+  showLoading?: boolean
 }
 
 /**
@@ -31,23 +32,33 @@ function flattenQuery(
   return result
 }
 
-export function useHttpClient() {
-  async function request<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<T> {
-    const { method = 'GET', body, query } = options
+const MUTATION_METHODS: Method[] = ['POST', 'PUT', 'PATCH', 'DELETE']
 
-    // flattenQuery ใช้เฉพาะ GET query params เท่านั้น ไม่ใช้กับ body
+export function useHttpClient() {
+  const { increment, decrement } = useGlobalLoading()
+
+  async function request<T = unknown>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+    const { method = 'GET', body, query, showLoading } = options
+    const isMutation = MUTATION_METHODS.includes(method)
+    const shouldLoad = isMutation || showLoading === true
+
     const flatQuery = query ? flattenQuery(query) : undefined
 
-    return await $fetch<T>(endpoint, {
-      method,
-      body: body !== undefined ? JSON.parse(JSON.stringify(body)) : undefined,
-      query: flatQuery,
-      credentials: 'include',
-    })
+    if (shouldLoad) increment()
+    try {
+      return await $fetch<T>(endpoint, {
+        method,
+        body: body !== undefined ? JSON.parse(JSON.stringify(body)) : undefined,
+        query: flatQuery,
+        credentials: 'include',
+      })
+    } finally {
+      if (shouldLoad) decrement()
+    }
   }
 
-  function get<T = unknown>(endpoint: string, query?: ListQuery) {
-    return request<T>(endpoint, { method: 'GET', query: query as Record<string, unknown> })
+  function get<T = unknown>(endpoint: string, query?: ListQuery, options?: { loading?: boolean }) {
+    return request<T>(endpoint, { method: 'GET', query: query as Record<string, unknown>, showLoading: options?.loading })
   }
 
   function post<T = unknown>(endpoint: string, body?: unknown) {

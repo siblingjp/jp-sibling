@@ -1,4 +1,13 @@
 <template>
+  <!-- Global mutation loading overlay — blocks all interaction while pending -->
+  <Transition name="fade">
+    <div v-if="isPending" class="fixed inset-0 z-[9999]">
+      <div class="absolute top-0 left-0 right-0 h-1 bg-[#1B2B4B]/20">
+        <div class="h-full bg-[#1B2B4B] animate-loading-bar" />
+      </div>
+    </div>
+  </Transition>
+
   <div v-if="!store.initialized" class="min-h-screen bg-gray-50 flex items-center justify-center">
     <div class="flex flex-col items-center gap-3 text-gray-400">
       <Icon name="mdi:loading" class="text-4xl animate-spin text-[#1B2B4B]" />
@@ -55,6 +64,7 @@
 </template>
 
 <script setup lang="ts">
+const { isPending } = useGlobalLoading()
 const store = useMemberStore()
 const { logout } = useMemberAuth()
 const router = useRouter()
@@ -101,3 +111,17 @@ function isActive(item: typeof navItems[number]) {
   return path === item.to || path.startsWith(item.to + '/')
 }
 </script>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.15s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@keyframes loading-bar {
+  0%   { width: 0%; opacity: 1; }
+  80%  { width: 90%; opacity: 1; }
+  100% { width: 90%; opacity: 1; }
+}
+.animate-loading-bar {
+  animation: loading-bar 8s ease-out forwards;
+}
+</style>

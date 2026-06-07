@@ -65,6 +65,16 @@ interface Campaign {
 // ─── Step state ───────────────────────────────────────────────────────────────
 const step = ref<1 | 2 | 3>(1)
 
+// ─── Shop status ──────────────────────────────────────────────────────────────
+interface ShopStatus {
+  isOpen: boolean
+  canOrder: boolean
+  nextOpenLabel: string | null
+  nextOpenName: string | null
+}
+const shopStatus = ref<ShopStatus | null>(null)
+const showClosedAlert = ref(false)
+
 // ─── State ────────────────────────────────────────────────────────────────────
 const products = ref<Product[]>([])
 const cart = ref<CartItem[]>([])
@@ -108,21 +118,23 @@ const couponInput = ref('')
 // pickup & slip
 const pickupTime = ref('')
 const orderNote = ref('')
-const slipFile = ref<File | null>(null)
-const slipPreview = ref('')
+const slipFiles = ref<{ file: File; preview: string }[]>([])
 const uploadingSlip = ref(false)
+const MAX_SLIPS = 5
 
 // ─── Load data ────────────────────────────────────────────────────────────────
 onMounted(async () => {
   try {
-    const [pRes, cRes, campRes] = await Promise.all([
+    const [pRes, cRes, campRes, statusRes] = await Promise.all([
       http.get<{ data: Product[] }>(API_ENDPOINTS.MEMBER.PRODUCTS),
       http.get<{ data: CouponUseItem[] }>(API_ENDPOINTS.MEMBER.COUPONS.LIST),
       http.get<{ data: Campaign[] }>(API_ENDPOINTS.MEMBER.CAMPAIGNS),
+      http.get<{ data: ShopStatus }>(API_ENDPOINTS.PUBLIC.LOCATION_STATUS, undefined, { loading: true }),
     ])
     products.value = pRes.data ?? []
     myUses.value = (cRes.data ?? []).filter(u => !u.isUsed)
     campaigns.value = campRes.data ?? []
+    shopStatus.value = statusRes.data ?? null
   } catch {
     // silent
   } finally {
@@ -244,22 +256,31 @@ function formatCouponLabel(discountKind: string, discountValue: string | number)
 
 // ─── Slip upload ──────────────────────────────────────────────────────────────
 function onSlipChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
-  slipFile.value = file
-  slipPreview.value = URL.createObjectURL(file)
+  const files = Array.from((e.target as HTMLInputElement).files ?? [])
+  for (const file of files) {
+    if (slipFiles.value.length >= MAX_SLIPS) break
+    slipFiles.value.push({ file, preview: URL.createObjectURL(file) })
+  }
+  ;(e.target as HTMLInputElement).value = ''
+}
+
+function removeSlip(index: number) {
+  URL.revokeObjectURL(slipFiles.value[index].preview)
+  slipFiles.value.splice(index, 1)
 }
 
 // ─── Place order ──────────────────────────────────────────────────────────────
 async function placeOrder() {
   if (cart.value.length === 0) return
-  if (!slipFile.value) { showError('กรุณาแนบสลิปการโอนเงิน'); return }
+  if (slipFiles.value.length === 0) { showError('กรุณาแนบสลิปการโอนเงิน'); return }
   if (!pickupTime.value) { showError('กรุณาระบุเวลารับอาหาร'); return }
 
   placing.value = true
   try {
     uploadingSlip.value = true
-    const uploaded = await uploadViaPresign(slipFile.value, { folder: 'slips' })
+    const uploaded = await Promise.all(
+      slipFiles.value.map(s => uploadViaPresign(s.file, { folder: 'slips' }))
+    )
     uploadingSlip.value = false
 
     const res = await http.post<{ data: { id: string; pointsEarned: number } }>(
@@ -274,7 +295,7 @@ async function placeOrder() {
         note: orderNote.value || undefined,
         couponCode: appliedCouponCode.value || undefined,
         pickupTime: pickupTime.value,
-        slipUrl: uploaded.publicUrl,
+        slipUrls: uploaded.map(u => u.publicUrl),
       }
     )
     if (res.data) {
@@ -301,6 +322,21 @@ const pickupOptions = computed(() => {
   }
   return options
 })
+
+// ─── Proceed to payment (เช็ค shop status ก่อน) ──────────────────────────────
+async function proceedToPayment() {
+  if (cartCount.value === 0) return
+  try {
+    const res = await http.get<{ data: ShopStatus }>(API_ENDPOINTS.PUBLIC.LOCATION_STATUS, undefined, { loading: true })
+    shopStatus.value = res.data ?? null
+  } catch { /* ถ้า fetch ไม่ได้ ให้ผ่านไปก่อน */ }
+
+  if (shopStatus.value && !shopStatus.value.canOrder) {
+    showClosedAlert.value = true
+    return
+  }
+  step.value = 2
+}
 
 // ─── Cart total item count ────────────────────────────────────────────────────
 const cartCount = computed(() => cart.value.reduce((s, i) => s + i.quantity, 0))
@@ -517,26 +553,43 @@ const steps = [
       </div>
 
       <!-- Slip upload -->
-      <div class="bg-white rounded-2xl shadow p-4 space-y-2">
-        <p class="text-sm font-semibold text-gray-700">สลิปการโอนเงิน <span class="text-red-500">*</span></p>
-        <p class="text-xs text-red-500">* ไม่คืนเงินทุกกรณี</p>
-        <label class="block cursor-pointer">
-          <div v-if="slipPreview" class="relative">
-            <img :src="slipPreview" class="w-full max-h-56 object-contain rounded-xl border border-gray-200" />
+      <div class="bg-white rounded-2xl shadow p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-semibold text-gray-700">สลิปการโอนเงิน <span class="text-red-500">*</span></p>
+            <p class="text-xs text-red-500">* ไม่คืนเงินทุกกรณี</p>
+          </div>
+          <span class="text-xs text-gray-400">{{ slipFiles.length }}/{{ MAX_SLIPS }}</span>
+        </div>
+
+        <!-- Preview grid -->
+        <div v-if="slipFiles.length" class="grid grid-cols-3 gap-2">
+          <div v-for="(s, i) in slipFiles" :key="i" class="relative aspect-square">
+            <img :src="s.preview" class="w-full h-full object-cover rounded-xl border border-gray-200" />
             <button
               type="button"
-              class="absolute top-2 right-2 bg-white/90 rounded-full p-1 text-red-500 shadow"
-              @click.prevent="slipFile = null; slipPreview = ''"
+              class="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 text-red-500 shadow"
+              @click="removeSlip(i)"
             >
-              <Icon name="mdi:close" class="w-4 h-4" />
+              <Icon name="mdi:close" class="w-3.5 h-3.5" />
             </button>
           </div>
-          <div v-else class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#C8D8E8] transition-colors">
+
+          <!-- Add more button -->
+          <label v-if="slipFiles.length < MAX_SLIPS" class="aspect-square flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#C8D8E8] transition-colors">
+            <Icon name="mdi:plus" class="text-2xl text-gray-400" />
+            <input type="file" accept="image/*" multiple class="hidden" @change="onSlipChange" />
+          </label>
+        </div>
+
+        <!-- Empty state -->
+        <label v-else class="block cursor-pointer">
+          <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#C8D8E8] transition-colors">
             <Icon name="mdi:upload" class="text-4xl text-gray-400 mb-2" />
             <p class="text-sm text-gray-500 font-medium">แตะเพื่อแนบสลิป</p>
-            <p class="text-xs text-gray-400 mt-1">JPG, PNG, HEIC</p>
+            <p class="text-xs text-gray-400 mt-1">JPG, PNG, HEIC · สูงสุด {{ MAX_SLIPS }} รูป</p>
           </div>
-          <input type="file" accept="image/*" class="hidden" @change="onSlipChange" />
+          <input type="file" accept="image/*" multiple class="hidden" @change="onSlipChange" />
         </label>
       </div>
 
@@ -592,7 +645,7 @@ const steps = [
             <button
               :disabled="cartCount === 0"
               class="bg-white text-[#1B2B4B] font-bold text-sm px-5 py-2 rounded-xl hover:bg-[#C8D8E8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-              @click="step = 2"
+              @click="proceedToPayment"
             >
               ชำระเงิน →
             </button>
@@ -653,6 +706,33 @@ const steps = [
           <div class="p-6 pt-0 flex gap-3 sm:mt-0 mt-auto sticky bottom-0 bg-white border-t border-gray-100 sm:border-none sm:static">
             <button @click="modalProduct = null" class="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">ยกเลิก</button>
             <button @click="confirmModal" class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b]">เพิ่มลงออเดอร์</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ── Shop closed alert ── -->
+    <Teleport to="body">
+      <div v-if="showClosedAlert" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+          <div class="bg-[#1B2B4B] px-6 py-5 text-center">
+            <Icon name="mdi:store-clock" class="text-4xl text-white/80 mb-2" />
+            <p class="text-white font-bold text-lg">ร้านปิดอยู่</p>
+          </div>
+          <div class="px-6 py-5 text-center space-y-2">
+            <template v-if="shopStatus?.nextOpenLabel">
+              <p class="text-sm text-gray-500">ร้านจะเปิดอีกครั้ง</p>
+              <p class="font-bold text-gray-900">{{ shopStatus.nextOpenLabel }}</p>
+              <p class="text-sm text-gray-500">ที่ {{ shopStatus.nextOpenName }}</p>
+            </template>
+            <p v-else class="text-sm text-gray-500">ยังไม่มีกำหนดเปิดในขณะนี้</p>
+            <p class="text-xs text-gray-400 pt-1">สามารถสั่งล่วงหน้าได้ภายใน 12 ชั่วโมงก่อนร้านเปิด</p>
+          </div>
+          <div class="px-6 pb-5">
+            <button
+              class="w-full py-3 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-colors"
+              @click="showClosedAlert = false"
+            >รับทราบ</button>
           </div>
         </div>
       </div>

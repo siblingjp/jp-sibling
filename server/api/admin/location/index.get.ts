@@ -4,10 +4,18 @@ export default defineEventHandler(async (event) => {
     if (!session.user) throw unauthorized()
 
     const { weekYear } = getQuery(event) as { weekYear?: string }
-    const week = weekYear || getWeekYear()
+    const week = weekYear || getMonthYear()
 
     const [truckLocation, requests] = await Promise.all([
-      prisma.truckLocation.findFirst({ where: { isActive: true } }),
+      prisma.truckLocation.findFirst({
+        where: { isActive: true },
+        include: {
+          schedules: {
+            where: { isActive: true },
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          },
+        },
+      }),
       prisma.locationRequest.findMany({
         where: { weekYear: week },
         orderBy: { voteCount: 'desc' },
@@ -21,11 +29,7 @@ export default defineEventHandler(async (event) => {
   }
 })
 
-function getWeekYear() {
-  const now = new Date()
-  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
-  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+function getMonthYear() {
+  const bkk = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }))
+  return `${bkk.getFullYear()}-${String(bkk.getMonth() + 1).padStart(2, '0')}`
 }

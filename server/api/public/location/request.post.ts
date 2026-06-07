@@ -11,12 +11,12 @@ export default defineEventHandler(async (event) => {
     if (!session.member) throw unauthorized('กรุณาเข้าสู่ระบบก่อนเสนอสถานที่')
 
     const data = validate(schema, await readBody(event))
-    const weekYear = getWeekYear()
+    const weekYear = getMonthYear()
 
     const existing = await prisma.locationRequest.findFirst({
       where: { memberId: session.member.id, weekYear },
     })
-    if (existing) throw conflict('คุณได้เสนอสถานที่สัปดาห์นี้แล้ว')
+    if (existing) throw conflict('คุณได้เสนอสถานที่เดือนนี้แล้ว')
 
     const request = await prisma.locationRequest.create({
       data: { name: data.name, description: data.description, weekYear, memberId: session.member.id },
@@ -28,11 +28,7 @@ export default defineEventHandler(async (event) => {
   }
 })
 
-function getWeekYear() {
-  const now = new Date()
-  const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
-  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7))
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  const week = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
-  return `${d.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
+function getMonthYear() {
+  const bkk = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Bangkok' }))
+  return `${bkk.getFullYear()}-${String(bkk.getMonth() + 1).padStart(2, '0')}`
 }

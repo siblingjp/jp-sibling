@@ -75,6 +75,13 @@ export const API_ENDPOINTS = {
       LIST: '/api/admin/location',
       UPDATE_TRUCK: '/api/admin/location/truck',
       RESET: '/api/admin/location/reset',
+      TOGGLE_OPEN: '/api/admin/location/toggle-open',
+      SCHEDULES: {
+        LIST: '/api/admin/location/schedules',
+        CREATE: '/api/admin/location/schedules',
+        UPDATE: (id: string) => `/api/admin/location/schedules/${id}`,
+        DELETE: (id: string) => `/api/admin/location/schedules/${id}`,
+      },
     },
   },
 
@@ -90,6 +97,7 @@ export const API_ENDPOINTS = {
       SHOW: (id: string) => `/api/pos/orders/${id}`,
       UPDATE: (id: string) => `/api/pos/orders/${id}`,
       FILL: (id: string) => `/api/pos/orders/${id}/fill`,
+      ACKNOWLEDGE: (id: string) => `/api/pos/orders/${id}/acknowledge`,
     },
     PAYMENTS: {
       CREATE: '/api/pos/payments',
@@ -124,6 +132,7 @@ export const API_ENDPOINTS = {
   },
 
   PUBLIC: {
+    LOCATION_STATUS: '/api/public/location/status',
     ARTICLES: {
       LIST: '/api/public/news',
       SHOW: (slug: string) => `/api/public/news/${slug}`,
