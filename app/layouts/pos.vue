@@ -42,8 +42,8 @@ async function applyMode(mode: 'close' | 'closeBlock' | 'reset') {
 </script>
 
 <template>
-  <div class="h-screen bg-gray-50 flex flex-col overflow-hidden">
-    <header class="bg-white border-b border-gray-200 px-3 md:px-6 py-2 md:py-3 flex items-center justify-between flex-shrink-0 gap-2 sticky top-0 z-30">
+  <div class="h-[100dvh] bg-gray-50 flex flex-col overflow-hidden">
+    <header class="bg-white border-b border-gray-200 px-3 md:px-6 py-2 md:py-3 flex items-center justify-between flex-shrink-0 gap-2">
       <div class="flex items-center gap-2 md:gap-4 min-w-0">
         <h1 class="text-base font-bold text-gray-900 flex-shrink-0">POS</h1>
         <nav class="flex gap-1">
@@ -74,8 +74,8 @@ async function applyMode(mode: 'close' | 'closeBlock' | 'reset') {
             {{ isOpen ? 'เปิดอยู่' : manualClose ? (blockOnlineOrder ? 'ปิดร้าน (ปิดออนไลน์)' : 'ปิดร้าน') : 'ปิดอยู่' }}
           </span>
         </button>
-        <span class="text-sm text-gray-500 hidden md:inline truncate max-w-[100px] lg:max-w-none">{{ user?.name }}</span>
-        <NuxtLink to="/admin" class="text-sm text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap hidden sm:inline">หลังบ้าน</NuxtLink>
+        <!-- <span class="text-sm text-gray-500 hidden md:inline truncate max-w-[100px] lg:max-w-none">{{ user?.name }}</span> -->
+        <NuxtLink to="/admin" class="text-sm text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap hidden sm:inline">ระบบหลังบ้าน</NuxtLink>
       </div>
     </header>
     <main class="flex-1 overflow-hidden">

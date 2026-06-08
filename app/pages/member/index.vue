@@ -30,6 +30,9 @@ const spendRemaining = computed(() => {
 })
 
 // ─── Store / Truck location ───────────────────────────────────────────────────
+interface Schedule {
+  id: string; name: string; openTime: string; closeTime: string; daysOfWeek: string; mapUrl: string | null
+}
 interface TruckLocation {
   name: string
   description: string | null
@@ -40,8 +43,11 @@ interface TruckLocation {
   isOpen: boolean
   nextOpenLabel: string | null
   nextOpenName: string | null
+  schedules: Schedule[]
+  activeScheduleId: string | null
 }
 const truckLocation = ref<TruckLocation | null>(null)
+const showTimeline = ref(false)
 
 const isOpen = computed(() => truckLocation.value?.isOpen ?? false)
 
@@ -154,7 +160,7 @@ function formatCouponValue(c: CampaignCoupon) {
     </Transition>
 
     <!-- Store status -->
-    <div v-if="truckLocation" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3">
+    <div v-if="truckLocation" class="bg-white rounded-2xl shadow p-4 flex items-start gap-3">
       <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
         :class="isOpen ? 'bg-green-100' : 'bg-gray-100'">
         <Icon :name="isOpen ? 'mdi:store' : 'mdi:store-clock'" class="text-xl"
@@ -180,17 +186,34 @@ function formatCouponValue(c: CampaignCoupon) {
           <p class="font-semibold text-sm text-gray-500">ปิดอยู่</p>
         </template>
       </div>
-      <a
-        v-if="truckLocation.mapUrl"
-        :href="truckLocation.mapUrl"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="flex items-center gap-1 text-xs text-[#1B2B4B] font-medium hover:underline flex-shrink-0"
-      >
-        <Icon name="mdi:map-marker" class="w-4 h-4 text-red-400" />
-        แผนที่
-      </a>
+      <div class="flex flex-col items-end gap-1.5 flex-shrink-0">
+        <a
+          v-if="truckLocation.mapUrl"
+          :href="truckLocation.mapUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex items-center gap-1 text-xs text-[#1B2B4B] font-medium hover:underline"
+        >
+          <Icon name="mdi:map-marker" class="w-4 h-4 text-red-400" />
+          แผนที่
+        </a>
+        <button
+          v-if="truckLocation.schedules?.length"
+          class="flex items-center gap-1 text-xs text-gray-400 hover:text-[#1B2B4B] transition-colors"
+          @click="showTimeline = true"
+        >
+          <Icon name="mdi:calendar-clock" class="text-sm" />
+          ไทม์ไลน์
+        </button>
+      </div>
     </div>
+
+    <SharedLocationTimeline
+      v-if="showTimeline && truckLocation"
+      :schedules="truckLocation.schedules"
+      :active-schedule-id="truckLocation.activeScheduleId"
+      @close="showTimeline = false"
+    />
 
     <!-- Member card -->
     <div class="bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b] rounded-2xl p-6 text-white shadow-lg">

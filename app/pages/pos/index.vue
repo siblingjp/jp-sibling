@@ -7,6 +7,8 @@ definePageMeta({ layout: 'pos', middleware: 'auth' })
 const store = usePosStore()
 const { showError, showSuccess } = useAlert()
 const { resolvedItems: quickItems, addToCart: addQuickItem } = useQuickMenu()
+const showCartPanel = ref(true)
+const productTab = ref<'products' | 'quick'>('products')
 
 onMounted(async () => {
   await Promise.all([store.fetchProducts(), store.fetchDiscounts()])
@@ -209,8 +211,22 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
 
     <!-- Product Area -->
     <div class="flex-1 flex flex-col min-w-0 bg-gray-50 min-h-0" :class="mobileTab === 'cart' ? 'hidden md:flex' : 'flex'">
+      <!-- Tab bar: สินค้า / เมนูด่วน -->
+      <div class="flex border-b border-gray-200 bg-white flex-shrink-0">
+        <button
+          class="flex-1 py-2.5 text-sm font-medium transition-colors"
+          :class="productTab === 'products' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'"
+          @click="productTab = 'products'"
+        >สินค้า</button>
+        <button
+          class="flex-1 py-2.5 text-sm font-medium transition-colors"
+          :class="productTab === 'quick' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'"
+          @click="productTab = 'quick'"
+        >เมนูด่วน</button>
+      </div>
+
       <!-- Search + Category Filter -->
-      <div class="px-4 pt-3 pb-3 bg-white border-b border-gray-200 space-y-2">
+      <div v-if="productTab === 'products'" class="px-4 pt-3 pb-3 bg-white border-b border-gray-200 space-y-2">
         <!-- Row: search + จองคิว -->
         <div class="grid grid-cols-12 gap-2">
           <input
@@ -257,25 +273,11 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         </div>
       </div>
 
-      <!-- Quick Menu -->
-      <div v-if="quickItems.length > 0" class="px-4 py-2.5 bg-amber-50 border-b border-amber-100">
-        <div class="flex flex-wrap gap-2">
-          <p class="text-xs font-medium text-amber-700 mb-2">⚡ เมนูด่วน</p>
-          <button
-            v-for="(item, i) in quickItems"
-            :key="i"
-            type="button"
-            class="px-3 py-1.5 rounded-full bg-white border border-amber-200 text-xs font-medium text-gray-700 hover:bg-amber-100 hover:border-amber-300 active:scale-95 transition-all whitespace-nowrap shadow-sm"
-            @click="addQuickItem(i); mobileTab = 'cart'"
-          >{{ item.label }}</button>
-        </div>
-      </div>
-
       <!-- Product Grid -->
-      <div class="flex-1 overflow-y-auto p-4">
+      <div v-if="productTab === 'products'" class="flex-1 overflow-y-auto p-4">
         <div v-if="store.isLoadingProducts" class="text-center py-16 text-gray-400">กำลังโหลด...</div>
         <div v-else-if="filteredProducts.length === 0" class="text-center py-16 text-gray-400 text-sm">ไม่พบสินค้า</div>
-        <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        <div v-else class="grid gap-3" :class="showCartPanel ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'">
           <button
             v-for="p in filteredProducts"
             :key="p.id"
@@ -296,10 +298,34 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
           </button>
         </div>
       </div>
+
+      <!-- Quick Menu Grid -->
+      <div v-if="productTab === 'quick'" class="flex-1 overflow-y-auto p-4">
+        <div v-if="quickItems.length === 0" class="text-center py-16 text-gray-400 text-sm">ไม่มีเมนูด่วน</div>
+        <div v-else class="flex flex-wrap gap-2">
+          <button
+            v-for="(item, i) in quickItems"
+            :key="i"
+            type="button"
+            class="px-4 py-2 rounded-full bg-white border border-amber-200 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:border-amber-300 active:scale-95 transition-all whitespace-nowrap shadow-sm"
+            @click="addQuickItem(i); mobileTab = 'cart'"
+          >{{ item.label }}</button>
+        </div>
+      </div>
     </div>
 
+    <!-- Cart Panel Toggle (desktop) -->
+    <button
+      type="button"
+      class="hidden md:flex items-center self-stretch px-1 bg-gray-100 hover:bg-gray-200 border-l border-gray-200 transition-colors text-gray-400 hover:text-gray-600"
+      @click="showCartPanel = !showCartPanel"
+      :title="showCartPanel ? 'ซ่อนตะกร้า' : 'แสดงตะกร้า'"
+    >
+      <Icon :name="showCartPanel ? 'mdi:chevron-right' : 'mdi:chevron-left'" class="text-lg" />
+    </button>
+
     <!-- Cart Panel -->
-    <div class="w-full md:w-80 xl:w-96 flex-shrink-0 flex flex-col min-h-0" :class="mobileTab === 'products' ? 'hidden md:flex' : 'flex'">
+    <div class="w-full md:w-80 xl:w-96 flex-shrink-0 flex flex-col min-h-0" :class="[mobileTab === 'products' ? 'hidden md:flex' : 'flex', { 'md:hidden': !showCartPanel }]">
       <PosCartPanel
         :cart="store.cart"
         :member="store.member"

@@ -7,7 +7,7 @@ const { member, fetchMe } = useMemberAuth()
 interface HomeData {
   products: { id: string; name: string; imageUrl: string | null; category: { name: string } }[]
   campaigns: { id: string; name: string; description: string | null; imageUrl: string | null; displayMode: string | null; bannerColor: string | null }[]
-  truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean; nextOpenLabel: string | null; nextOpenName: string | null } | null
+  truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean; nextOpenLabel: string | null; nextOpenName: string | null; schedules: { id: string; name: string; openTime: string; closeTime: string; daysOfWeek: string; mapUrl: string | null }[]; activeScheduleId: string | null } | null
   topRequests: { id: string; name: string; description: string | null; voteCount: number }[]
 }
 
@@ -24,6 +24,7 @@ const submitting = ref(false)
 const voting = ref(false)
 const formError = ref('')
 const { showSuccess, showError } = useAlert()
+const showTimeline = ref(false)
 const { canInstall, platform, hasNativePrompt, install } = usePwaInstall()
 const dismissedBanner = ref(false)
 
@@ -101,8 +102,8 @@ const marqueeProducts = computed(() => {
     <!-- ─── Truck Location Banner ────────────────────────────────────────── -->
     <section v-if="data?.truckLocation" class="text-white py-4"
       :class="data.truckLocation.isOpen ? 'bg-green-700' : 'bg-[#1B2B4B]'">
-      <div class="max-w-4xl mx-auto px-6 flex items-center justify-between gap-4">
-        <div class="flex items-center gap-3 min-w-0">
+      <div class="max-w-4xl mx-auto px-6 flex items-start justify-between gap-4">
+        <div class="flex items-start gap-3 min-w-0">
           <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-white/15">
             <Icon :name="data.truckLocation.isOpen ? 'mdi:store-check' : 'mdi:store-clock'" class="text-lg" />
           </div>
@@ -129,18 +130,35 @@ const marqueeProducts = computed(() => {
             </template>
           </div>
         </div>
-        <a
-          v-if="data.truckLocation.mapUrl"
-          :href="data.truckLocation.mapUrl"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-medium transition-colors flex-shrink-0"
-        >
-          <Icon name="mdi:map-marker" class="text-base text-red-300" />
-          แผนที่
-        </a>
+        <div class="flex flex-col items-end gap-2 flex-shrink-0">
+          <a
+            v-if="data.truckLocation.mapUrl"
+            :href="data.truckLocation.mapUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-medium transition-colors"
+          >
+            <Icon name="mdi:map-marker" class="text-base text-red-300" />
+            แผนที่
+          </a>
+          <button
+            v-if="data.truckLocation.schedules?.length"
+            class="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-medium transition-colors text-white/80"
+            @click="showTimeline = true"
+          >
+            <Icon name="mdi:calendar-clock" class="text-sm" />
+            ไทม์ไลน์
+          </button>
+        </div>
       </div>
     </section>
+
+    <SharedLocationTimeline
+      v-if="showTimeline && data?.truckLocation"
+      :schedules="data.truckLocation.schedules"
+      :active-schedule-id="data.truckLocation.activeScheduleId"
+      @close="showTimeline = false"
+    />
 
     <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
     <!-- Mobile: 50vh hero + 50vh campaign cards | Desktop: full hero -->
