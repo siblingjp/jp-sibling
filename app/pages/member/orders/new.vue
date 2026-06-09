@@ -529,12 +529,12 @@ const steps = [
         <p class="text-sm font-semibold text-gray-700">สแกน QR Code เพื่อโอนเงิน</p>
         <p class="text-2xl font-bold text-[#1B2B4B]">฿{{ total.toFixed(2) }}</p>
         <img
-          src="/images/qr_code_payment.jpg"
+          src="/images/qr_code_payment_gwallet.png"
           alt="QR Code ชำระเงิน"
           class="w-56 h-56 object-contain rounded-xl border border-gray-200"
         />
         <a
-          href="/images/qr_code_payment.jpg"
+          href="/images/qr_code_payment_gwallet.png"
           download="qr-payment.jpg"
           class="flex items-center gap-1.5 text-sm text-[#1B2B4B] font-medium hover:underline"
         >
