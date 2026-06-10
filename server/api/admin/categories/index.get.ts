@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
         where,
         skip: parsed.skip,
         take: parsed.limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
         include: { _count: { select: { products: true } } },
       }),
       prisma.category.count({ where }),

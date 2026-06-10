@@ -11,6 +11,7 @@ export const API_ENDPOINTS = {
       CREATE: '/api/admin/categories',
       UPDATE: (id: string) => `/api/admin/categories/${id}`,
       DELETE: (id: string) => `/api/admin/categories/${id}`,
+      REORDER: '/api/admin/categories/reorder',
     },
     PRODUCTS: {
       LIST: '/api/admin/products',
@@ -18,6 +19,7 @@ export const API_ENDPOINTS = {
       UPDATE: (id: string) => `/api/admin/products/${id}`,
       DELETE: (id: string) => `/api/admin/products/${id}`,
       TOGGLE_FEATURED: (id: string) => `/api/admin/products/${id}/featured`,
+      REORDER: '/api/admin/products/reorder',
     },
     OPTION_GROUPS: {
       LIST: '/api/admin/option-groups',

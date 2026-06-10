@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
 
     const products = await prisma.product.findMany({
       where: { isActive: true },
-      orderBy: [{ isFeatured: 'desc' }, { category: { name: 'asc' } }, { name: 'asc' }],
+      orderBy: [{ isFeatured: 'desc' }, { category: { sortOrder: 'asc' } }, { category: { name: 'asc' } }, { sortOrder: 'asc' }, { name: 'asc' }],
       include: {
         category: { select: { id: true, name: true, slug: true } },
         optionGroups: {
