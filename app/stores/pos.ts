@@ -241,6 +241,31 @@ export const usePosStore = defineStore('pos', () => {
 
   const total = computed(() => Math.max(0, subtotal.value - discountCalc.value - couponDiscount.value - pointsRedeemCapped.value))
 
+  // ─── Edit Existing Order ────────────────────────────────────────────────────
+  const editingOrderId = ref<string | null>(null)
+  const editingOrderQueueNo = ref<number | null>(null)
+
+  async function loadOrderForEdit(order: any) {
+    clearCart()
+    editingOrderId.value = order.id
+    editingOrderQueueNo.value = order.queueNo
+    for (const item of order.items) {
+      const product = products.value.find((p) => p.id === item.product.id)
+      if (!product) continue
+      const opts: PosOption[] = (item.options ?? []).map((o: any) => ({
+        optionId: o.optionId ?? o.id,
+        name: o.name,
+        extraPrice: Number(o.extraPrice ?? 0),
+      }))
+      addToCart(product, opts, item.note ?? '', item.quantity)
+    }
+  }
+
+  function clearEditingOrder() {
+    editingOrderId.value = null
+    editingOrderQueueNo.value = null
+  }
+
   // ─── Queue Reserve ──────────────────────────────────────────────────────────
   const reservedOrderId = ref<string | null>(null)
   const reservedQueueNo = ref<number | null>(null)
@@ -354,6 +379,8 @@ export const usePosStore = defineStore('pos', () => {
     reservedOrderId: readonly(reservedOrderId),
     reservedQueueNo: readonly(reservedQueueNo),
     isReserving: readonly(isReserving),
+    editingOrderId: readonly(editingOrderId),
+    editingOrderQueueNo: readonly(editingOrderQueueNo),
     fetchProducts,
     fetchDiscounts,
     addToCart,
@@ -370,6 +397,8 @@ export const usePosStore = defineStore('pos', () => {
     clearCoupon,
     reserveQueue,
     clearReservedQueue,
+    loadOrderForEdit,
+    clearEditingOrder,
     checkout,
     resetPickupTime: () => { pickupTime.value = defaultPickupTime() },
   }

@@ -48,6 +48,14 @@ const statusBadge: Record<string, string> = {
   CANCELLED: 'bg-red-100 text-red-500',
 }
 
+const statusLabel: Record<string, string> = {
+  PENDING: 'รอดำเนินการ',
+  PREPARING: 'กำลังเตรียม',
+  READY: 'พร้อมรับ',
+  COMPLETED: 'เสร็จสิ้น',
+  CANCELLED: 'ยกเลิก',
+}
+
 const paymentBadge: Record<string, string> = {
   CASH: 'bg-gray-100 text-gray-600',
   CARD: 'bg-purple-100 text-purple-700',
@@ -70,25 +78,20 @@ function formatPrice(n: any) {
   return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2 })
 }
 
-// summary stats
-const totalRevenue = computed(() =>
-  orders.value.filter((o) => o.status === 'COMPLETED').reduce((s: number, o: any) => s + Number(o.total), 0),
-)
 const totalOrders = computed(() => pagination.value?.total ?? 0)
-const completedCount = computed(() => orders.value.filter((o) => o.status === 'COMPLETED').length)
 </script>
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">ออเดอร์</h1>
+    <div class="flex items-center justify-between mb-4 md:mb-6">
+      <h1 class="text-xl md:text-2xl font-bold text-gray-900">ออเดอร์</h1>
     </div>
 
     <!-- Filters -->
     <div class="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-wrap gap-3">
       <select
         v-model="filterStatus"
-        class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <option value="all">ทุกสถานะ</option>
         <option value="PENDING">รอดำเนินการ</option>
@@ -97,25 +100,67 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
         <option value="COMPLETED">เสร็จสิ้น</option>
         <option value="CANCELLED">ยกเลิก</option>
       </select>
-      <input
-        v-model="dateFrom"
-        type="date"
-        class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <span class="self-center text-gray-400 text-sm">—</span>
-      <input
-        v-model="dateTo"
-        type="date"
-        class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
+      <div class="flex items-center gap-2 w-full md:w-auto">
+        <input
+          v-model="dateFrom"
+          type="date"
+          class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <span class="text-gray-400 text-sm flex-shrink-0">—</span>
+        <input
+          v-model="dateTo"
+          type="date"
+          class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
       <button
-        class="px-3 py-2 text-sm text-gray-500 hover:text-gray-700"
+        class="text-sm text-gray-500 hover:text-gray-700"
         @click="dateFrom = ''; dateTo = ''"
       >ล้างวันที่</button>
     </div>
 
-    <!-- Table -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <!-- Mobile: Card list -->
+    <div class="md:hidden space-y-3">
+      <div v-if="isLoading" class="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
+        กำลังโหลด...
+      </div>
+      <div v-else-if="orders.length === 0" class="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
+        ไม่พบออเดอร์
+      </div>
+      <NuxtLink
+        v-for="o in orders"
+        :key="o.id"
+        :to="`/admin/orders/${o.id}`"
+        class="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-2 active:bg-gray-50 transition-colors block"
+      >
+        <div class="flex items-start justify-between">
+          <div>
+            <span class="font-bold text-gray-900 text-base">#{{ o.queueNo }}</span>
+            <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(o.createdAt) }}</p>
+          </div>
+          <div class="flex flex-col items-end gap-1">
+            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[o.status]">
+              {{ statusLabel[o.status] ?? o.status }}
+            </span>
+            <span v-if="o.payment" class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="paymentBadge[o.payment.method]">
+              {{ paymentLabel[o.payment.method] ?? o.payment.method }}
+            </span>
+          </div>
+        </div>
+        <div class="text-xs text-gray-600 space-y-0.5">
+          <p v-for="item in o.items.slice(0, 3)" :key="item.id">{{ item.product.name }} x{{ item.quantity }}</p>
+          <p v-if="o.items.length > 3" class="text-gray-400">+{{ o.items.length - 3 }} รายการ</p>
+        </div>
+        <div class="flex items-center justify-between pt-1 border-t border-gray-100">
+          <span v-if="o.member" class="text-xs text-blue-600 font-medium">{{ o.member.name }}</span>
+          <span v-else class="text-xs text-gray-400">ไม่มีสมาชิก</span>
+          <span class="font-semibold text-gray-900 text-sm">฿{{ formatPrice(o.total) }}</span>
+        </div>
+      </NuxtLink>
+    </div>
+
+    <!-- Desktop: Table -->
+    <div class="hidden md:block bg-white rounded-xl shadow-sm overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
@@ -157,7 +202,7 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
             </td>
             <td class="px-4 py-3 text-center">
               <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[o.status]">
-                {{ o.status }}
+                {{ statusLabel[o.status] ?? o.status }}
               </span>
             </td>
             <td class="px-4 py-3 text-center">
@@ -192,6 +237,24 @@ const completedCount = computed(() => orders.value.filter((o) => o.status === 'C
             @click="page++"
           >→</button>
         </div>
+      </div>
+    </div>
+
+    <!-- Mobile pagination -->
+    <div v-if="pagination && pagination.totalPages > 1" class="md:hidden mt-3 flex items-center justify-between text-xs text-gray-500 bg-white rounded-xl shadow-sm px-4 py-3">
+      <span>ทั้งหมด {{ pagination.total }} ออเดอร์</span>
+      <div class="flex items-center gap-2">
+        <button
+          class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
+          :disabled="page <= 1"
+          @click="page--"
+        >←</button>
+        <span>{{ pagination.page }} / {{ pagination.totalPages }}</span>
+        <button
+          class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
+          :disabled="page >= pagination.totalPages"
+          @click="page++"
+        >→</button>
       </div>
     </div>
   </div>

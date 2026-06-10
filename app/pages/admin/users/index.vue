@@ -54,11 +54,11 @@ const roleBadge: Record<string, string> = {
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">ผู้ใช้งาน</h1>
+    <div class="flex items-center justify-between mb-4 md:mb-6">
+      <h1 class="text-xl md:text-2xl font-bold text-gray-900">ผู้ใช้งาน</h1>
       <NuxtLink
         to="/admin/users/new"
-        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+        class="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
       >
         + เพิ่มผู้ใช้งาน
       </NuxtLink>
@@ -69,22 +69,69 @@ const roleBadge: Record<string, string> = {
         v-model="search"
         type="text"
         placeholder="ค้นหาชื่อหรืออีเมล..."
-        class="flex-1 min-w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
-      <select v-model="filterRole" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select v-model="filterRole" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="all">ทุกบทบาท</option>
         <option value="ADMIN">Admin</option>
         <option value="CASHIER">Cashier</option>
         <option value="STAFF">Staff</option>
       </select>
-      <select v-model="filterActive" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+      <select v-model="filterActive" class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
         <option value="all">ทุกสถานะ</option>
         <option value="true">ใช้งานอยู่</option>
         <option value="false">ปิดใช้งาน</option>
       </select>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <!-- Mobile: Card list -->
+    <div class="md:hidden space-y-3">
+      <div v-if="isLoading" class="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
+        กำลังโหลด...
+      </div>
+      <div v-else-if="users.length === 0" class="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
+        ไม่พบผู้ใช้งาน
+      </div>
+      <div
+        v-for="u in users"
+        :key="u.id"
+        class="bg-white rounded-xl shadow-sm p-4"
+      >
+        <div class="flex items-start justify-between mb-3">
+          <div>
+            <p class="font-medium text-gray-900">
+              {{ u.name }}
+              <span v-if="u.id === me?.id" class="ml-1 text-xs text-gray-400">(คุณ)</span>
+            </p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ u.email }}</p>
+          </div>
+          <div class="flex flex-col items-end gap-1 flex-shrink-0">
+            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="roleBadge[u.role]">
+              {{ u.role }}
+            </span>
+            <span
+              class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+              :class="u.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+            >
+              {{ u.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center gap-3 pt-2 border-t border-gray-100">
+          <NuxtLink :to="`/admin/users/${u.id}/edit`" class="text-blue-600 text-xs font-medium">แก้ไข</NuxtLink>
+          <button
+            v-if="u.id !== me?.id && u.isActive"
+            class="text-red-500 text-xs font-medium"
+            @click="handleDeactivate(u)"
+          >
+            ปิดใช้งาน
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop: Table -->
+    <div class="hidden md:block bg-white rounded-xl shadow-sm overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
@@ -171,6 +218,24 @@ const roleBadge: Record<string, string> = {
       </div>
       <div v-else-if="pagination" class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
         ทั้งหมด {{ pagination.total }} รายการ
+      </div>
+    </div>
+
+    <!-- Mobile pagination -->
+    <div v-if="pagination && pagination.totalPages > 1" class="md:hidden mt-3 flex items-center justify-between text-xs text-gray-500 bg-white rounded-xl shadow-sm px-4 py-3">
+      <span>ทั้งหมด {{ pagination.total }} รายการ</span>
+      <div class="flex items-center gap-2">
+        <button
+          class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
+          :disabled="currentPage <= 1"
+          @click="currentPage--"
+        >←</button>
+        <span>{{ currentPage }} / {{ pagination.totalPages }}</span>
+        <button
+          class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
+          :disabled="currentPage >= pagination.totalPages"
+          @click="currentPage++"
+        >→</button>
       </div>
     </div>
   </div>

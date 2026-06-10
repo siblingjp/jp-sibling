@@ -19,6 +19,7 @@ const props = defineProps<{
   discounts: readonly PosDiscount[]
   isSubmitting: boolean
   pickupTime: string
+  editMode?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -372,6 +373,7 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
       <!-- Checkout Buttons -->
       <div class="flex gap-2">
         <button
+          v-if="!editMode"
           type="button"
           class="flex-1 py-3.5 rounded-xl font-semibold text-white transition-colors"
           :class="cart.length > 0 && !isSubmitting ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-300 cursor-not-allowed'"
@@ -387,7 +389,7 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
           :disabled="cart.length === 0 || isSubmitting"
           @click="emit('checkout')"
         >
-          ชำระเงิน →
+          {{ editMode ? '💾 บันทึกการแก้ไข' : 'ชำระเงิน →' }}
         </button>
       </div>
     </div>

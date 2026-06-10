@@ -110,6 +110,23 @@ async function updateStatus(order: any, status: string) {
   }
 }
 
+const posStore = usePosStore()
+const isEditingOrder = ref<string | null>(null)
+
+async function editOrder(order: any) {
+  isEditingOrder.value = order.id
+  try {
+    // load products ถ้ายังไม่มี
+    if (posStore.products.length === 0) await posStore.fetchProducts()
+    await posStore.loadOrderForEdit(order)
+    await navigateTo('/pos')
+  } catch (e: any) {
+    showError(e?.message ?? 'ไม่สามารถแก้ไขออเดอร์ได้')
+  } finally {
+    isEditingOrder.value = null
+  }
+}
+
 watch(statusFilter, load)
 onMounted(load)
 
@@ -302,7 +319,7 @@ function formatPrice(n: number) {
 
           <!-- Actions -->
           <div class="flex gap-2 flex-wrap" @click.stop>
-            <!-- ONLINE PENDING: แสดง 2 ปุ่ม -->
+            <!-- ONLINE PENDING: ปุ่ม กำลังทำ + รับทราบ -->
             <template v-if="order.source === 'ONLINE' && order.status === 'PENDING'">
               <button
                 class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -316,6 +333,18 @@ function formatPrice(n: number) {
               >{{ acknowledgingId === order.id ? '...' : 'รับทราบ' }}</button>
             </template>
 
+            <!-- PREPARING: พร้อมส่ง + เสร็จสิ้น -->
+            <template v-else-if="order.status === 'PREPARING'">
+              <button
+                class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                @click="updateStatus(order, 'READY')"
+              >พร้อมส่ง</button>
+              <button
+                class="flex-1 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
+                @click="updateStatus(order, 'COMPLETED')"
+              >เสร็จสิ้น</button>
+            </template>
+
             <!-- อื่นๆ: ปุ่มเดียว next status -->
             <template v-else>
               <button
@@ -323,9 +352,17 @@ function formatPrice(n: number) {
                 class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
                 @click="updateStatus(order, nextStatus[order.status])"
               >
-                → {{ { PENDING: 'กำลังทำ', PREPARING: 'พร้อมส่ง', READY: 'เสร็จสิ้น' }[order.status] || nextStatus[order.status] }}
+                → {{ { PENDING: 'กำลังทำ', READY: 'เสร็จสิ้น' }[order.status] || nextStatus[order.status] }}
               </button>
             </template>
+
+            <!-- แก้ไขเมนู (PENDING / PREPARING) -->
+            <button
+              v-if="order.status === 'PENDING' || order.status === 'PREPARING'"
+              :disabled="isEditingOrder === order.id"
+              class="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              @click="editOrder(order)"
+            >{{ isEditingOrder === order.id ? '...' : '✏️ แก้ไขเมนู' }}</button>
 
             <button
               v-if="order.status === 'PENDING'"

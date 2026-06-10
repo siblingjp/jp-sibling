@@ -1,10 +1,243 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
+
+const { showError } = useAlert()
+const http = useHttpClient()
+
+// ─── Date filter (default = today BKK) ─────────────────────────────────────
+function todayBKK() {
+  return new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
+}
+const selectedDate = ref(todayBKK())
+
+// ─── Data ────────────────────────────────────────────────────────────────────
+interface Summary {
+  date: string
+  totalOrders: number
+  totalCups: number
+  totalRevenue: number
+  topProducts: { id: string; name: string; qty: number; revenue: number }[]
+  byPaymentMethod: { method: string; amount: number }[]
+}
+
+const summary = ref<Summary | null>(null)
+const isLoading = ref(false)
+
+async function load() {
+  isLoading.value = true
+  try {
+    const res = await http.get<{ data: Summary }>(API_ENDPOINTS.ADMIN.DASHBOARD.SUMMARY, { date: selectedDate.value })
+    summary.value = res.data
+  } catch (e: any) {
+    showError(e?.message ?? 'โหลดข้อมูลไม่สำเร็จ')
+  } finally {
+    isLoading.value = false
+  }
+}
+
+watch(selectedDate, load)
+onMounted(load)
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const paymentLabel: Record<string, string> = {
+  CASH: 'เงินสด',
+  CARD: 'บัตร',
+  QR: 'QR พร้อมเพย์',
+  THAI_HELP: 'ไทยช่วยไทยพลัส',
+}
+
+const paymentColor: Record<string, string> = {
+  CASH: 'bg-gray-100 text-gray-700',
+  CARD: 'bg-purple-100 text-purple-700',
+  QR: 'bg-cyan-100 text-cyan-700',
+  THAI_HELP: 'bg-orange-100 text-orange-700',
+}
+
+const paymentDot: Record<string, string> = {
+  CASH: 'bg-gray-400',
+  CARD: 'bg-purple-500',
+  QR: 'bg-cyan-500',
+  THAI_HELP: 'bg-orange-500',
+}
+
+function formatPrice(n: number) {
+  return n.toLocaleString('th-TH', { minimumFractionDigits: 2 })
+}
+
+function formatDate(d: string) {
+  return new Date(d + 'T00:00:00+07:00').toLocaleDateString('th-TH', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
+}
+
+const maxQty = computed(() => Math.max(...(summary.value?.topProducts.map((p) => p.qty) ?? [1])))
+
+const totalPayment = computed(() =>
+  (summary.value?.byPaymentMethod ?? []).reduce((s, m) => s + m.amount, 0),
+)
 </script>
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold text-gray-800">ภาพรวม</h1>
-    <p class="text-gray-500 mt-1">ยินดีต้อนรับสู่ระบบหลังบ้าน</p>
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+      <div>
+        <h1 class="text-xl md:text-2xl font-bold text-gray-900">ภาพรวม</h1>
+        <p v-if="selectedDate" class="text-sm text-gray-400 mt-0.5">{{ formatDate(selectedDate) }}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <input
+          v-model="selectedDate"
+          type="date"
+          :max="todayBKK()"
+          class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          class="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+          @click="selectedDate = todayBKK()"
+        >วันนี้</button>
+      </div>
+    </div>
+
+    <!-- Loading -->
+    <div v-if="isLoading" class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+      <div v-for="i in 3" :key="i" class="bg-white rounded-xl shadow-sm p-5 animate-pulse">
+        <div class="h-3 bg-gray-100 rounded w-1/2 mb-3" />
+        <div class="h-8 bg-gray-100 rounded w-2/3" />
+      </div>
+    </div>
+
+    <template v-else-if="summary">
+      <!-- KPI Cards -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <!-- ออเดอร์ -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm text-gray-500 font-medium">ออเดอร์ทั้งหมด</p>
+            <span class="text-2xl">🧾</span>
+          </div>
+          <p class="text-3xl font-bold text-gray-900">{{ summary.totalOrders.toLocaleString() }}</p>
+          <p class="text-xs text-gray-400 mt-1">ออเดอร์ที่เสร็จสิ้น</p>
+        </div>
+
+        <!-- แก้ว -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm text-gray-500 font-medium">จำนวนแก้ว</p>
+            <span class="text-2xl">☕</span>
+          </div>
+          <p class="text-3xl font-bold text-gray-900">{{ summary.totalCups.toLocaleString() }}</p>
+          <p class="text-xs text-gray-400 mt-1">
+            เฉลี่ย {{ summary.totalOrders > 0 ? (summary.totalCups / summary.totalOrders).toFixed(1) : '0' }} แก้ว/ออเดอร์
+          </p>
+        </div>
+
+        <!-- ยอดขาย -->
+        <div class="bg-blue-600 rounded-xl shadow-sm p-5 text-white">
+          <div class="flex items-center justify-between mb-3">
+            <p class="text-sm text-blue-100 font-medium">ยอดขายรวม</p>
+            <span class="text-2xl">💰</span>
+          </div>
+          <p class="text-3xl font-bold">฿{{ formatPrice(summary.totalRevenue) }}</p>
+          <p class="text-xs text-blue-200 mt-1">เฉพาะออเดอร์ที่เสร็จสิ้น</p>
+        </div>
+      </div>
+
+      <!-- Bottom section -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        <!-- สินค้าขายดี (2/3 width) -->
+        <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-5">
+          <h2 class="text-sm font-semibold text-gray-700 mb-4">สินค้าขายดีวันนี้</h2>
+
+          <div v-if="summary.topProducts.length === 0" class="text-center py-8 text-gray-400 text-sm">
+            ยังไม่มีข้อมูล
+          </div>
+
+          <div v-else class="space-y-3">
+            <div
+              v-for="(p, idx) in summary.topProducts"
+              :key="p.id"
+              class="flex items-center gap-3"
+            >
+              <!-- Rank -->
+              <div
+                class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                :class="idx === 0 ? 'bg-yellow-400 text-white' : idx === 1 ? 'bg-gray-300 text-gray-700' : idx === 2 ? 'bg-amber-600 text-white' : 'bg-gray-100 text-gray-500'"
+              >{{ idx + 1 }}</div>
+
+              <!-- Name + bar -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between mb-1">
+                  <p class="text-sm font-medium text-gray-800 truncate">{{ p.name }}</p>
+                  <div class="flex items-center gap-3 flex-shrink-0 ml-2">
+                    <span class="text-xs text-gray-500">{{ p.qty }} แก้ว</span>
+                    <span class="text-xs font-semibold text-gray-700">฿{{ formatPrice(p.revenue) }}</span>
+                  </div>
+                </div>
+                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all"
+                    :class="idx === 0 ? 'bg-blue-500' : 'bg-blue-300'"
+                    :style="{ width: `${Math.round((p.qty / maxQty) * 100)}%` }"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ยอดแยกตามช่องทาง (1/3 width) -->
+        <div class="bg-white rounded-xl shadow-sm p-5">
+          <h2 class="text-sm font-semibold text-gray-700 mb-4">ยอดตามช่องทางชำระเงิน</h2>
+
+          <div v-if="summary.byPaymentMethod.length === 0" class="text-center py-8 text-gray-400 text-sm">
+            ยังไม่มีข้อมูล
+          </div>
+
+          <div v-else class="space-y-3">
+            <div
+              v-for="m in summary.byPaymentMethod.sort((a,b) => b.amount - a.amount)"
+              :key="m.method"
+              class="flex items-center gap-3"
+            >
+              <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" :class="paymentDot[m.method] ?? 'bg-gray-400'" />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <span
+                    class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+                    :class="paymentColor[m.method] ?? 'bg-gray-100 text-gray-600'"
+                  >{{ paymentLabel[m.method] ?? m.method }}</span>
+                  <span class="text-sm font-semibold text-gray-800">฿{{ formatPrice(m.amount) }}</span>
+                </div>
+                <!-- proportion bar -->
+                <div class="h-1 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                  <div
+                    class="h-full rounded-full"
+                    :class="paymentDot[m.method] ?? 'bg-gray-400'"
+                    :style="{ width: totalPayment > 0 ? `${Math.round((m.amount / totalPayment) * 100)}%` : '0%' }"
+                  />
+                </div>
+              </div>
+              <span class="text-xs text-gray-400 flex-shrink-0 w-8 text-right">
+                {{ totalPayment > 0 ? Math.round((m.amount / totalPayment) * 100) : 0 }}%
+              </span>
+            </div>
+
+            <!-- Total -->
+            <div class="border-t border-gray-100 pt-3 mt-3 flex items-center justify-between">
+              <span class="text-xs text-gray-500 font-medium">รวมทั้งหมด</span>
+              <span class="text-sm font-bold text-gray-900">฿{{ formatPrice(totalPayment) }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </template>
+
+    <!-- No data -->
+    <div v-else-if="!isLoading" class="text-center py-20 text-gray-400 text-sm">
+      ไม่พบข้อมูล
+    </div>
   </div>
 </template>

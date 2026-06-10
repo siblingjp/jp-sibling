@@ -49,6 +49,9 @@ const mobileTab = ref<'products' | 'cart'>('products')
 // ─── Option Modal ────────────────────────────────────────────────────────────
 const optionModalProduct = ref<PosProduct | null>(null)
 const editingCartId = ref<string | null>(null)
+const editingInitialQty = ref<number | undefined>(undefined)
+const editingInitialNote = ref<string | undefined>(undefined)
+const editingInitialOptions = ref<PosOption[] | undefined>(undefined)
 
 function openProduct(product: PosProduct) {
   if (product.optionGroups.length === 0) {
@@ -56,8 +59,11 @@ function openProduct(product: PosProduct) {
     mobileTab.value = 'cart'
     return
   }
-  optionModalProduct.value = product
   editingCartId.value = null
+  editingInitialQty.value = undefined
+  editingInitialNote.value = undefined
+  editingInitialOptions.value = undefined
+  optionModalProduct.value = product
 }
 
 function openEditItem(cartId: string) {
@@ -65,8 +71,11 @@ function openEditItem(cartId: string) {
   if (!item) return
   const product = store.products.find((p) => p.id === item.productId)
   if (!product) return
-  optionModalProduct.value = product
   editingCartId.value = cartId
+  editingInitialQty.value = item.quantity
+  editingInitialNote.value = item.note
+  editingInitialOptions.value = [...item.options]
+  optionModalProduct.value = product
 }
 
 function handleOptionConfirm(options: PosOption[], note: string, qty: number) {
@@ -79,6 +88,9 @@ function handleOptionConfirm(options: PosOption[], note: string, qty: number) {
   }
   optionModalProduct.value = null
   editingCartId.value = null
+  editingInitialQty.value = undefined
+  editingInitialNote.value = undefined
+  editingInitialOptions.value = undefined
 }
 
 // ─── Member Lookup ───────────────────────────────────────────────────────────
@@ -165,6 +177,32 @@ async function handleCancelReserve() {
   store.clearReservedQueue()
 }
 
+// ─── Edit Order Save ─────────────────────────────────────────────────────────
+const isSavingEdit = ref(false)
+
+async function handleEditOrderSave() {
+  if (!store.editingOrderId || store.cart.length === 0) return
+  isSavingEdit.value = true
+  try {
+    await useHttpClient().post(API_ENDPOINTS.POS.ORDERS.EDIT_ITEMS(store.editingOrderId), {
+      items: store.cart.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        note: i.note || undefined,
+        options: i.options.map((o) => ({ optionId: o.optionId })),
+      })),
+    })
+    store.clearEditingOrder()
+    store.clearCart()
+    showSuccess('บันทึกการแก้ไขสำเร็จ')
+    await navigateTo('/pos/orders')
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'บันทึกไม่สำเร็จ')
+  } finally {
+    isSavingEdit.value = false
+  }
+}
+
 // ─── Checkout ────────────────────────────────────────────────────────────────
 const showPayment = ref(false)
 const lastOrderQueue = ref<number | null>(null)
@@ -211,6 +249,20 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
 
     <!-- Product Area -->
     <div class="flex-1 flex flex-col min-w-0 bg-gray-50 min-h-0" :class="mobileTab === 'cart' ? 'hidden md:flex' : 'flex'">
+      <!-- Edit Order Banner -->
+      <div v-if="store.editingOrderId" class="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-2">
+          <Icon name="mdi:pencil-circle" class="text-amber-600 text-lg flex-shrink-0" />
+          <span class="text-sm font-semibold text-amber-800">แก้ไขออเดอร์ #{{ store.editingOrderQueueNo }}</span>
+          <span class="text-xs text-amber-600">— เพิ่ม/ลบสินค้า แล้วกด "บันทึกการแก้ไข"</span>
+        </div>
+        <button
+          type="button"
+          class="text-xs text-red-500 hover:text-red-700 font-medium flex-shrink-0"
+          @click="store.clearEditingOrder(); store.clearCart()"
+        >ยกเลิก</button>
+      </div>
+
       <!-- Tab bar: สินค้า / เมนูด่วน -->
       <div class="flex border-b border-gray-200 bg-white flex-shrink-0">
         <button
@@ -340,8 +392,9 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         :subtotal="store.subtotal"
         :total="store.total"
         :discounts="store.discounts"
-        :is-submitting="store.isSubmitting"
+        :is-submitting="store.isSubmitting || isSavingEdit"
         :pickup-time="store.pickupTime"
+        :edit-mode="!!store.editingOrderId"
         @update-pickup-time="store.pickupTime = $event"
         @reset-pickup-time="store.resetPickupTime()"
         @remove-item="store.removeFromCart"
@@ -358,7 +411,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         @clear-coupon="store.clearCoupon()"
         @scan-coupon="showCouponScanner = true"
         @update-points-redeem="store.pointsToRedeem = $event"
-        @checkout="showPayment = true"
+        @checkout="store.editingOrderId ? handleEditOrderSave() : (showPayment = true)"
         @checkout-unpaid="handleCheckout('UNPAID', 0, undefined, true)"
         @badge-created="store.fetchDiscounts()"
       />
@@ -368,8 +421,11 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
   <!-- Option Modal -->
   <PosOptionModal
     :product="optionModalProduct"
+    :initial-qty="editingInitialQty"
+    :initial-note="editingInitialNote"
+    :initial-options="editingInitialOptions"
     @confirm="handleOptionConfirm"
-    @cancel="optionModalProduct = null"
+    @cancel="optionModalProduct = null; editingCartId = null"
   />
 
   <!-- Payment Modal -->

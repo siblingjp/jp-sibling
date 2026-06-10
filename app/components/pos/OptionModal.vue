@@ -3,6 +3,9 @@ import type { PosProduct, PosOption } from '~/stores/pos'
 
 const props = defineProps<{
   product: PosProduct | null
+  initialQty?: number
+  initialNote?: string
+  initialOptions?: PosOption[]
 }>()
 
 const emit = defineEmits<{
@@ -15,11 +18,15 @@ const note = ref('')
 const selected = ref<Record<string, string[]>>({})
 
 watch(() => props.product, (p) => {
-  qty.value = 1
-  note.value = ''
+  qty.value = props.initialQty ?? 1
+  note.value = props.initialNote ?? ''
   if (!p) { selected.value = {}; return }
+  const preselected = new Set((props.initialOptions ?? []).map((o) => o.optionId))
   selected.value = Object.fromEntries(
-    p.optionGroups.map((pg) => [pg.optionGroup.id, []]),
+    p.optionGroups.map((pg) => [
+      pg.optionGroup.id,
+      pg.optionGroup.options.filter((o) => preselected.has(o.id)).map((o) => o.id),
+    ]),
   )
 }, { immediate: true })
 
@@ -136,7 +143,7 @@ function handleConfirm() {
             :disabled="!isValid"
             @click="handleConfirm"
           >
-            เพิ่มลงตะกร้า — ฿{{ previewPrice.toFixed(0) }}
+            {{ initialOptions !== undefined ? 'บันทึก' : 'เพิ่มลงตะกร้า' }} — ฿{{ previewPrice.toFixed(0) }}
           </button>
         </div>
       </div>

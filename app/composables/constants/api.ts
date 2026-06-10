@@ -59,6 +59,9 @@ export const API_ENDPOINTS = {
       LIST: '/api/admin/orders',
       SHOW: (id: string) => `/api/admin/orders/${id}`,
     },
+    DASHBOARD: {
+      SUMMARY: '/api/admin/dashboard/summary',
+    },
     REWARDS: {
       LIST: '/api/admin/rewards',
       CREATE: '/api/admin/rewards',
@@ -97,6 +100,7 @@ export const API_ENDPOINTS = {
       SHOW: (id: string) => `/api/pos/orders/${id}`,
       UPDATE: (id: string) => `/api/pos/orders/${id}`,
       FILL: (id: string) => `/api/pos/orders/${id}/fill`,
+      EDIT_ITEMS: (id: string) => `/api/pos/orders/${id}/edit-items`,
       ACKNOWLEDGE: (id: string) => `/api/pos/orders/${id}/acknowledge`,
     },
     PAYMENTS: {

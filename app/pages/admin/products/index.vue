@@ -21,10 +21,8 @@ const query = computed(() => ({
   pagination: { page: currentPage.value, limit: 20 },
 }))
 
-// Reset to page 1 when filters change
 watch([search, filterActive, filterCategory], () => { currentPage.value = 1 })
 
-// Load categories for filter dropdown
 const { data: categoriesRes } = await useAsyncData('admin-categories-select', () =>
   useHttpClient().get<{ data: { id: string; name: string }[] }>('/api/admin/categories?pagination[limit]=100'),
 )
@@ -68,11 +66,11 @@ function formatPrice(price: number) {
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">สินค้า</h1>
+    <div class="flex items-center justify-between mb-4 md:mb-6">
+      <h1 class="text-xl md:text-2xl font-bold text-gray-900">สินค้า</h1>
       <NuxtLink
         to="/admin/products/new"
-        class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+        class="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
       >
         + เพิ่มสินค้า
       </NuxtLink>
@@ -84,18 +82,18 @@ function formatPrice(price: number) {
         v-model="search"
         type="text"
         placeholder="ค้นหาสินค้า..."
-        class="flex-1 min-w-48 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <select
         v-model="filterCategory"
-        class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <option value="all">ทุกหมวดหมู่</option>
         <option v-for="cat in categoryOptions" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
       </select>
       <select
         v-model="filterActive"
-        class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        class="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <option value="all">ทุกสถานะ</option>
         <option value="true">ใช้งานอยู่</option>
@@ -103,8 +101,59 @@ function formatPrice(price: number) {
       </select>
     </div>
 
-    <!-- Table -->
-    <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+    <!-- Mobile: Card list -->
+    <div class="md:hidden space-y-3">
+      <div v-if="isLoading" class="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
+        กำลังโหลด...
+      </div>
+      <div v-else-if="products.length === 0" class="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
+        ไม่พบสินค้า
+      </div>
+      <div
+        v-for="product in products"
+        :key="product.id"
+        class="bg-white rounded-xl shadow-sm p-4"
+      >
+        <div class="flex items-center gap-3 mb-3">
+          <img
+            v-if="product.imageUrl"
+            :src="product.imageUrl"
+            class="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+            :alt="product.name"
+          />
+          <div v-else class="w-12 h-12 rounded-lg bg-gray-100 flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <p class="font-medium text-gray-900 truncate">{{ product.name }}</p>
+            <p class="text-xs text-gray-400">{{ product.category.name }}</p>
+          </div>
+          <p class="font-semibold text-gray-900 flex-shrink-0">{{ formatPrice(product.price) }}</p>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span
+              class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
+              :class="product.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+            >
+              {{ product.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
+            </span>
+            <button
+              type="button"
+              :title="product.isFeatured ? 'ยกเลิกแนะนำ' : 'ตั้งเป็นแนะนำ'"
+              class="text-lg transition-transform hover:scale-125"
+              :class="product.isFeatured ? 'text-yellow-400' : 'text-gray-200'"
+              @click="handleToggleFeatured(product)"
+            >★</button>
+          </div>
+          <div class="flex items-center gap-3">
+            <NuxtLink :to="`/admin/products/${product.id}/edit`" class="text-blue-600 text-xs font-medium">แก้ไข</NuxtLink>
+            <button class="text-red-500 text-xs font-medium" @click="handleDelete(product)">ลบ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop: Table -->
+    <div class="hidden md:block bg-white rounded-xl shadow-sm overflow-hidden">
       <table class="w-full text-sm">
         <thead class="bg-gray-50 border-b border-gray-200">
           <tr>
@@ -204,6 +253,24 @@ function formatPrice(price: number) {
       </div>
       <div v-else-if="pagination" class="px-4 py-3 border-t border-gray-100 text-xs text-gray-500">
         ทั้งหมด {{ pagination.total }} รายการ
+      </div>
+    </div>
+
+    <!-- Mobile pagination -->
+    <div v-if="pagination && pagination.totalPages > 1" class="md:hidden mt-3 flex items-center justify-between text-xs text-gray-500 bg-white rounded-xl shadow-sm px-4 py-3">
+      <span>ทั้งหมด {{ pagination.total }} รายการ</span>
+      <div class="flex items-center gap-2">
+        <button
+          class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
+          :disabled="currentPage <= 1"
+          @click="currentPage--"
+        >←</button>
+        <span>{{ currentPage }} / {{ pagination.totalPages }}</span>
+        <button
+          class="px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40"
+          :disabled="currentPage >= pagination.totalPages"
+          @click="currentPage++"
+        >→</button>
       </div>
     </div>
   </div>
