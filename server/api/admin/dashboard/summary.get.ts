@@ -3,20 +3,27 @@ export default defineEventHandler(async (event) => {
     const session = await getUserSession(event)
     if (!session.user) throw unauthorized()
 
-    const { date } = getQuery(event) as { date?: string }
+    const { dateFrom, dateTo } = getQuery(event) as { dateFrom?: string; dateTo?: string }
 
-    // กำหนด date range (UTC+7, รอบ 00:00–23:59 ตามวันที่เลือก)
+    function bkkDateToRange(dateStr: string): { start: Date; end: Date } {
+      const [y, m, d] = dateStr.split('-').map(Number)
+      return {
+        start: new Date(Date.UTC(y, m - 1, d, -7, 0, 0, 0)),
+        end:   new Date(Date.UTC(y, m - 1, d, 16, 59, 59, 999)),
+      }
+    }
+
     let start: Date
     let end: Date
 
-    if (date) {
-      // date = "YYYY-MM-DD" (local BKK) → แปลงเป็น UTC
-      const [y, m, d] = date.split('-').map(Number)
-      // 00:00:00 BKK = UTC-7h
-      start = new Date(Date.UTC(y, m - 1, d, -7, 0, 0, 0))
-      end   = new Date(Date.UTC(y, m - 1, d, 16, 59, 59, 999))
+    if (dateFrom && dateTo) {
+      start = bkkDateToRange(dateFrom).start
+      end   = bkkDateToRange(dateTo).end
+    } else if (dateFrom) {
+      const r = bkkDateToRange(dateFrom)
+      start = r.start
+      end   = r.end
     } else {
-      // วันปัจจุบัน BKK (00:00–23:59)
       const nowBKK = new Date(Date.now() + 7 * 3600000)
       const y = nowBKK.getUTCFullYear()
       const m = nowBKK.getUTCMonth()
@@ -72,8 +79,10 @@ export default defineEventHandler(async (event) => {
     }
     const byPaymentMethod = Object.entries(paymentMethodMap).map(([method, amount]) => ({ method, amount }))
 
+    const todayBKK = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
     return okResponse({
-      date: date ?? new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10),
+      dateFrom: dateFrom ?? todayBKK,
+      dateTo: dateTo ?? dateFrom ?? todayBKK,
       totalOrders,
       totalCups,
       totalRevenue,

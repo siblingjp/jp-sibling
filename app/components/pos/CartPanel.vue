@@ -19,6 +19,7 @@ const props = defineProps<{
   discounts: readonly PosDiscount[]
   isSubmitting: boolean
   pickupTime: string
+  orderNote: string
   editMode?: boolean
 }>()
 
@@ -41,19 +42,22 @@ const emit = defineEmits<{
   scanMember: []
   updatePickupTime: [v: string]
   resetPickupTime: []
+  updateOrderNote: [v: string]
 }>()
 
-// pickup time options: ทุก 10 นาที เริ่มจาก round ถัดไป + 10 นาที, 24 ช่วง (4 ชั่วโมง)
+// pickup time options: ทุก 10 นาที ล่วงหน้าสูงสุด 16 ชั่วโมง
 const pickupOptions = computed(() => {
   const now = new Date()
   const options: { value: string; label: string }[] = []
-  // เริ่มที่ round 10 นาทีถัดไปจากปัจจุบัน (ตรงกับ defaultPickupTime ใน store)
   const start = new Date(now)
   start.setMinutes(Math.ceil(now.getMinutes() / 10) * 10, 0, 0)
-  for (let i = 0; i < 24; i++) {
-    const t = new Date(start.getTime() + i * 10 * 60 * 1000)
-    const value = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-    options.push({ value, label: `${value} น.` })
+  const end = new Date(now.getTime() + 16 * 60 * 60 * 1000)
+  const today = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+  for (let t = new Date(start); t <= end; t = new Date(t.getTime() + 10 * 60 * 1000)) {
+    const timeStr = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+    const dateStr = t.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+    const label = dateStr !== today ? `${dateStr} ${timeStr} น.` : `${timeStr} น.`
+    options.push({ value: timeStr, label })
   }
   return options
 })
@@ -350,6 +354,18 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
         <div class="flex justify-between font-bold text-gray-900 text-base pt-1 border-t border-gray-100">
           <span>รวมทั้งหมด</span><span>฿{{ total.toFixed(2) }}</span>
         </div>
+      </div>
+
+      <!-- Order Note -->
+      <div>
+        <label class="text-xs text-gray-500 block mb-1">หมายเหตุ (ไม่บังคับ)</label>
+        <input
+          :value="orderNote"
+          type="text"
+          placeholder="เช่น ไม่เอาน้ำแข็ง..."
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          @input="emit('updateOrderNote', ($event.target as HTMLInputElement).value)"
+        />
       </div>
 
       <!-- Pickup Time -->

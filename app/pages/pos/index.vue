@@ -191,6 +191,19 @@ async function handleEditOrderSave() {
         note: i.note || undefined,
         options: i.options.map((o) => ({ optionId: o.optionId })),
       })),
+      note: store.orderNote || undefined,
+      pickupTime: store.pickupTime || undefined,
+      discountKind: store.discountMode === 'badge' && store.discountBadge
+        ? store.discountBadge.kind
+        : store.discountMode === 'percent' ? 'PERCENT'
+        : store.discountMode === 'amount' ? 'AMOUNT'
+        : undefined,
+      discountValue: store.discountMode === 'badge' && store.discountBadge
+        ? store.discountBadge.value
+        : store.discountMode === 'percent' ? store.discountPercent
+        : store.discountMode === 'amount' ? store.discountAmount
+        : undefined,
+      couponCode: store.appliedCoupon?.code || undefined,
     })
     store.clearEditingOrder()
     store.clearCart()
@@ -394,9 +407,11 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         :discounts="store.discounts"
         :is-submitting="store.isSubmitting || isSavingEdit"
         :pickup-time="store.pickupTime"
+        :order-note="store.orderNote"
         :edit-mode="!!store.editingOrderId"
         @update-pickup-time="store.pickupTime = $event"
         @reset-pickup-time="store.resetPickupTime()"
+        @update-order-note="store.orderNote = $event"
         @remove-item="store.removeFromCart"
         @edit-item="openEditItem"
         :applied-coupon="store.appliedCoupon"

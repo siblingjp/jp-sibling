@@ -62,6 +62,16 @@ export default defineEventHandler(async (event) => {
       if (coupon.startAt && coupon.startAt > now) throw badRequest('คูปองยังไม่เริ่มใช้งาน')
       if (coupon.expiredAt && coupon.expiredAt < now) throw badRequest('คูปองหมดอายุแล้ว')
       if (coupon.maxUses !== null && coupon.usedCount >= coupon.maxUses) throw badRequest('คูปองถูกใช้ครบจำนวนแล้ว')
+      if (coupon.perMemberLimit !== null) {
+        const memberUsedCount = await prisma.order.count({
+          where: {
+            memberId: member.id,
+            couponCode: couponCode,
+            status: { notIn: ['CANCELLED'] },
+          },
+        })
+        if (memberUsedCount >= coupon.perMemberLimit) throw badRequest(`คูปองนี้ใช้ได้ ${coupon.perMemberLimit} ครั้งต่อคนเท่านั้น`)
+      }
       if (coupon.minOrderAmount && subtotal < Number(coupon.minOrderAmount))
         throw badRequest(`ยอดสั่งขั้นต่ำ ฿${coupon.minOrderAmount}`)
       if (coupon.minTier) {

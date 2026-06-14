@@ -8,11 +8,24 @@ const http = useHttpClient()
 function todayBKK() {
   return new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10)
 }
-const selectedDate = ref(todayBKK())
+const dateFrom = ref(todayBKK())
+const dateTo = ref(todayBKK())
+
+// ── ป้องกัน dateTo < dateFrom ──────────────────────────────────────────────
+watch(dateFrom, (v) => { if (dateTo.value < v) dateTo.value = v })
+watch(dateTo, (v) => { if (dateFrom.value > v) dateFrom.value = v })
+
+function setPreset(days: number) {
+  const to = todayBKK()
+  const from = new Date(Date.now() + 7 * 3600000 - (days - 1) * 86400000).toISOString().slice(0, 10)
+  dateFrom.value = from
+  dateTo.value = to
+}
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 interface Summary {
-  date: string
+  dateFrom: string
+  dateTo: string
   totalOrders: number
   totalCups: number
   totalRevenue: number
@@ -26,7 +39,7 @@ const isLoading = ref(false)
 async function load() {
   isLoading.value = true
   try {
-    const res = await http.get<{ data: Summary }>(API_ENDPOINTS.ADMIN.DASHBOARD.SUMMARY, { date: selectedDate.value })
+    const res = await http.get<{ data: Summary }>(API_ENDPOINTS.ADMIN.DASHBOARD.SUMMARY, { dateFrom: dateFrom.value, dateTo: dateTo.value })
     summary.value = res.data
   } catch (e: any) {
     showError(e?.message ?? 'โหลดข้อมูลไม่สำเร็จ')
@@ -35,7 +48,7 @@ async function load() {
   }
 }
 
-watch(selectedDate, load)
+watch([dateFrom, dateTo], load)
 onMounted(load)
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -66,9 +79,14 @@ function formatPrice(n: number) {
 
 function formatDate(d: string) {
   return new Date(d + 'T00:00:00+07:00').toLocaleDateString('th-TH', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    day: 'numeric', month: 'short', year: 'numeric',
   })
 }
+
+const dateLabel = computed(() => {
+  if (dateFrom.value === dateTo.value) return formatDate(dateFrom.value)
+  return `${formatDate(dateFrom.value)} – ${formatDate(dateTo.value)}`
+})
 
 const maxQty = computed(() => Math.max(...(summary.value?.topProducts.map((p) => p.qty) ?? [1])))
 
@@ -80,22 +98,43 @@ const totalPayment = computed(() =>
 <template>
   <div>
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-6">
       <div>
         <h1 class="text-xl md:text-2xl font-bold text-gray-900">ภาพรวม</h1>
-        <p v-if="selectedDate" class="text-sm text-gray-400 mt-0.5">{{ formatDate(selectedDate) }}</p>
+        <p class="text-sm text-gray-400 mt-0.5">{{ dateLabel }}</p>
       </div>
-      <div class="flex items-center gap-2">
-        <input
-          v-model="selectedDate"
-          type="date"
-          :max="todayBKK()"
-          class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button
-          class="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
-          @click="selectedDate = todayBKK()"
-        >วันนี้</button>
+      <div class="flex flex-col gap-2">
+        <!-- Preset buttons -->
+        <div class="flex gap-1.5 flex-wrap">
+          <button
+            v-for="preset in [{ label: 'วันนี้', days: 1 }, { label: '7 วัน', days: 7 }, { label: '30 วัน', days: 30 }]"
+            :key="preset.days"
+            class="px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors"
+            :class="dateFrom === todayBKK() && dateTo === todayBKK() && preset.days === 1
+              ? 'bg-blue-600 text-white border-blue-600'
+              : dateFrom === new Date(Date.now() + 7*3600000 - (preset.days-1)*86400000).toISOString().slice(0,10) && dateTo === todayBKK() && preset.days > 1
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'border-gray-300 text-gray-600 hover:bg-gray-50'"
+            @click="setPreset(preset.days)"
+          >{{ preset.label }}</button>
+        </div>
+        <!-- Date range inputs -->
+        <div class="flex items-center gap-2">
+          <input
+            v-model="dateFrom"
+            type="date"
+            :max="dateTo"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <span class="text-gray-400 text-sm">–</span>
+          <input
+            v-model="dateTo"
+            type="date"
+            :min="dateFrom"
+            :max="todayBKK()"
+            class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
       </div>
     </div>
 
@@ -148,7 +187,7 @@ const totalPayment = computed(() =>
 
         <!-- สินค้าขายดี (2/3 width) -->
         <div class="lg:col-span-2 bg-white rounded-xl shadow-sm p-5">
-          <h2 class="text-sm font-semibold text-gray-700 mb-4">สินค้าขายดีวันนี้</h2>
+          <h2 class="text-sm font-semibold text-gray-700 mb-4">สินค้าขายดี</h2>
 
           <div v-if="summary.topProducts.length === 0" class="text-center py-8 text-gray-400 text-sm">
             ยังไม่มีข้อมูล

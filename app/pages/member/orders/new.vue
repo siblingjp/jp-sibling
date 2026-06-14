@@ -115,6 +115,8 @@ const appliedCouponName = ref('')
 const appliedCouponDiscount = ref(0)
 const showCouponPicker = ref(false)
 const couponInput = ref('')
+const couponErrors = ref<Record<string, string>>({})
+const couponLoading = ref<Record<string, boolean>>({})
 
 // pickup & slip
 const pickupTime = ref('')
@@ -219,12 +221,25 @@ function calcDiscount(discountKind: string, discountValue: string | number) {
     : Math.min(v, subtotal.value)
 }
 
-function applyCouponFromPicker(code: string, name: string, discountKind: string, discountValue: string | number) {
-  appliedCouponCode.value = code
-  appliedCouponName.value = name
-  appliedCouponDiscount.value = calcDiscount(discountKind, discountValue)
-  showCouponPicker.value = false
-  couponInput.value = ''
+async function applyCouponFromPicker(code: string, _name: string, _discountKind: string, _discountValue: string | number) {
+  if (couponErrors.value[code] || couponLoading.value[code]) return
+  couponLoading.value[code] = true
+  try {
+    const res = await http.post<{ data: { discountAmount: number; coupon?: { name: string } } }>(API_ENDPOINTS.POS.COUPON_VALIDATE, {
+      code,
+      subtotal: subtotal.value,
+      memberId: member.value?.id ?? null,
+    })
+    appliedCouponCode.value = code
+    appliedCouponName.value = res.data?.coupon?.name ?? code
+    appliedCouponDiscount.value = Number(res.data?.discountAmount ?? 0)
+    showCouponPicker.value = false
+    couponInput.value = ''
+  } catch (e: any) {
+    couponErrors.value[code] = e?.data?.message ?? 'ไม่สามารถใช้คูปองนี้ได้'
+  } finally {
+    couponLoading.value[code] = false
+  }
 }
 
 function clearCoupon() {
@@ -314,12 +329,16 @@ async function placeOrder() {
 // ─── Pickup time options ──────────────────────────────────────────────────────
 const pickupOptions = computed(() => {
   const now = new Date()
-  const options: string[] = []
+  const options: { label: string; value: string }[] = []
   const start = new Date(now)
   start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15 + 15, 0, 0)
-  for (let i = 0; i < 12; i++) {
-    const t = new Date(start.getTime() + i * 15 * 60 * 1000)
-    options.push(t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }))
+  const end = new Date(now.getTime() + 16 * 60 * 60 * 1000)
+  const today = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+  for (let t = new Date(start); t <= end; t = new Date(t.getTime() + 15 * 60 * 1000)) {
+    const timeStr = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+    const dateStr = t.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+    const label = dateStr !== today ? `${dateStr} ${timeStr} น.` : `${timeStr} น.`
+    options.push({ label, value: t.toISOString() })
   }
   return options
 })
@@ -615,7 +634,7 @@ const steps = [
           class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
         >
           <option value="" disabled>เลือกเวลารับ...</option>
-          <option v-for="t in pickupOptions" :key="t" :value="t">{{ t }} น.</option>
+          <option v-for="t in pickupOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
         </select>
       </div>
 
@@ -740,7 +759,7 @@ const steps = [
               <p class="text-sm text-gray-500">ที่ {{ shopStatus.nextOpenName }}</p>
             </template>
             <p v-else class="text-sm text-gray-500">ยังไม่มีกำหนดเปิดในขณะนี้</p>
-            <p class="text-xs text-gray-400 pt-1">สามารถสั่งล่วงหน้าได้ภายใน 12 ชั่วโมงก่อนร้านเปิด</p>
+            <p class="text-xs text-gray-400 pt-1">สามารถสั่งล่วงหน้าได้ภายใน 16 ชั่วโมงข้างหน้า</p>
           </div>
           <div class="px-6 pb-5">
             <button
@@ -787,14 +806,19 @@ const steps = [
                   v-for="u in myUses"
                   :key="u.id"
                   type="button"
-                  class="w-full flex items-center justify-between bg-green-50 border border-green-200 rounded-xl px-4 py-3 hover:bg-green-100 transition-colors text-left"
+                  :disabled="!!couponErrors[u.coupon.code] || couponLoading[u.coupon.code]"
+                  class="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors text-left border"
+                  :class="couponErrors[u.coupon.code]
+                    ? 'bg-red-50 border-red-200 opacity-70 cursor-not-allowed'
+                    : 'bg-green-50 border-green-200 hover:bg-green-100'"
                   @click="applyCouponFromPicker(u.coupon.code, u.coupon.name, u.coupon.discountKind, u.coupon.discountValue)"
                 >
-                  <div>
-                    <p class="text-sm font-bold text-green-700 font-mono">{{ u.coupon.code }}</p>
+                  <div class="min-w-0">
+                    <p class="text-sm font-bold font-mono" :class="couponErrors[u.coupon.code] ? 'text-red-600' : 'text-green-700'">{{ u.coupon.code }}</p>
                     <p class="text-xs text-gray-600">{{ u.coupon.name }}</p>
+                    <p v-if="couponErrors[u.coupon.code]" class="text-xs text-red-500 mt-0.5">{{ couponErrors[u.coupon.code] }}</p>
                   </div>
-                  <span class="text-sm font-semibold text-green-700 flex-shrink-0 ml-2">
+                  <span class="text-sm font-semibold flex-shrink-0 ml-2" :class="couponErrors[u.coupon.code] ? 'text-red-400' : 'text-green-700'">
                     {{ formatCouponLabel(u.coupon.discountKind, u.coupon.discountValue) }}
                   </span>
                 </button>
@@ -812,14 +836,19 @@ const steps = [
                       v-for="c in camp.coupons"
                       :key="c.id"
                       type="button"
-                      class="w-full flex items-center justify-between bg-[#F0F4F8] border border-[#C8D8E8] rounded-xl px-4 py-3 hover:bg-[#e0ecf5] transition-colors text-left"
+                      :disabled="!!couponErrors[c.code] || couponLoading[c.code]"
+                      class="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors text-left border"
+                      :class="couponErrors[c.code]
+                        ? 'bg-red-50 border-red-200 opacity-70 cursor-not-allowed'
+                        : 'bg-[#F0F4F8] border-[#C8D8E8] hover:bg-[#e0ecf5]'"
                       @click="applyCouponFromPicker(c.code, c.name, c.discountKind, c.discountValue)"
                     >
-                      <div>
-                        <p class="text-sm font-bold text-[#1B2B4B] font-mono">{{ c.code }}</p>
+                      <div class="min-w-0">
+                        <p class="text-sm font-bold font-mono" :class="couponErrors[c.code] ? 'text-red-600' : 'text-[#1B2B4B]'">{{ c.code }}</p>
                         <p class="text-xs text-gray-600">{{ c.name }}</p>
+                        <p v-if="couponErrors[c.code]" class="text-xs text-red-500 mt-0.5">{{ couponErrors[c.code] }}</p>
                       </div>
-                      <span class="text-sm font-semibold text-[#2a3f6b] flex-shrink-0 ml-2">
+                      <span class="text-sm font-semibold flex-shrink-0 ml-2" :class="couponErrors[c.code] ? 'text-red-400' : 'text-[#2a3f6b]'">
                         {{ formatCouponLabel(c.discountKind, c.discountValue) }}
                       </span>
                     </button>

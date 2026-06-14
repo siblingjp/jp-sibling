@@ -13,6 +13,11 @@ const itemSchema = z.object({
 
 const schema = z.object({
   items: z.array(itemSchema).min(1),
+  note: z.string().optional(),
+  pickupTime: z.string().optional(),
+  discountKind: z.enum(['PERCENT', 'AMOUNT']).optional(),
+  discountValue: z.number().min(0).optional(),
+  couponCode: z.string().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -63,11 +68,14 @@ export default defineEventHandler(async (event) => {
 
     const newSubtotal = itemsCalc.reduce((sum, i) => sum + i.subtotal, 0)
 
+    const effectiveDiscountKind = data.discountKind ?? existing.discountKind ?? null
+    const effectiveDiscountValue = data.discountValue != null ? data.discountValue : (existing.discountValue != null ? Number(existing.discountValue) : null)
+
     let discountAmount = 0
-    if (existing.discountKind && existing.discountValue != null) {
-      discountAmount = existing.discountKind === 'PERCENT'
-        ? Math.round((newSubtotal * Number(existing.discountValue)) / 100 * 100) / 100
-        : Math.min(Number(existing.discountValue), newSubtotal)
+    if (effectiveDiscountKind && effectiveDiscountValue != null) {
+      discountAmount = effectiveDiscountKind === 'PERCENT'
+        ? Math.round((newSubtotal * effectiveDiscountValue) / 100 * 100) / 100
+        : Math.min(effectiveDiscountValue, newSubtotal)
     }
     const pointsRedeemed = Number(existing.pointsRedeemed ?? 0)
     const newTotal = Math.max(0, newSubtotal - discountAmount - pointsRedeemed)
@@ -91,6 +99,11 @@ export default defineEventHandler(async (event) => {
         discount: discountAmount,
         total: newTotal,
         pointsEarned,
+        note: data.note !== undefined ? (data.note || null) : existing.note,
+        pickupTime: data.pickupTime !== undefined ? (data.pickupTime || null) : existing.pickupTime,
+        discountKind: effectiveDiscountKind as any,
+        discountValue: effectiveDiscountValue,
+        couponCode: data.couponCode !== undefined ? (data.couponCode || null) : existing.couponCode,
         items: {
           create: itemsCalc.map(({ item, unitPrice, subtotal: itemSubtotal, itemOptions }) => ({
             productId: item.productId,

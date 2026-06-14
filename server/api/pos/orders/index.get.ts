@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
         },
         member: { select: { id: true, name: true, phone: true } },
         payment: true,
+        couponUses: { include: { coupon: { select: { id: true, code: true, name: true, discountKind: true, discountValue: true } } } },
       },
     })
 

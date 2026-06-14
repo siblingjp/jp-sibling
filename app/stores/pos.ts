@@ -249,6 +249,36 @@ export const usePosStore = defineStore('pos', () => {
     clearCart()
     editingOrderId.value = order.id
     editingOrderQueueNo.value = order.queueNo
+
+    // restore note
+    orderNote.value = order.note ?? ''
+
+    // restore discount
+    const couponUse = order.couponUses?.[0]
+    if (couponUse?.coupon) {
+      const c = couponUse.coupon
+      appliedCoupon.value = {
+        id: c.id,
+        code: c.code,
+        name: c.name,
+        discountKind: c.discountKind,
+        discountValue: Number(c.discountValue),
+      }
+      couponDiscount.value = Number(order.discount ?? 0)
+    } else if (order.discountKind && Number(order.discountValue) > 0) {
+      if (order.discountKind === 'PERCENT') {
+        discountMode.value = 'percent'
+        discountPercent.value = Number(order.discountValue)
+        discountBadge.value = null
+        discountAmount.value = 0
+      } else {
+        discountMode.value = 'amount'
+        discountAmount.value = Number(order.discountValue)
+        discountBadge.value = null
+        discountPercent.value = 0
+      }
+    }
+
     for (const item of order.items) {
       const product = products.value.find((p) => p.id === item.product.id)
       if (!product) continue

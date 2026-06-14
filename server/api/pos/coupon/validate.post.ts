@@ -34,10 +34,16 @@ export default defineEventHandler(async (event) => {
         }
       }
       if (coupon.perMemberLimit !== null) {
-        const used = await prisma.couponUse.count({
-          where: { couponId: coupon.id, memberId: body.memberId, isUsed: true },
-        })
-        if (used >= coupon.perMemberLimit) throw badRequest('คุณใช้ coupon นี้ครบจำนวนแล้ว')
+        const [usedInOrders, usedInCouponUses] = await Promise.all([
+          prisma.order.count({
+            where: { memberId: body.memberId, couponCode: coupon.code, status: { notIn: ['CANCELLED'] } },
+          }),
+          prisma.couponUse.count({
+            where: { couponId: coupon.id, memberId: body.memberId, isUsed: true },
+          }),
+        ])
+        if (usedInOrders + usedInCouponUses >= coupon.perMemberLimit)
+          throw badRequest(`คูปองนี้ใช้ได้ ${coupon.perMemberLimit} ครั้งต่อคนเท่านั้น`)
       }
     }
 
