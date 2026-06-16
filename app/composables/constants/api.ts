@@ -60,6 +60,7 @@ export const API_ENDPOINTS = {
     ORDERS: {
       LIST: '/api/admin/orders',
       SHOW: (id: string) => `/api/admin/orders/${id}`,
+      UPDATE_STATUS: (id: string) => `/api/admin/orders/${id}/status`,
     },
     DASHBOARD: {
       SUMMARY: '/api/admin/dashboard/summary',

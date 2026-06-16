@@ -1,7 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'admin', middleware: 'admin' })
 
-const { showError } = useAlert()
+const { showSuccess, showError } = useAlert()
 const http = useHttpClient()
 
 const search = ref('')
@@ -79,6 +79,22 @@ function formatPrice(n: any) {
 }
 
 const totalOrders = computed(() => pagination.value?.total ?? 0)
+
+const updatingId = ref<string | null>(null)
+
+async function updateStatus(orderId: string, status: string) {
+  updatingId.value = orderId
+  try {
+    await http.patch(API_ENDPOINTS.ADMIN.ORDERS.UPDATE_STATUS(orderId), { status })
+    const o = orders.value.find(x => x.id === orderId)
+    if (o) o.status = status
+    showSuccess(`เปลี่ยนสถานะเป็น "${statusLabel[status]}" แล้ว`)
+  } catch (e: any) {
+    showError(e?.message ?? 'เปลี่ยนสถานะไม่สำเร็จ')
+  } finally {
+    updatingId.value = null
+  }
+}
 </script>
 
 <template>
@@ -127,36 +143,53 @@ const totalOrders = computed(() => pagination.value?.total ?? 0)
       <div v-else-if="orders.length === 0" class="bg-white rounded-xl shadow-sm p-6 text-center text-gray-400 text-sm">
         ไม่พบออเดอร์
       </div>
-      <NuxtLink
+      <div
         v-for="o in orders"
         :key="o.id"
-        :to="`/admin/orders/${o.id}`"
-        class="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-2 active:bg-gray-50 transition-colors block"
+        class="bg-white rounded-xl shadow-sm p-4 flex flex-col gap-2"
       >
         <div class="flex items-start justify-between">
-          <div>
+          <NuxtLink :to="`/admin/orders/${o.id}`" class="flex-1">
             <span class="font-bold text-gray-900 text-base">#{{ o.queueNo }}</span>
             <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(o.createdAt) }}</p>
-          </div>
+          </NuxtLink>
           <div class="flex flex-col items-end gap-1">
-            <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[o.status]">
-              {{ statusLabel[o.status] ?? o.status }}
-            </span>
             <span v-if="o.payment" class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="paymentBadge[o.payment.method]">
               {{ paymentLabel[o.payment.method] ?? o.payment.method }}
             </span>
           </div>
         </div>
-        <div class="text-xs text-gray-600 space-y-0.5">
+        <NuxtLink :to="`/admin/orders/${o.id}`" class="text-xs text-gray-600 space-y-0.5 block">
           <p v-for="item in o.items.slice(0, 3)" :key="item.id">{{ item.product.name }} x{{ item.quantity }}</p>
           <p v-if="o.items.length > 3" class="text-gray-400">+{{ o.items.length - 3 }} รายการ</p>
-        </div>
+        </NuxtLink>
         <div class="flex items-center justify-between pt-1 border-t border-gray-100">
           <span v-if="o.member" class="text-xs text-blue-600 font-medium">{{ o.member.name }}</span>
           <span v-else class="text-xs text-gray-400">ไม่มีสมาชิก</span>
           <span class="font-semibold text-gray-900 text-sm">฿{{ formatPrice(o.total) }}</span>
         </div>
-      </NuxtLink>
+        <!-- Status row -->
+        <div class="flex items-center justify-between pt-1 border-t border-gray-100">
+          <span class="text-xs text-gray-500">สถานะ</span>
+          <select
+            v-if="o.status !== 'COMPLETED' && o.status !== 'CANCELLED'"
+            :value="o.status"
+            :disabled="updatingId === o.id"
+            class="text-xs font-medium rounded-full px-2 py-0.5 border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+            :class="statusBadge[o.status]"
+            @change="updateStatus(o.id, ($event.target as HTMLSelectElement).value)"
+          >
+            <option value="PENDING">รอดำเนินการ</option>
+            <option value="PREPARING">กำลังเตรียม</option>
+            <option value="READY">พร้อมรับ</option>
+            <option value="COMPLETED">เสร็จสิ้น</option>
+            <option value="CANCELLED">ยกเลิก</option>
+          </select>
+          <span v-else class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[o.status]">
+            {{ statusLabel[o.status] ?? o.status }}
+          </span>
+        </div>
+      </div>
     </div>
 
     <!-- Desktop: Table -->
@@ -201,7 +234,21 @@ const totalOrders = computed(() => pagination.value?.total ?? 0)
               <span v-else class="text-xs text-gray-400">—</span>
             </td>
             <td class="px-4 py-3 text-center">
-              <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[o.status]">
+              <select
+                v-if="o.status !== 'COMPLETED' && o.status !== 'CANCELLED'"
+                :value="o.status"
+                :disabled="updatingId === o.id"
+                class="text-xs font-medium rounded-full px-2 py-0.5 border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:opacity-50"
+                :class="statusBadge[o.status]"
+                @change="updateStatus(o.id, ($event.target as HTMLSelectElement).value)"
+              >
+                <option value="PENDING">รอดำเนินการ</option>
+                <option value="PREPARING">กำลังเตรียม</option>
+                <option value="READY">พร้อมรับ</option>
+                <option value="COMPLETED">เสร็จสิ้น</option>
+                <option value="CANCELLED">ยกเลิก</option>
+              </select>
+              <span v-else class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[o.status]">
                 {{ statusLabel[o.status] ?? o.status }}
               </span>
             </td>

@@ -191,6 +191,21 @@ function formatTime(d: string) {
 function formatPrice(n: number) {
   return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2 })
 }
+
+function formatPickupTime(pt: string | null | undefined): string {
+  if (!pt) return '-'
+  const TZ = 'Asia/Bangkok'
+  // format ใหม่: "YYYY-MM-DD HH:MM"
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(pt)) {
+    const [datePart, timePart] = pt.split(' ')
+    const d = new Date(`${datePart}T${timePart}:00+07:00`)
+    const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
+    const dateLabel = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', timeZone: TZ }).format(d)
+    return datePart !== todayDate ? `${dateLabel} ${timePart} น.` : `${timePart} น.`
+  }
+  // format เก่า: "HH:MM"
+  return `${pt} น.`
+}
 </script>
 
 <template>
@@ -267,7 +282,7 @@ function formatPrice(n: number) {
           <!-- Pickup time (all orders) -->
           <div v-if="order.pickupTime" class="flex items-center gap-1 text-xs text-indigo-600 font-medium">
             <Icon name="mdi:clock-outline" class="text-sm flex-shrink-0" />
-            รับ {{ order.pickupTime }} น.
+            รับ {{ formatPickupTime(order.pickupTime) }}
           </div>
 
           <!-- Note -->
@@ -289,10 +304,6 @@ function formatPrice(n: number) {
           <!-- Pickup time & slip (ONLINE) -->
           <div v-if="order.source === 'ONLINE'" class="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2 space-y-1.5">
             <div class="flex items-center justify-between">
-              <span>
-                <Icon name="mdi:clock-outline" class="inline-block align-middle mr-1" />
-                รับ {{ order.pickupTime ?? '-' }}
-              </span>
               <span v-if="order.acknowledgedAt" class="text-green-600 font-medium flex items-center gap-1">
                 <Icon name="mdi:check-circle" class="w-3.5 h-3.5" />รับทราบแล้ว
               </span>

@@ -209,10 +209,13 @@ export const usePosStore = defineStore('pos', () => {
   const orderNote = ref('')
 
   function defaultPickupTime(): string {
+    const TZ = 'Asia/Bangkok'
     const now = new Date()
-    const rounded = new Date(now)
-    rounded.setMinutes(Math.ceil(now.getMinutes() / 10) * 10, 0, 0)
-    return rounded.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+    const ms = Math.ceil(now.getTime() / (10 * 60 * 1000)) * 10 * 60 * 1000
+    const t = new Date(ms)
+    const date = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(t)
+    const time = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: TZ, hour12: false }).format(t)
+    return `${date} ${time}`
   }
 
   const pickupTime = ref(defaultPickupTime())
@@ -250,8 +253,19 @@ export const usePosStore = defineStore('pos', () => {
     editingOrderId.value = order.id
     editingOrderQueueNo.value = order.queueNo
 
-    // restore note
+    // restore note & pickup time
     orderNote.value = order.note ?? ''
+    if (order.pickupTime) {
+      // normalize format เก่า "HH:MM" → "YYYY-MM-DD HH:MM" โดยใช้วันที่ของ order
+      if (/^\d{2}:\d{2}$/.test(order.pickupTime)) {
+        const orderDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date(order.createdAt))
+        pickupTime.value = `${orderDate} ${order.pickupTime}`
+      } else {
+        pickupTime.value = order.pickupTime
+      }
+    } else {
+      pickupTime.value = defaultPickupTime()
+    }
 
     // restore discount
     const couponUse = order.couponUses?.[0]

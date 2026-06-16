@@ -47,17 +47,30 @@ const emit = defineEmits<{
 
 // pickup time options: ทุก 10 นาที ล่วงหน้าสูงสุด 16 ชั่วโมง
 const pickupOptions = computed(() => {
+  const TZ = 'Asia/Bangkok'
   const now = new Date()
   const options: { value: string; label: string }[] = []
-  const start = new Date(now)
-  start.setMinutes(Math.ceil(now.getMinutes() / 10) * 10, 0, 0)
-  const end = new Date(now.getTime() + 16 * 60 * 60 * 1000)
-  const today = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-  for (let t = new Date(start); t <= end; t = new Date(t.getTime() + 10 * 60 * 1000)) {
-    const timeStr = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-    const dateStr = t.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-    const label = dateStr !== today ? `${dateStr} ${timeStr} น.` : `${timeStr} น.`
-    options.push({ value: timeStr, label })
+  const startMs = Math.ceil(now.getTime() / (10 * 60 * 1000)) * 10 * 60 * 1000
+  const endMs = now.getTime() + 16 * 60 * 60 * 1000
+  const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(now)
+  for (let ms = startMs; ms <= endMs; ms += 10 * 60 * 1000) {
+    const t = new Date(ms)
+    const tDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(t)
+    const timeStr = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: TZ, hour12: false }).format(t)
+    const dateLabel = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', timeZone: TZ }).format(t)
+    const label = tDate !== todayDate ? `${dateLabel} ${timeStr} น.` : `${timeStr} น.`
+    options.push({ value: `${tDate} ${timeStr}`, label })
+  }
+  // ถ้า pickupTime ที่ restore มาไม่อยู่ใน options (step ต่างกัน) ให้เพิ่มเข้าไป
+  if (props.pickupTime && !options.find(o => o.value === props.pickupTime)) {
+    const [datePart, timePart] = props.pickupTime.split(' ')
+    if (datePart && timePart) {
+      const d = new Date(`${datePart}T${timePart}:00+07:00`)
+      const tDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(d)
+      const dateLabel = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', timeZone: TZ }).format(d)
+      const label = tDate !== todayDate ? `${dateLabel} ${timePart} น.` : `${timePart} น.`
+      options.unshift({ value: props.pickupTime, label })
+    }
   }
   return options
 })

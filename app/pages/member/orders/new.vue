@@ -328,17 +328,20 @@ async function placeOrder() {
 
 // ─── Pickup time options ──────────────────────────────────────────────────────
 const pickupOptions = computed(() => {
+  const TZ = 'Asia/Bangkok'
   const now = new Date()
   const options: { label: string; value: string }[] = []
-  const start = new Date(now)
-  start.setMinutes(Math.ceil(start.getMinutes() / 15) * 15 + 15, 0, 0)
-  const end = new Date(now.getTime() + 16 * 60 * 60 * 1000)
-  const today = now.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-  for (let t = new Date(start); t <= end; t = new Date(t.getTime() + 15 * 60 * 1000)) {
-    const timeStr = t.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
-    const dateStr = t.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
-    const label = dateStr !== today ? `${dateStr} ${timeStr} น.` : `${timeStr} น.`
-    options.push({ label, value: t.toISOString() })
+  const startMs = (Math.ceil(now.getTime() / (15 * 60 * 1000)) + 1) * 15 * 60 * 1000
+  const endMs = now.getTime() + 16 * 60 * 60 * 1000
+  // เปรียบเทียบวันที่ด้วย YYYY-MM-DD ใน Bangkok timezone เพื่อหลีกเลี่ยงปัญหา locale string
+  const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(now) // "YYYY-MM-DD"
+  for (let ms = startMs; ms <= endMs; ms += 15 * 60 * 1000) {
+    const t = new Date(ms)
+    const tDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(t)
+    const timeStr = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: TZ, hour12: false }).format(t)
+    const dateLabel = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', timeZone: TZ }).format(t)
+    const label = tDate !== todayDate ? `${dateLabel} ${timeStr} น.` : `${timeStr} น.`
+    options.push({ label, value: `${tDate} ${timeStr}` })
   }
   return options
 })

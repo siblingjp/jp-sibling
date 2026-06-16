@@ -3,10 +3,11 @@ definePageMeta({ layout: 'admin', middleware: 'admin' })
 
 const route = useRoute()
 const id = route.params.id as string
-const { showError } = useAlert()
+const http = useHttpClient()
+const { showSuccess, showError } = useAlert()
 
 const { data, error } = await useAsyncData(`admin-order-${id}`, () =>
-  useHttpClient().get<{ data: any }>(API_ENDPOINTS.ADMIN.ORDERS.SHOW(id)),
+  http.get<{ data: any }>(API_ENDPOINTS.ADMIN.ORDERS.SHOW(id)),
 )
 
 if (error.value) {
@@ -14,7 +15,7 @@ if (error.value) {
   await navigateTo('/admin/orders')
 }
 
-const order = computed(() => data.value?.data ?? null)
+const order = ref<any>(data.value?.data ?? null)
 
 const statusBadge: Record<string, string> = {
   PENDING: 'bg-yellow-100 text-yellow-700',
@@ -22,6 +23,14 @@ const statusBadge: Record<string, string> = {
   READY: 'bg-indigo-100 text-indigo-700',
   COMPLETED: 'bg-green-100 text-green-700',
   CANCELLED: 'bg-red-100 text-red-500',
+}
+
+const statusLabel: Record<string, string> = {
+  PENDING: 'รอดำเนินการ',
+  PREPARING: 'กำลังเตรียม',
+  READY: 'พร้อมรับ',
+  COMPLETED: 'เสร็จสิ้น',
+  CANCELLED: 'ยกเลิก',
 }
 
 const tierColor: Record<string, string> = {
@@ -37,17 +46,68 @@ function formatDate(d: string) {
 function formatPrice(n: any) {
   return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2 })
 }
+
+const isFinalized = computed(() =>
+  order.value?.status === 'COMPLETED' || order.value?.status === 'CANCELLED',
+)
+
+const nextStatuses = computed(() => {
+  if (!order.value || isFinalized.value) return []
+  const s = order.value.status
+  const all = ['PENDING', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED']
+  return all.filter(x => x !== s && x !== 'RESERVED')
+})
+
+const updatingStatus = ref(false)
+
+async function updateStatus(status: string) {
+  if (!order.value) return
+  updatingStatus.value = true
+  try {
+    await http.patch(API_ENDPOINTS.ADMIN.ORDERS.UPDATE_STATUS(order.value.id), { status })
+    order.value.status = status
+    showSuccess(`เปลี่ยนสถานะเป็น "${statusLabel[status]}" แล้ว`)
+  } catch (e: any) {
+    showError(e?.message ?? 'เปลี่ยนสถานะไม่สำเร็จ')
+  } finally {
+    updatingStatus.value = false
+  }
+}
 </script>
 
 <template>
   <div v-if="order" class="max-w-3xl">
     <!-- Back + Header -->
-    <div class="flex items-center gap-3 mb-6">
-      <NuxtLink to="/admin/orders" class="text-gray-400 hover:text-gray-600">← กลับ</NuxtLink>
-      <h1 class="text-2xl font-bold text-gray-900">ออเดอร์ #{{ order.queueNo }}</h1>
-      <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[order.status]">
-        {{ order.status }}
-      </span>
+    <div class="flex items-center justify-between gap-3 mb-6 flex-wrap">
+      <div class="flex items-center gap-3">
+        <NuxtLink to="/admin/orders" class="text-gray-400 hover:text-gray-600">← กลับ</NuxtLink>
+        <h1 class="text-2xl font-bold text-gray-900">ออเดอร์ #{{ order.queueNo }}</h1>
+        <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="statusBadge[order.status]">
+          {{ statusLabel[order.status] ?? order.status }}
+        </span>
+      </div>
+
+      <!-- Status actions -->
+      <div v-if="!isFinalized" class="flex items-center gap-2 flex-wrap">
+        <button
+          v-for="s in nextStatuses"
+          :key="s"
+          :disabled="updatingStatus"
+          class="px-3 py-1.5 text-sm font-medium rounded-lg border transition-colors disabled:opacity-50"
+          :class="{
+            'border-blue-300 text-blue-700 hover:bg-blue-50': s === 'PREPARING',
+            'border-indigo-300 text-indigo-700 hover:bg-indigo-50': s === 'READY',
+            'border-green-300 text-green-700 hover:bg-green-50': s === 'COMPLETED',
+            'border-red-300 text-red-600 hover:bg-red-50': s === 'CANCELLED',
+            'border-gray-300 text-gray-600 hover:bg-gray-50': s === 'PENDING',
+          }"
+          @click="updateStatus(s)"
+        >
+          <span v-if="updatingStatus" class="mr-1">...</span>
+          {{ statusLabel[s] }}
+        </button>
+      </div>
+      <span v-else class="text-sm text-gray-400">สถานะสุดท้ายแล้ว</span>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">

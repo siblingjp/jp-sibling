@@ -14,6 +14,8 @@ export default defineEventHandler(async (event) => {
             options: true,
           },
         },
+        payment: { select: { method: true, amount: true } },
+        couponUses: { include: { coupon: { select: { code: true, name: true } } } },
       },
     })
     if (!order || order.memberId !== session.member.id) throw notFound()

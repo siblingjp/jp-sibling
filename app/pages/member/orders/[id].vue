@@ -18,6 +18,9 @@ interface OrderDetail {
   pointsEarned: number
   pointsRedeemed: number
   note: string | null
+  pickupTime: string | null
+  couponCode: string | null
+  slipUrls: string[]
   createdAt: string
   items: {
     id: string
@@ -28,6 +31,8 @@ interface OrderDetail {
     product: { id: string; name: string; imageUrl: string | null }
     options: { id: string; name: string; extraPrice: string | number }[]
   }[]
+  payment: { method: string; amount: string | number } | null
+  couponUses: { coupon: { code: string; name: string } }[]
 }
 
 const order = ref<OrderDetail | null>(null)
@@ -92,6 +97,23 @@ function formatDate(d: string) {
     hour: '2-digit', minute: '2-digit',
   })
 }
+
+function formatPickupTime(pt: string | null | undefined): string {
+  if (!pt) return '-'
+  const TZ = 'Asia/Bangkok'
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(pt)) {
+    const [datePart, timePart] = pt.split(' ')
+    const d = new Date(`${datePart}T${timePart}:00+07:00`)
+    const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
+    const dateLabel = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', timeZone: TZ }).format(d)
+    return datePart !== todayDate ? `${dateLabel} ${timePart} น.` : `${timePart} น.`
+  }
+  return `${pt} น.`
+}
+
+const paymentLabel: Record<string, string> = {
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'ไทยช่วยไทยพลัส', CARD: 'บัตร',
+}
 </script>
 
 <template>
@@ -112,7 +134,6 @@ function formatDate(d: string) {
         <div class="flex items-center justify-between mb-4">
           <div>
             <p class="text-2xl font-black text-gray-900 leading-none">#{{ order.queueNo }}</p>
-            <p class="text-xs text-gray-400 font-mono mt-0.5">{{ order.id.slice(-12).toUpperCase() }}</p>
             <p class="text-sm text-gray-500 mt-0.5">{{ formatDate(order.createdAt) }}</p>
           </div>
           <span class="px-3 py-1.5 text-sm font-semibold rounded-full" :class="statusColor[order.status]">
@@ -120,7 +141,22 @@ function formatDate(d: string) {
           </span>
         </div>
 
-        <!-- Live status for active orders -->
+        <!-- source + pickup -->
+        <div class="flex items-center gap-2 flex-wrap mb-3">
+          <span
+            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+            :class="order.source === 'ONLINE' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'"
+          >
+            <Icon :name="order.source === 'ONLINE' ? 'mdi:web' : 'mdi:store'" class="text-sm" />
+            {{ order.source === 'ONLINE' ? 'Online' : 'POS' }}
+          </span>
+          <span v-if="order.pickupTime" class="inline-flex items-center gap-1.5 text-xs text-gray-500">
+            <Icon name="mdi:clock-outline" class="text-sm" />
+            รับ {{ formatPickupTime(order.pickupTime) }}
+          </span>
+        </div>
+
+        <!-- Live status -->
         <div v-if="['PENDING', 'PREPARING', 'READY'].includes(order.status)"
           class="flex items-center gap-3 bg-[#F0F4F8] rounded-xl p-4">
           <div class="w-2 h-2 rounded-full bg-[#1B2B4B] animate-pulse flex-shrink-0" />
@@ -130,7 +166,6 @@ function formatDate(d: string) {
             <template v-else-if="order.status === 'READY'">ออเดอร์ของคุณพร้อมรับแล้ว!</template>
           </p>
         </div>
-
       </div>
 
       <!-- Items -->
@@ -139,43 +174,65 @@ function formatDate(d: string) {
           <h2 class="font-semibold text-gray-800">รายการสินค้า</h2>
         </div>
         <div class="divide-y divide-gray-50">
-          <div v-for="item in order.items" :key="item.id" class="px-5 py-4">
-            <div class="flex justify-between items-start">
-              <div>
-                <p class="font-medium text-gray-800">{{ item.quantity }}x {{ item.product.name }}</p>
-                <p v-if="item.options.length" class="text-xs text-gray-400 mt-0.5">
-                  {{ item.options.map(o => o.name).join(', ') }}
-                </p>
-                <p v-if="item.note" class="text-xs text-gray-400 mt-0.5 italic">หมายเหตุ: {{ item.note }}</p>
-              </div>
-              <span class="text-sm font-semibold text-gray-700">฿{{ Number(item.subtotal).toFixed(2) }}</span>
+          <div v-for="item in order.items" :key="item.id" class="px-5 py-4 flex justify-between items-start gap-2">
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-gray-800">{{ item.product.name }} <span class="text-gray-400">x{{ item.quantity }}</span></p>
+              <p v-if="item.options.length" class="text-xs text-gray-400 mt-0.5">
+                {{ item.options.map(o => o.name).join(', ') }}
+              </p>
+              <p v-if="item.note" class="text-xs text-orange-500 mt-0.5">{{ item.note }}</p>
             </div>
+            <span class="text-sm font-semibold text-gray-700 whitespace-nowrap">฿{{ Number(item.subtotal).toFixed(0) }}</span>
           </div>
+        </div>
+        <!-- order note -->
+        <div v-if="order.note" class="px-5 py-3 border-t border-gray-50 bg-gray-50">
+          <p class="text-xs text-gray-500"><Icon name="mdi:note-text-outline" class="inline-block align-middle mr-1" />{{ order.note }}</p>
         </div>
       </div>
 
       <!-- Summary -->
-      <div class="bg-white rounded-2xl shadow p-5 space-y-2.5">
+      <div class="bg-white rounded-2xl shadow p-5 space-y-2">
         <div class="flex justify-between text-sm text-gray-500">
-          <span>ยอดรวม</span>
-          <span>฿{{ Number(order.subtotal).toFixed(2) }}</span>
+          <span>ยอดรวม</span><span>฿{{ Number(order.subtotal).toFixed(2) }}</span>
         </div>
         <div v-if="Number(order.discount) > 0" class="flex justify-between text-sm text-green-600">
-          <span>ส่วนลด (แลก {{ order.pointsRedeemed }} แต้ม)</span>
+          <span>
+            ส่วนลด
+            <template v-if="order.couponUses.length">
+              ({{ order.couponUses[0].coupon.name }})
+            </template>
+            <template v-else-if="order.pointsRedeemed > 0">
+              (แลก {{ order.pointsRedeemed }} แต้ม)
+            </template>
+          </span>
           <span>-฿{{ Number(order.discount).toFixed(2) }}</span>
         </div>
         <div class="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
-          <span>รวมทั้งหมด</span>
-          <span>฿{{ Number(order.total).toFixed(2) }}</span>
+          <span>รวมทั้งหมด</span><span>฿{{ Number(order.total).toFixed(2) }}</span>
         </div>
-        <div v-if="order.pointsEarned > 0" class="text-xs text-[#1B2B4B] text-right">
+        <p v-if="order.pointsEarned > 0" class="text-xs text-[#1B2B4B] text-right">
           +{{ order.pointsEarned }} แต้มจากออเดอร์นี้
+        </p>
+      </div>
+
+      <!-- Payment -->
+      <div v-if="order.payment" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3">
+        <Icon name="mdi:cash-check" class="text-xl text-green-600 flex-shrink-0" />
+        <div>
+          <p class="text-sm font-semibold text-gray-800">{{ paymentLabel[order.payment.method] ?? order.payment.method }}</p>
+          <p class="text-xs text-gray-400">฿{{ Number(order.payment.amount).toFixed(2) }}</p>
         </div>
       </div>
 
-      <div v-if="order.note" class="bg-white rounded-2xl shadow p-5">
-        <p class="text-sm text-gray-500 font-medium mb-1">หมายเหตุ</p>
-        <p class="text-gray-700">{{ order.note }}</p>
+      <!-- Slip -->
+      <div v-if="order.slipUrls?.length" class="bg-white rounded-2xl shadow p-4 space-y-3">
+        <p class="text-sm font-semibold text-gray-700">สลิปการโอนเงิน</p>
+        <div class="grid grid-cols-2 gap-2">
+          <a v-for="(url, i) in order.slipUrls" :key="i" :href="url" target="_blank">
+            <img :src="url" class="w-full rounded-xl object-cover aspect-square border border-gray-100" />
+          </a>
+        </div>
       </div>
     </template>
   </div>

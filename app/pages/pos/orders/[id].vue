@@ -186,6 +186,19 @@ function formatPrice(n: number) {
   return Number(n).toLocaleString('th-TH', { minimumFractionDigits: 2 })
 }
 
+function formatPickupTime(pt: string | null | undefined): string {
+  if (!pt) return '-'
+  const TZ = 'Asia/Bangkok'
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(pt)) {
+    const [datePart, timePart] = pt.split(' ')
+    const d = new Date(`${datePart}T${timePart}:00+07:00`)
+    const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date())
+    const dateLabel = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', timeZone: TZ }).format(d)
+    return datePart !== todayDate ? `${dateLabel} ${timePart} น.` : `${timePart} น.`
+  }
+  return `${pt} น.`
+}
+
 onMounted(load)
 </script>
 
@@ -231,7 +244,7 @@ onMounted(load)
           </span>
           <span v-if="order.pickupTime" class="inline-flex items-center gap-1.5 text-xs text-gray-500">
             <Icon name="mdi:clock-outline" class="text-sm" />
-            รับ {{ order.pickupTime }}
+            รับ {{ formatPickupTime(order.pickupTime) }}
           </span>
         </div>
       </div>
