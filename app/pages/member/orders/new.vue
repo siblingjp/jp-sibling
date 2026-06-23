@@ -455,20 +455,13 @@ watch(step, (val) => {
 })
 
 
-async function downloadQR() {
-  if (!qrDataUrl.value) return
-  const res = await fetch(qrDataUrl.value)
+async function shareOrDownload(dataUrl: string, filename: string) {
+  const res = await fetch(dataUrl)
   const blob = await res.blob()
-  const filename = `qr-promptpay-${total.value.toFixed(2)}.png`
-
-  // iOS PWA: ใช้ Web Share API เพื่อให้ save ลง Photos/Files ได้
   if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'image/png' })] })) {
-    const file = new File([blob], filename, { type: 'image/png' })
-    await navigator.share({ files: [file], title: 'QR PromptPay' })
+    await navigator.share({ files: [new File([blob], filename, { type: 'image/png' })], title: 'QR PromptPay' })
     return
   }
-
-  // fallback สำหรับ desktop/Android
   const blobUrl = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = blobUrl
@@ -477,6 +470,15 @@ async function downloadQR() {
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
+}
+
+async function downloadQR() {
+  if (!qrDataUrl.value) return
+  await shareOrDownload(qrDataUrl.value, `qr-promptpay-${total.value.toFixed(2)}.png`)
+}
+
+async function downloadStaticQR() {
+  await shareOrDownload('/images/qr_code_payment_gwallet.png', 'qr-promptpay-static.png')
 }
 
 </script>
@@ -726,7 +728,7 @@ async function downloadQR() {
           <div v-else class="w-52 h-52 bg-gray-100 rounded-xl flex items-center justify-center">
             <Icon name="mdi:loading" class="text-3xl text-gray-400 animate-spin" />
           </div>
-          <div v-if="qrDataUrl" class="flex flex-col items-center gap-1 mt-1">
+          <div v-if="qrDataUrl" class="flex flex-col items-center gap-1.5 mt-1">
             <button
               type="button"
               class="flex items-center gap-1.5 text-xs text-[#1B2B4B] font-medium hover:underline"
@@ -736,6 +738,14 @@ async function downloadQR() {
               บันทึก / แชร์ QR Code (฿{{ total.toFixed(2) }})
             </button>
             <p class="text-[10px] text-gray-400">บันทึกลงเครื่องแล้วนำไปสแกนในแอปธนาคาร</p>
+            <button
+              type="button"
+              class="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 hover:underline mt-0.5"
+              @click="downloadStaticQR"
+            >
+              <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
+              หากไม่ได้ กดรับ QR ปกติ (ไม่มียอด)
+            </button>
           </div>
         </div>
 

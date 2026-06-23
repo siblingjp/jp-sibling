@@ -47,7 +47,7 @@
 
     <!-- Bottom nav -->
     <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 z-50">
-      <div class="max-w-2xl mx-auto flex">
+      <div class="relative max-w-2xl mx-auto flex">
         <NuxtLink
           v-for="item in navItems"
           :key="item.to"
@@ -58,9 +58,7 @@
           <Icon :name="isActive(item) ? item.activeIcon : item.icon" class="text-2xl" />
           <span class="font-medium">{{ item.label }}</span>
         </NuxtLink>
-      </div>
-      <div class="text-center pb-1">
-        <span class="text-[9px] text-gray-300">v{{ $config.public.appVersion }}</span>
+        <span class="absolute bottom-1 right-2 text-[9px] text-gray-300 pointer-events-none">v{{ $config.public.appVersion }}</span>
       </div>
     </nav>
   </div>

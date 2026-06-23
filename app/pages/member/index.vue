@@ -41,6 +41,7 @@ interface TruckLocation {
   closeTime: string | null
   daysOfWeek: string | null
   isOpen: boolean
+  canOrder: boolean
   nextOpenLabel: string | null
   nextOpenName: string | null
   schedules: Schedule[]
@@ -50,6 +51,7 @@ const truckLocation = ref<TruckLocation | null>(null)
 const showTimeline = ref(false)
 
 const isOpen = computed(() => truckLocation.value?.isOpen ?? false)
+const canOrder = computed(() => truckLocation.value?.canOrder ?? false)
 
 const storeHoursText = computed(() => {
   if (!truckLocation.value) return ''
@@ -185,9 +187,9 @@ function formatCouponValue(c: CampaignCoupon) {
     <!-- Store status -->
     <div v-if="truckLocation" class="bg-white rounded-2xl shadow p-4 flex items-start gap-3">
       <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-        :class="isOpen ? 'bg-green-100' : 'bg-gray-100'">
-        <Icon :name="isOpen ? 'mdi:store' : 'mdi:store-clock'" class="text-xl"
-          :class="isOpen ? 'text-green-600' : 'text-gray-400'" />
+        :class="isOpen ? 'bg-green-100' : canOrder ? 'bg-blue-100' : 'bg-gray-100'">
+        <Icon :name="isOpen ? 'mdi:store' : canOrder ? 'mdi:store-clock' : 'mdi:store-off'" class="text-xl"
+          :class="isOpen ? 'text-green-600' : canOrder ? 'text-blue-500' : 'text-gray-400'" />
       </div>
       <div class="flex-1 min-w-0">
         <template v-if="isOpen">
@@ -195,6 +197,14 @@ function formatCouponValue(c: CampaignCoupon) {
           <p class="font-semibold text-sm text-green-700">{{ truckLocation.name }} · เปิดอยู่</p>
           <p class="text-xs text-gray-400 truncate">{{ storeHoursText }}</p>
           <p v-if="truckLocation.description" class="text-xs text-gray-400 truncate">{{ truckLocation.description }}</p>
+        </template>
+        <template v-else-if="canOrder">
+          <div class="flex items-center gap-2 mb-0.5">
+            <p class="text-xs text-gray-400 font-medium">ร้านปิดอยู่ แต่</p>
+            <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-blue-100 text-blue-600">สั่งออนไลน์ได้</span>
+          </div>
+          <p v-if="truckLocation.nextOpenLabel" class="font-semibold text-sm text-gray-700 leading-snug">เปิดอีกครั้ง {{ truckLocation.nextOpenLabel }}</p>
+          <p v-if="truckLocation.nextOpenName" class="text-xs text-gray-400 truncate">ที่ {{ truckLocation.nextOpenName }}</p>
         </template>
         <template v-else-if="truckLocation.nextOpenLabel">
           <div class="flex items-center gap-2 mb-0.5">

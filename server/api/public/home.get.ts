@@ -60,6 +60,12 @@ export default defineEventHandler(async () => {
       : false
     const isOpen = truckLocation?.manualClose ? false : timelineOpen
 
+    const canOrder = isOpen
+      ? !truckLocation?.blockOnlineOrder
+      : truckLocation?.blockOnlineOrder
+        ? false
+        : nextSlot ? nextSlot.minutesUntilOpen <= 12 * 60 : false
+
     const locationData = truckLocation
       ? {
           id: truckLocation.id,
@@ -70,6 +76,7 @@ export default defineEventHandler(async () => {
           closeTime: activeSchedule?.closeTime ?? truckLocation.closeTime,
           daysOfWeek: activeSchedule?.daysOfWeek ?? truckLocation.daysOfWeek,
           isOpen,
+          canOrder,
           manualClose: truckLocation.manualClose,
           blockOnlineOrder: truckLocation.blockOnlineOrder,
           schedules: truckLocation.schedules,
