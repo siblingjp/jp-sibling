@@ -78,6 +78,7 @@ const showClosedAlert = ref(false)
 
 // ─── State ────────────────────────────────────────────────────────────────────
 const products = ref<Product[]>([])
+const frequentProducts = ref<Product[]>([])
 const cart = ref<CartItem[]>([])
 const loading = ref(true)
 const placing = ref(false)
@@ -164,16 +165,18 @@ watch(cart, saveCartToStorage, { deep: true })
 // ─── Load data ────────────────────────────────────────────────────────────────
 onMounted(async () => {
   try {
-    const [pRes, cRes, campRes, statusRes] = await Promise.all([
+    const [pRes, cRes, campRes, statusRes, freqRes] = await Promise.all([
       http.get<{ data: Product[] }>(API_ENDPOINTS.MEMBER.PRODUCTS),
       http.get<{ data: CouponUseItem[] }>(API_ENDPOINTS.MEMBER.COUPONS.LIST),
       http.get<{ data: Campaign[] }>(API_ENDPOINTS.MEMBER.CAMPAIGNS),
       http.get<{ data: ShopStatus }>(API_ENDPOINTS.PUBLIC.LOCATION_STATUS, undefined, { loading: true }),
+      http.get<{ data: Product[] }>(API_ENDPOINTS.MEMBER.ORDERS.FREQUENT),
     ])
     products.value = pRes.data ?? []
     myUses.value = (cRes.data ?? []).filter(u => !u.isUsed)
     campaigns.value = campRes.data ?? []
     shopStatus.value = statusRes.data ?? null
+    frequentProducts.value = freqRes.data ?? []
 
     // restore cart หลังโหลด products เสร็จ (เพื่อ validate product ได้)
     loadCartFromStorage()
@@ -512,9 +515,32 @@ const banks: BankDeepLink[] = [
   },
 ]
 
-function openBank(bank: BankDeepLink) {
-  const url = bank.buildUrl(total.value.toFixed(2))
-  window.location.href = url
+function bankUrl(bank: BankDeepLink) {
+  return bank.buildUrl(total.value.toFixed(2))
+}
+
+// ─── QR download (iOS-safe) ───────────────────────────────────────────────────
+function downloadQR() {
+  if (!qrDataUrl.value) return
+  const img = new Image()
+  img.onload = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = img.width
+    canvas.height = img.height
+    canvas.getContext('2d')!.drawImage(img, 0, 0)
+    canvas.toBlob((blob) => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `qr-promptpay-${total.value.toFixed(0)}.png`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }, 'image/png')
+  }
+  img.src = qrDataUrl.value
 }
 </script>
 
@@ -581,6 +607,34 @@ function openBank(bank: BankDeepLink) {
           <p class="text-blue-500 text-xs">ระบบบันทึกรายการไว้ให้อัตโนมัติ</p>
         </div>
         <button class="text-blue-400 hover:text-blue-600 text-xs underline flex-shrink-0" @click="cart = []">ล้าง</button>
+      </div>
+
+      <!-- สั่งบ่อย -->
+      <div v-if="!loading && frequentProducts.length > 0" class="space-y-2">
+        <div class="flex items-center gap-2">
+          <Icon name="mdi:fire" class="text-orange-500 text-base" />
+          <p class="text-sm font-semibold text-gray-700">สั่งบ่อย</p>
+        </div>
+        <div class="flex gap-2 overflow-x-auto pb-1">
+          <button
+            v-for="product in frequentProducts"
+            :key="product.id"
+            type="button"
+            class="flex-shrink-0 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 hover:border-[#C8D8E8] hover:bg-[#F0F4F8] active:scale-95 transition-all shadow-sm"
+            @click="openModal(product)"
+          >
+            <div class="w-9 h-9 rounded-lg overflow-hidden bg-[#F0F4F8] flex-shrink-0">
+              <img v-if="product.imageUrl" :src="product.imageUrl" class="w-full h-full object-cover" />
+              <div v-else class="w-full h-full flex items-center justify-center">
+                <Icon name="flat-color-icons:shop" class="text-xl" />
+              </div>
+            </div>
+            <div class="text-left min-w-0">
+              <p class="text-xs font-semibold text-gray-800 leading-tight line-clamp-1 max-w-[80px]">{{ product.name }}</p>
+              <p class="text-[10px] text-[#2a3f6b] font-medium">฿{{ Number(product.price).toFixed(0) }}</p>
+            </div>
+          </button>
+        </div>
       </div>
 
       <!-- Search + category -->
@@ -735,15 +789,15 @@ function openBank(bank: BankDeepLink) {
           <div v-else class="w-52 h-52 bg-gray-100 rounded-xl flex items-center justify-center">
             <Icon name="mdi:loading" class="text-3xl text-gray-400 animate-spin" />
           </div>
-          <a
+          <button
             v-if="qrDataUrl"
-            :href="qrDataUrl"
-            download="qr-promptpay.png"
+            type="button"
             class="flex items-center gap-1.5 text-sm text-[#1B2B4B] font-medium hover:underline mt-2"
+            @click="downloadQR"
           >
             <Icon name="mdi:download" class="text-base" />
             บันทึก QR Code (พร้อมยอด ฿{{ total.toFixed(2) }})
-          </a>
+          </button>
         </div>
 
         <!-- Divider -->
@@ -755,12 +809,11 @@ function openBank(bank: BankDeepLink) {
 
         <!-- Bank deep link grid -->
         <div class="grid grid-cols-3 gap-2">
-          <button
+          <a
             v-for="bank in banks"
             :key="bank.id"
-            type="button"
+            :href="bankUrl(bank)"
             class="flex flex-col items-center gap-1.5 rounded-xl border border-gray-200 p-2.5 hover:border-[#C8D8E8] hover:bg-[#F0F4F8] active:scale-95 transition-all"
-            @click="openBank(bank)"
           >
             <img
               :src="bank.icon"
@@ -768,7 +821,7 @@ function openBank(bank: BankDeepLink) {
               class="w-10 h-10 rounded-full object-cover"
             />
             <span class="text-[10px] text-gray-600 text-center leading-tight whitespace-pre-line">{{ bank.name }}</span>
-          </button>
+          </a>
         </div>
 
         <p class="text-xs text-gray-400 text-center">กดเพื่อเปิดแอปธนาคารพร้อมยอดอัตโนมัติ</p>
@@ -865,7 +918,7 @@ function openBank(bank: BankDeepLink) {
             <p class="text-[#2a3f6b] font-semibold mt-1">฿{{ Number(modalProduct.price).toFixed(0) }}</p>
           </div>
           <div class="p-6 space-y-5">
-            <div v-for="pg in modalProduct.optionGroups" :key="pg.optionGroup.id">
+            <div v-for="pg in [...modalProduct.optionGroups].sort((a, b) => Number(b.optionGroup.required) - Number(a.optionGroup.required))" :key="pg.optionGroup.id">
               <div class="flex items-center gap-2 mb-3">
                 <span class="font-semibold text-gray-800">{{ pg.optionGroup.name }}</span>
                 <span v-if="pg.optionGroup.required" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">จำเป็น</span>

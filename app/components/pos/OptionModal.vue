@@ -30,7 +30,11 @@ watch(() => props.product, (p) => {
   )
 }, { immediate: true })
 
-const groups = computed(() => props.product?.optionGroups.map((pg) => pg.optionGroup) ?? [])
+const groups = computed(() =>
+  (props.product?.optionGroups ?? [])
+    .map((pg) => pg.optionGroup)
+    .sort((a, b) => Number(b.required) - Number(a.required))
+)
 
 function toggleOption(groupId: string, optionId: string, multiSelect: boolean) {
   if (multiSelect) {

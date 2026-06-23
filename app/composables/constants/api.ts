@@ -125,6 +125,7 @@ export const API_ENDPOINTS = {
       CREATE: '/api/member/orders',
       SHOW: (id: string) => `/api/member/orders/${id}`,
       CANCEL: (id: string) => `/api/member/orders/${id}/cancel`,
+      FREQUENT: '/api/member/orders/frequent',
     },
     PROFILE: '/api/member/profile',
     POINTS: '/api/member/points',
