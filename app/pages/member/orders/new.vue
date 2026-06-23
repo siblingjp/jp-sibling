@@ -515,33 +515,18 @@ const banks: BankDeepLink[] = [
   },
 ]
 
-function bankUrl(bank: BankDeepLink) {
-  return bank.buildUrl(total.value.toFixed(2))
+function openBank(bank: BankDeepLink) {
+  window.location.href = bank.buildUrl(total.value.toFixed(2))
 }
 
-// ─── QR download (iOS-safe) ───────────────────────────────────────────────────
 function downloadQR() {
   if (!qrDataUrl.value) return
-  const img = new Image()
-  img.onload = () => {
-    const canvas = document.createElement('canvas')
-    canvas.width = img.width
-    canvas.height = img.height
-    canvas.getContext('2d')!.drawImage(img, 0, 0)
-    canvas.toBlob((blob) => {
-      if (!blob) return
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `qr-promptpay-${total.value.toFixed(0)}.png`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    }, 'image/png')
-  }
-  img.src = qrDataUrl.value
+  const a = document.createElement('a')
+  a.href = qrDataUrl.value
+  a.download = 'qr-promptpay.png'
+  a.click()
 }
+
 </script>
 
 <template>
@@ -792,10 +777,10 @@ function downloadQR() {
           <button
             v-if="qrDataUrl"
             type="button"
-            class="flex items-center gap-1.5 text-sm text-[#1B2B4B] font-medium hover:underline mt-2"
+            class="flex items-center gap-1.5 text-xs text-[#1B2B4B] font-medium mt-1 hover:underline"
             @click="downloadQR"
           >
-            <Icon name="mdi:download" class="text-base" />
+            <Icon name="mdi:download" class="w-4 h-4" />
             บันทึก QR Code (พร้อมยอด ฿{{ total.toFixed(2) }})
           </button>
         </div>
@@ -809,11 +794,12 @@ function downloadQR() {
 
         <!-- Bank deep link grid -->
         <div class="grid grid-cols-3 gap-2">
-          <a
+          <button
             v-for="bank in banks"
             :key="bank.id"
-            :href="bankUrl(bank)"
+            type="button"
             class="flex flex-col items-center gap-1.5 rounded-xl border border-gray-200 p-2.5 hover:border-[#C8D8E8] hover:bg-[#F0F4F8] active:scale-95 transition-all"
+            @click="openBank(bank)"
           >
             <img
               :src="bank.icon"
@@ -821,7 +807,7 @@ function downloadQR() {
               class="w-10 h-10 rounded-full object-cover"
             />
             <span class="text-[10px] text-gray-600 text-center leading-tight whitespace-pre-line">{{ bank.name }}</span>
-          </a>
+          </button>
         </div>
 
         <p class="text-xs text-gray-400 text-center">กดเพื่อเปิดแอปธนาคารพร้อมยอดอัตโนมัติ</p>
