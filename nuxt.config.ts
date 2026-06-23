@@ -1,3 +1,6 @@
+import { readFileSync } from 'fs'
+const { version } = JSON.parse(readFileSync('./package.json', 'utf-8'))
+
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: false },
@@ -48,6 +51,7 @@ export default defineNuxtConfig({
     },
     public: {
       appName: process.env.APP_NAME || 'MyApp',
+      appVersion: version,
       firebaseApiKey: process.env.FIREBASE_API_KEY || '',
       firebaseAuthDomain: process.env.FIREBASE_AUTH_DOMAIN || '',
       firebaseProjectId: process.env.FIREBASE_PROJECT_ID || '',

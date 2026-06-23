@@ -454,77 +454,19 @@ watch(step, (val) => {
   }
 })
 
-// ─── Deep link banks ──────────────────────────────────────────────────────────
-interface BankDeepLink {
-  id: string
-  name: string
-  shortName: string
-  color: string
-  icon: string
-  buildUrl: (amount: string) => string
-}
 
-const banks: BankDeepLink[] = [
-  {
-    id: 'krungthai',
-    name: 'กรุงไทย\n(ถุงเงิน)',
-    shortName: 'KTB',
-    color: '#00A0E3',
-    icon: '/images/icon-ktb.jpg',
-    buildUrl: (amount) => `ktbiz://promptpay?amount=${amount}&promptpayid=${PROMPTPAY_NUMBER}`,
-  },
-  {
-    id: 'scb',
-    name: 'ไทยพาณิชย์\n(SCB Easy)',
-    shortName: 'SCB',
-    color: '#4E2E7F',
-    icon: '/images/icon-scb.jpg',
-    buildUrl: (amount) => `scbeasy://promptpay?amount=${amount}&target=${PROMPTPAY_NUMBER}`,
-  },
-  {
-    id: 'bbl',
-    name: 'กรุงเทพ\n(Bualuang)',
-    shortName: 'BBL',
-    color: '#1E3A6E',
-    icon: '/images/icon-bbl.png',
-    buildUrl: (amount) => `bblmobile://qr?amount=${amount}&ref=${PROMPTPAY_NUMBER}`,
-  },
-  {
-    id: 'kbank',
-    name: 'กสิกรไทย\n(K PLUS)',
-    shortName: 'KBANK',
-    color: '#138F2D',
-    icon: '/images/icon-kbank.png',
-    buildUrl: (amount) => `kplus://promptpay?amount=${amount}&target=${PROMPTPAY_NUMBER}`,
-  },
-  {
-    id: 'bay',
-    name: 'กรุงศรี\n(KMA)',
-    shortName: 'KMA',
-    color: '#FDB825',
-    icon: '/images/icon-kma.png',
-    buildUrl: (amount) => `kma://pay?amount=${amount}&promptpay=${PROMPTPAY_NUMBER}`,
-  },
-  {
-    id: 'ttb',
-    name: 'ทหารไทย\n(ttb touch)',
-    shortName: 'TTB',
-    color: '#F47920',
-    icon: '/images/icon-ttb.png',
-    buildUrl: (amount) => `ttbtouch://promptpay?amount=${amount}&target=${PROMPTPAY_NUMBER}`,
-  },
-]
-
-function openBank(bank: BankDeepLink) {
-  window.location.href = bank.buildUrl(total.value.toFixed(2))
-}
-
-function downloadQR() {
+async function downloadQR() {
   if (!qrDataUrl.value) return
+  const res = await fetch(qrDataUrl.value)
+  const blob = await res.blob()
+  const blobUrl = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = qrDataUrl.value
-  a.download = 'qr-promptpay.png'
+  a.href = blobUrl
+  a.download = `qr-promptpay-${total.value.toFixed(2)}.png`
+  document.body.appendChild(a)
   a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000)
 }
 
 </script>
@@ -774,43 +716,19 @@ function downloadQR() {
           <div v-else class="w-52 h-52 bg-gray-100 rounded-xl flex items-center justify-center">
             <Icon name="mdi:loading" class="text-3xl text-gray-400 animate-spin" />
           </div>
-          <button
-            v-if="qrDataUrl"
-            type="button"
-            class="flex items-center gap-1.5 text-xs text-[#1B2B4B] font-medium mt-1 hover:underline"
-            @click="downloadQR"
-          >
-            <Icon name="mdi:download" class="w-4 h-4" />
-            บันทึก QR Code (พร้อมยอด ฿{{ total.toFixed(2) }})
-          </button>
+          <div v-if="qrDataUrl" class="flex flex-col items-center gap-1 mt-1">
+            <button
+              type="button"
+              class="flex items-center gap-1.5 text-xs text-[#1B2B4B] font-medium hover:underline"
+              @click="downloadQR"
+            >
+              <Icon name="mdi:download" class="w-4 h-4" />
+              บันทึก QR Code (พร้อมยอด ฿{{ total.toFixed(2) }})
+            </button>
+            <p class="text-[10px] text-gray-400">บันทึกแล้วนำไปสแกนในแอปธนาคาร</p>
+          </div>
         </div>
 
-        <!-- Divider -->
-        <div class="flex items-center gap-3">
-          <div class="flex-1 h-px bg-gray-200" />
-          <span class="text-xs text-gray-400">หรือเปิดแอปธนาคารโดยตรง</span>
-          <div class="flex-1 h-px bg-gray-200" />
-        </div>
-
-        <!-- Bank deep link grid -->
-        <div class="grid grid-cols-3 gap-2">
-          <button
-            v-for="bank in banks"
-            :key="bank.id"
-            type="button"
-            class="flex flex-col items-center gap-1.5 rounded-xl border border-gray-200 p-2.5 hover:border-[#C8D8E8] hover:bg-[#F0F4F8] active:scale-95 transition-all"
-            @click="openBank(bank)"
-          >
-            <img
-              :src="bank.icon"
-              :alt="bank.shortName"
-              class="w-10 h-10 rounded-full object-cover"
-            />
-            <span class="text-[10px] text-gray-600 text-center leading-tight whitespace-pre-line">{{ bank.name }}</span>
-          </button>
-        </div>
-
-        <p class="text-xs text-gray-400 text-center">กดเพื่อเปิดแอปธนาคารพร้อมยอดอัตโนมัติ</p>
       </div>
 
       <!-- Slip upload -->

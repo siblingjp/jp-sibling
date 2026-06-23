@@ -59,6 +59,9 @@
           <span class="font-medium">{{ item.label }}</span>
         </NuxtLink>
       </div>
+      <div class="text-center pb-1">
+        <span class="text-[9px] text-gray-300">v{{ $config.public.appVersion }}</span>
+      </div>
     </nav>
   </div>
 </template>
