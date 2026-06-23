@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { API_ENDPOINTS } from '~/composables/constants/api'
+import generatePayload from 'promptpay-qr'
 
 definePageMeta({ layout: 'member', middleware: 'member' })
 
@@ -33,7 +34,6 @@ interface CartItem {
   note: string
 }
 
-// CouponUse จาก API: { id, isUsed, coupon: { code, name, discountKind, discountValue, ... } }
 interface CouponUseItem {
   id: string
   isUsed: boolean
@@ -62,8 +62,8 @@ interface Campaign {
   }[]
 }
 
-// ─── Step state ───────────────────────────────────────────────────────────────
-const step = ref<1 | 2 | 3>(1)
+// ─── Step state (1 = เลือกสินค้า, 2 = ชำระเงิน) ──────────────────────────────
+const step = ref<1 | 2>(1)
 
 // ─── Shop status ──────────────────────────────────────────────────────────────
 interface ShopStatus {
@@ -107,8 +107,8 @@ const modalProduct = ref<Product | null>(null)
 const modalOptions = reactive<Record<string, string[]>>({})
 const modalQty = ref(1)
 
-// coupon picker — รวม: redeemed coupon uses, campaign coupons, manual code
-const myUses = ref<CouponUseItem[]>([])    // CouponUse จากกระเป๋า (แลกแต้มแล้ว ยังไม่ได้ใช้)
+// coupon picker
+const myUses = ref<CouponUseItem[]>([])
 const campaigns = ref<Campaign[]>([])
 const appliedCouponCode = ref('')
 const appliedCouponName = ref('')
@@ -125,6 +125,42 @@ const slipFiles = ref<{ file: File; preview: string }[]>([])
 const uploadingSlip = ref(false)
 const MAX_SLIPS = 5
 
+// ─── localStorage cart persist ────────────────────────────────────────────────
+const CART_KEY = 'member_order_cart'
+
+function saveCartToStorage() {
+  try {
+    const serializable = cart.value.map(item => ({
+      product: item.product,
+      quantity: item.quantity,
+      selectedOptions: item.selectedOptions,
+      note: item.note,
+    }))
+    localStorage.setItem(CART_KEY, JSON.stringify(serializable))
+  } catch { /* storage full หรือ private mode */ }
+}
+
+function loadCartFromStorage() {
+  try {
+    const raw = localStorage.getItem(CART_KEY)
+    if (!raw) return
+    const parsed: CartItem[] = JSON.parse(raw)
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      // validate ว่า product ยังอยู่ใน products list (กรองออกถ้า product ถูกลบ)
+      const validItems = parsed.filter(item =>
+        item.product?.id && item.quantity > 0
+      )
+      if (validItems.length > 0) cart.value = validItems
+    }
+  } catch { /* JSON parse error */ }
+}
+
+function clearCartStorage() {
+  try { localStorage.removeItem(CART_KEY) } catch { /* */ }
+}
+
+watch(cart, saveCartToStorage, { deep: true })
+
 // ─── Load data ────────────────────────────────────────────────────────────────
 onMounted(async () => {
   try {
@@ -138,6 +174,9 @@ onMounted(async () => {
     myUses.value = (cRes.data ?? []).filter(u => !u.isUsed)
     campaigns.value = campRes.data ?? []
     shopStatus.value = statusRes.data ?? null
+
+    // restore cart หลังโหลด products เสร็จ (เพื่อ validate product ได้)
+    loadCartFromStorage()
   } catch {
     // silent
   } finally {
@@ -289,7 +328,7 @@ function removeSlip(index: number) {
 async function placeOrder() {
   if (cart.value.length === 0) return
   if (slipFiles.value.length === 0) { showError('กรุณาแนบสลิปการโอนเงิน'); return }
-  if (!pickupTime.value) { showError('กรุณาระบุเวลารับอาหาร'); return }
+  if (!pickupTime.value) { showError('กรุณาระบุเวลารับสินค้า'); return }
 
   placing.value = true
   try {
@@ -315,6 +354,7 @@ async function placeOrder() {
       }
     )
     if (res.data) {
+      clearCartStorage()
       showSuccess(`สั่งสำเร็จ! ได้รับ ${res.data.pointsEarned} แต้ม`)
       await navigateTo(`/member/orders/${res.data.id}`)
     }
@@ -327,26 +367,40 @@ async function placeOrder() {
 }
 
 // ─── Pickup time options ──────────────────────────────────────────────────────
+const TZ = 'Asia/Bangkok'
+
+function formatPickupOption(ms: number): { label: string; value: string } {
+  const t = new Date(ms)
+  const now = new Date()
+  const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(now)
+  const tDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(t)
+  const timeStr = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: TZ, hour12: false }).format(t)
+  const dateLabel = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', timeZone: TZ }).format(t)
+  const label = tDate !== todayDate ? `${dateLabel} ${timeStr} น.` : `${timeStr} น.`
+  return { label, value: `${tDate} ${timeStr}` }
+}
+
 const pickupOptions = computed(() => {
-  const TZ = 'Asia/Bangkok'
   const now = new Date()
   const options: { label: string; value: string }[] = []
   const startMs = (Math.ceil(now.getTime() / (15 * 60 * 1000)) + 1) * 15 * 60 * 1000
   const endMs = now.getTime() + 16 * 60 * 60 * 1000
-  // เปรียบเทียบวันที่ด้วย YYYY-MM-DD ใน Bangkok timezone เพื่อหลีกเลี่ยงปัญหา locale string
-  const todayDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(now) // "YYYY-MM-DD"
   for (let ms = startMs; ms <= endMs; ms += 15 * 60 * 1000) {
-    const t = new Date(ms)
-    const tDate = new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(t)
-    const timeStr = new Intl.DateTimeFormat('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: TZ, hour12: false }).format(t)
-    const dateLabel = new Intl.DateTimeFormat('th-TH', { day: 'numeric', month: 'short', timeZone: TZ }).format(t)
-    const label = tDate !== todayDate ? `${dateLabel} ${timeStr} น.` : `${timeStr} น.`
-    options.push({ label, value: `${tDate} ${timeStr}` })
+    options.push(formatPickupOption(ms))
   }
   return options
 })
 
-// ─── Proceed to payment (เช็ค shop status ก่อน) ──────────────────────────────
+// default pickup = +10 นาทีจากตอนนี้ snap ไปค่าที่ใกล้สุดใน pickupOptions
+function getDefaultPickupTime(): string {
+  const now = new Date()
+  const defaultMs = now.getTime() + 10 * 60 * 1000
+  const startMs = (Math.ceil(now.getTime() / (15 * 60 * 1000)) + 1) * 15 * 60 * 1000
+  const snapMs = defaultMs < startMs ? startMs : startMs
+  return formatPickupOption(snapMs).value
+}
+
+// ─── Proceed to payment ───────────────────────────────────────────────────────
 async function proceedToPayment() {
   if (cartCount.value === 0) return
   try {
@@ -361,15 +415,107 @@ async function proceedToPayment() {
   step.value = 2
 }
 
-// ─── Cart total item count ────────────────────────────────────────────────────
+// ─── Cart total ───────────────────────────────────────────────────────────────
 const cartCount = computed(() => cart.value.reduce((s, i) => s + i.quantity, 0))
 
-// ─── Step labels ─────────────────────────────────────────────────────────────
+// ─── Step labels ──────────────────────────────────────────────────────────────
 const steps = [
   { num: 1, label: 'เลือกสินค้า' },
   { num: 2, label: 'ชำระเงิน' },
-  { num: 3, label: 'ยืนยัน' },
 ]
+
+// ─── PromptPay QR dynamic ─────────────────────────────────────────────────────
+const PROMPTPAY_NUMBER = '0889523537' // ← เปลี่ยนเป็นเบอร์พร้อมเพย์ของร้านจริง
+
+const qrDataUrl = ref('')
+
+async function generateQR(amount: number) {
+  const payload = generatePayload(PROMPTPAY_NUMBER, { amount })
+  const QRCode = await import('qrcode')
+  qrDataUrl.value = await QRCode.toDataURL(payload, {
+    width: 256,
+    margin: 2,
+    color: { dark: '#1B2B4B', light: '#FFFFFF' },
+  })
+}
+
+watch(total, (val) => {
+  if (step.value === 2) generateQR(val)
+}, { immediate: false })
+
+watch(step, (val) => {
+  if (val === 2) {
+    generateQR(total.value)
+    // set default pickup time เมื่อไปหน้าชำระเงิน
+    if (!pickupTime.value) pickupTime.value = getDefaultPickupTime()
+  }
+})
+
+// ─── Deep link banks ──────────────────────────────────────────────────────────
+interface BankDeepLink {
+  id: string
+  name: string
+  shortName: string
+  color: string
+  icon: string
+  buildUrl: (amount: string) => string
+}
+
+const banks: BankDeepLink[] = [
+  {
+    id: 'krungthai',
+    name: 'กรุงไทย\n(ถุงเงิน)',
+    shortName: 'KTB',
+    color: '#00A0E3',
+    icon: '/images/icon-ktb.jpg',
+    buildUrl: (amount) => `ktbiz://promptpay?amount=${amount}&promptpayid=${PROMPTPAY_NUMBER}`,
+  },
+  {
+    id: 'scb',
+    name: 'ไทยพาณิชย์\n(SCB Easy)',
+    shortName: 'SCB',
+    color: '#4E2E7F',
+    icon: '/images/icon-scb.jpg',
+    buildUrl: (amount) => `scbeasy://promptpay?amount=${amount}&target=${PROMPTPAY_NUMBER}`,
+  },
+  {
+    id: 'bbl',
+    name: 'กรุงเทพ\n(Bualuang)',
+    shortName: 'BBL',
+    color: '#1E3A6E',
+    icon: '/images/icon-bbl.png',
+    buildUrl: (amount) => `bblmobile://qr?amount=${amount}&ref=${PROMPTPAY_NUMBER}`,
+  },
+  {
+    id: 'kbank',
+    name: 'กสิกรไทย\n(K PLUS)',
+    shortName: 'KBANK',
+    color: '#138F2D',
+    icon: '/images/icon-kbank.png',
+    buildUrl: (amount) => `kplus://promptpay?amount=${amount}&target=${PROMPTPAY_NUMBER}`,
+  },
+  {
+    id: 'bay',
+    name: 'กรุงศรี\n(KMA)',
+    shortName: 'KMA',
+    color: '#FDB825',
+    icon: '/images/icon-kma.png',
+    buildUrl: (amount) => `kma://pay?amount=${amount}&promptpay=${PROMPTPAY_NUMBER}`,
+  },
+  {
+    id: 'ttb',
+    name: 'ทหารไทย\n(ttb touch)',
+    shortName: 'TTB',
+    color: '#F47920',
+    icon: '/images/icon-ttb.png',
+    buildUrl: (amount) => `ttbtouch://promptpay?amount=${amount}&target=${PROMPTPAY_NUMBER}`,
+  },
+]
+
+function openBank(bank: BankDeepLink) {
+  const url = bank.buildUrl(total.value.toFixed(2))
+  window.location.href = url
+}
 </script>
 
 <template>
@@ -379,7 +525,7 @@ const steps = [
       <NuxtLink v-if="step === 1" to="/member/orders" class="text-gray-400 hover:text-gray-600">
         <Icon name="mdi:chevron-left" class="w-6 h-6" />
       </NuxtLink>
-      <button v-else class="text-gray-400 hover:text-gray-600" @click="step = (step - 1) as 1 | 2 | 3">
+      <button v-else class="text-gray-400 hover:text-gray-600" @click="step = 1">
         <Icon name="mdi:chevron-left" class="w-6 h-6" />
       </button>
       <h1 class="text-xl font-bold text-gray-900">สั่งสินค้าใหม่</h1>
@@ -425,6 +571,16 @@ const steps = [
           </p>
           <p class="text-orange-500 text-xs mt-0.5">คุณสามารถสั่งล่วงหน้าได้</p>
         </div>
+      </div>
+
+      <!-- Cart restored banner -->
+      <div v-if="cart.length > 0 && !loading" class="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm">
+        <Icon name="mdi:cart-check" class="text-blue-500 text-xl flex-shrink-0" />
+        <div class="flex-1 min-w-0">
+          <p class="font-medium text-blue-700">มีรายการค้างอยู่ {{ cartCount }} รายการ</p>
+          <p class="text-blue-500 text-xs">ระบบบันทึกรายการไว้ให้อัตโนมัติ</p>
+        </div>
+        <button class="text-blue-400 hover:text-blue-600 text-xs underline flex-shrink-0" @click="cart = []">ล้าง</button>
       </div>
 
       <!-- Search + category -->
@@ -474,9 +630,10 @@ const steps = [
     </div>
 
     <!-- ════════════════════════════════════════════════════════════
-         STEP 2 — ชำระเงิน
+         STEP 2 — ชำระเงิน (รวม slip + เวลา)
     ════════════════════════════════════════════════════════════════ -->
     <div v-else-if="step === 2" class="space-y-4">
+
       <!-- Cart summary -->
       <div class="bg-white rounded-2xl shadow p-4 space-y-3">
         <h2 class="font-semibold text-gray-700 text-sm">รายการที่สั่ง</h2>
@@ -520,15 +677,28 @@ const steps = [
         </button>
       </div>
 
-      <!-- Note -->
-      <div class="bg-white rounded-2xl shadow p-4">
-        <p class="text-sm font-semibold text-gray-700 mb-2">หมายเหตุ (ไม่บังคับ)</p>
-        <textarea
-          v-model="orderNote"
-          rows="2"
-          placeholder="เช่น ไม่เอาน้ำแข็ง, หวานน้อย..."
-          class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8] resize-none"
-        />
+      <!-- Note + Pickup time -->
+      <div class="bg-white rounded-2xl shadow p-4 space-y-4">
+        <div>
+          <p class="text-sm font-semibold text-gray-700 mb-2">เวลารับสินค้า <span class="text-red-500">*</span></p>
+          <select
+            v-model="pickupTime"
+            class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
+          >
+            <option value="" disabled>เลือกเวลารับ...</option>
+            <option v-for="t in pickupOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
+          </select>
+          <p class="text-xs text-gray-400 mt-1">ตั้งค่าเริ่มต้น +10 นาที — เปลี่ยนได้ตามต้องการ</p>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-700 mb-2">หมายเหตุ (ไม่บังคับ)</p>
+          <textarea
+            v-model="orderNote"
+            rows="2"
+            placeholder="เช่น ไม่เอาน้ำแข็ง, หวานน้อย..."
+            class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8] resize-none"
+          />
+        </div>
       </div>
 
       <!-- Total -->
@@ -546,46 +716,62 @@ const steps = [
         <p class="text-xs text-[#1B2B4B] text-right">+{{ pointsEarned }} แต้มที่จะได้รับ</p>
       </div>
 
-      <!-- QR code payment -->
-      <div class="bg-white rounded-2xl shadow p-4 flex flex-col items-center gap-3">
-        <p class="text-sm font-semibold text-gray-700">สแกน QR Code เพื่อโอนเงิน</p>
-        <p class="text-2xl font-bold text-[#1B2B4B]">฿{{ total.toFixed(2) }}</p>
-        <img
-          src="/images/qr_code_payment_gwallet.png"
-          alt="QR Code ชำระเงิน"
-          class="w-56 h-56 object-contain rounded-xl border border-gray-200"
-        />
-        <a
-          href="/images/qr_code_payment_gwallet.png"
-          download="qr-payment.jpg"
-          class="flex items-center gap-1.5 text-sm text-[#1B2B4B] font-medium hover:underline"
-        >
-          <Icon name="mdi:download" class="text-base" />
-          บันทึก QR Code
-        </a>
-        <p class="text-xs text-gray-400 text-center">โอนเงินแล้วกด "อัปโหลดสลิป" เพื่อดำเนินการต่อ</p>
-      </div>
+      <!-- ── Payment section ── -->
+      <div class="bg-white rounded-2xl shadow p-4 space-y-4">
+        <p class="text-sm font-semibold text-gray-700">ชำระเงิน ฿{{ total.toFixed(2) }}</p>
 
-      <!-- Next step button -->
-      <button
-        class="w-full py-3.5 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-colors text-base shadow"
-        @click="step = 3"
-      >
-        อัปโหลดสลิป →
-      </button>
-    </div>
+        <!-- QR Code dynamic พร้อมยอด -->
+        <div class="flex flex-col items-center gap-2">
+          <div v-if="qrDataUrl" class="relative">
+            <img
+              :src="qrDataUrl"
+              alt="QR Code ชำระเงิน"
+              class="w-52 h-52 object-contain rounded-xl border border-gray-200"
+            />
+            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#1B2B4B] text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow">
+              ฿{{ total.toFixed(2) }}
+            </div>
+          </div>
+          <div v-else class="w-52 h-52 bg-gray-100 rounded-xl flex items-center justify-center">
+            <Icon name="mdi:loading" class="text-3xl text-gray-400 animate-spin" />
+          </div>
+          <a
+            v-if="qrDataUrl"
+            :href="qrDataUrl"
+            download="qr-promptpay.png"
+            class="flex items-center gap-1.5 text-sm text-[#1B2B4B] font-medium hover:underline mt-2"
+          >
+            <Icon name="mdi:download" class="text-base" />
+            บันทึก QR Code (พร้อมยอด ฿{{ total.toFixed(2) }})
+          </a>
+        </div>
 
-    <!-- ════════════════════════════════════════════════════════════
-         STEP 3 — ยืนยันการสั่ง
-    ════════════════════════════════════════════════════════════════ -->
-    <div v-else-if="step === 3" class="space-y-4">
-      <!-- Total to pay (prominent) -->
-      <div class="bg-[#1B2B4B] rounded-2xl p-5 text-center shadow">
-        <p class="text-[#C8D8E8] text-sm font-medium mb-1">ยอดที่ต้องโอน</p>
-        <p class="text-4xl font-extrabold text-white">฿{{ total.toFixed(2) }}</p>
-        <p v-if="appliedCouponDiscount > 0" class="text-xs text-[#C8D8E8] mt-1">
-          รวมส่วนลด -฿{{ appliedCouponDiscount.toFixed(2) }}
-        </p>
+        <!-- Divider -->
+        <div class="flex items-center gap-3">
+          <div class="flex-1 h-px bg-gray-200" />
+          <span class="text-xs text-gray-400">หรือเปิดแอปธนาคารโดยตรง</span>
+          <div class="flex-1 h-px bg-gray-200" />
+        </div>
+
+        <!-- Bank deep link grid -->
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            v-for="bank in banks"
+            :key="bank.id"
+            type="button"
+            class="flex flex-col items-center gap-1.5 rounded-xl border border-gray-200 p-2.5 hover:border-[#C8D8E8] hover:bg-[#F0F4F8] active:scale-95 transition-all"
+            @click="openBank(bank)"
+          >
+            <img
+              :src="bank.icon"
+              :alt="bank.shortName"
+              class="w-10 h-10 rounded-full object-cover"
+            />
+            <span class="text-[10px] text-gray-600 text-center leading-tight whitespace-pre-line">{{ bank.name }}</span>
+          </button>
+        </div>
+
+        <p class="text-xs text-gray-400 text-center">กดเพื่อเปิดแอปธนาคารพร้อมยอดอัตโนมัติ</p>
       </div>
 
       <!-- Slip upload -->
@@ -598,7 +784,6 @@ const steps = [
           <span class="text-xs text-gray-400">{{ slipFiles.length }}/{{ MAX_SLIPS }}</span>
         </div>
 
-        <!-- Preview grid -->
         <div v-if="slipFiles.length" class="grid grid-cols-3 gap-2">
           <div v-for="(s, i) in slipFiles" :key="i" class="relative aspect-square">
             <img :src="s.preview" class="w-full h-full object-cover rounded-xl border border-gray-200" />
@@ -610,15 +795,12 @@ const steps = [
               <Icon name="mdi:close" class="w-3.5 h-3.5" />
             </button>
           </div>
-
-          <!-- Add more button -->
           <label v-if="slipFiles.length < MAX_SLIPS" class="aspect-square flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#C8D8E8] transition-colors">
             <Icon name="mdi:plus" class="text-2xl text-gray-400" />
             <input type="file" accept="image/*" multiple class="hidden" @change="onSlipChange" />
           </label>
         </div>
 
-        <!-- Empty state -->
         <label v-else class="block cursor-pointer">
           <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#C8D8E8] transition-colors">
             <Icon name="mdi:upload" class="text-4xl text-gray-400 mb-2" />
@@ -629,18 +811,6 @@ const steps = [
         </label>
       </div>
 
-      <!-- Pickup time -->
-      <div class="bg-white rounded-2xl shadow p-4 space-y-2">
-        <p class="text-sm font-semibold text-gray-700">เวลารับอาหาร <span class="text-red-500">*</span></p>
-        <select
-          v-model="pickupTime"
-          class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
-        >
-          <option value="" disabled>เลือกเวลารับ...</option>
-          <option v-for="t in pickupOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
-        </select>
-      </div>
-
       <!-- Confirm button -->
       <button
         :disabled="placing"
@@ -649,17 +819,13 @@ const steps = [
       >
         {{ uploadingSlip ? 'กำลังอัปโหลดสลิป...' : placing ? 'กำลังสั่ง...' : 'ยืนยันการสั่ง' }}
       </button>
-
     </div>
 
     <!-- ════════════════════════════════════════════════════════════
          STICKY BOTTOM BAR (step 1 only)
     ════════════════════════════════════════════════════════════════ -->
     <Teleport to="body">
-      <div
-        v-if="step === 1"
-        class="fixed bottom-0 left-0 right-0 z-40 pb-safe"
-      >
+      <div v-if="step === 1" class="fixed bottom-0 left-0 right-0 z-40 pb-safe">
         <div class="max-w-lg mx-auto px-4 pb-20 pt-2">
           <div
             class="bg-[#1B2B4B] rounded-2xl shadow-2xl px-5 py-3.5 flex items-center justify-between gap-4 transition-all"
@@ -699,7 +865,6 @@ const steps = [
             <p class="text-[#2a3f6b] font-semibold mt-1">฿{{ Number(modalProduct.price).toFixed(0) }}</p>
           </div>
           <div class="p-6 space-y-5">
-            <!-- Option groups -->
             <div v-for="pg in modalProduct.optionGroups" :key="pg.optionGroup.id">
               <div class="flex items-center gap-2 mb-3">
                 <span class="font-semibold text-gray-800">{{ pg.optionGroup.name }}</span>
@@ -721,7 +886,6 @@ const steps = [
               </div>
             </div>
 
-            <!-- Quantity selector -->
             <div class="flex items-center justify-between pt-2 border-t border-gray-100">
               <span class="text-sm font-semibold text-gray-700">จำนวน</span>
               <div class="flex items-center gap-3">
@@ -783,7 +947,6 @@ const steps = [
             <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="showCouponPicker = false">×</button>
           </div>
           <div class="p-5 space-y-5">
-            <!-- Manual code -->
             <div>
               <p class="text-sm font-semibold text-gray-700 mb-2">ใส่รหัสโค้ด</p>
               <div class="flex gap-2">
@@ -801,7 +964,6 @@ const steps = [
               </div>
             </div>
 
-            <!-- My redeemed coupons (from points redemption) -->
             <div v-if="myUses.length > 0">
               <p class="text-sm font-semibold text-gray-700 mb-2">คูปองที่แลกแต้มไว้</p>
               <div class="space-y-2">
@@ -828,7 +990,6 @@ const steps = [
               </div>
             </div>
 
-            <!-- Campaigns -->
             <div v-if="campaigns.length > 0">
               <p class="text-sm font-semibold text-gray-700 mb-2">แคมเปญ</p>
               <div class="space-y-3">
