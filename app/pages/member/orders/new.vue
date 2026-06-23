@@ -459,10 +459,20 @@ async function downloadQR() {
   if (!qrDataUrl.value) return
   const res = await fetch(qrDataUrl.value)
   const blob = await res.blob()
+  const filename = `qr-promptpay-${total.value.toFixed(2)}.png`
+
+  // iOS PWA: ใช้ Web Share API เพื่อให้ save ลง Photos/Files ได้
+  if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'image/png' })] })) {
+    const file = new File([blob], filename, { type: 'image/png' })
+    await navigator.share({ files: [file], title: 'QR PromptPay' })
+    return
+  }
+
+  // fallback สำหรับ desktop/Android
   const blobUrl = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = blobUrl
-  a.download = `qr-promptpay-${total.value.toFixed(2)}.png`
+  a.download = filename
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -723,9 +733,9 @@ async function downloadQR() {
               @click="downloadQR"
             >
               <Icon name="mdi:download" class="w-4 h-4" />
-              บันทึก QR Code (พร้อมยอด ฿{{ total.toFixed(2) }})
+              บันทึก / แชร์ QR Code (฿{{ total.toFixed(2) }})
             </button>
-            <p class="text-[10px] text-gray-400">บันทึกแล้วนำไปสแกนในแอปธนาคาร</p>
+            <p class="text-[10px] text-gray-400">บันทึกลงเครื่องแล้วนำไปสแกนในแอปธนาคาร</p>
           </div>
         </div>
 
