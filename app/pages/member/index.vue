@@ -187,9 +187,9 @@ function formatCouponValue(c: CampaignCoupon) {
     <!-- Store status -->
     <div v-if="truckLocation" class="bg-white rounded-2xl shadow p-4 flex items-start gap-3">
       <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-        :class="isOpen ? 'bg-green-100' : canOrder ? 'bg-blue-100' : 'bg-gray-100'">
+        :class="{ 'bg-green-100': isOpen, 'bg-blue-100': !isOpen && canOrder, 'bg-gray-100': !isOpen && !canOrder }">
         <Icon :name="isOpen ? 'mdi:store' : canOrder ? 'mdi:store-clock' : 'mdi:store-off'" class="text-xl"
-          :class="isOpen ? 'text-green-600' : canOrder ? 'text-blue-500' : 'text-gray-400'" />
+          :class="{ 'text-green-600': isOpen, 'text-blue-500': !isOpen && canOrder, 'text-gray-400': !isOpen && !canOrder }" />
       </div>
       <div class="flex-1 min-w-0">
         <template v-if="isOpen">

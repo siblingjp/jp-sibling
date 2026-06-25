@@ -66,12 +66,14 @@ async function applyMode(mode: 'close' | 'closeBlock' | 'reset') {
           class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60"
           :class="isOpen
             ? 'bg-green-100 text-green-700 hover:bg-green-200'
-            : 'bg-red-100 text-red-600 hover:bg-red-200'"
+            : blockOnlineOrder
+              ? 'bg-red-100 text-red-600 hover:bg-red-200'
+              : 'bg-orange-100 text-orange-600 hover:bg-orange-200'"
           @click="showCloseModal = true"
         >
-          <Icon :name="isOpen ? 'mdi:store-check' : 'mdi:store-off'" class="text-base" />
+          <Icon :name="isOpen ? 'mdi:store-check' : blockOnlineOrder ? 'mdi:store-remove' : 'mdi:store-clock'" class="text-base" />
           <span class="hidden sm:inline">
-            {{ isOpen ? 'เปิดอยู่' : manualClose ? (blockOnlineOrder ? 'ปิดร้าน (ปิดออนไลน์)' : 'ปิดร้าน') : 'ปิดอยู่' }}
+            {{ isOpen ? 'เปิดอยู่' : blockOnlineOrder ? 'ปิดร้าน (ปิดออนไลน์)' : 'ปิดร้าน (รับออนไลน์)' }}
           </span>
         </button>
         <!-- <span class="text-sm text-gray-500 hidden md:inline truncate max-w-[100px] lg:max-w-none">{{ user?.name }}</span> -->

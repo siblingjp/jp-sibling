@@ -60,11 +60,7 @@ export default defineEventHandler(async () => {
       : false
     const isOpen = truckLocation?.manualClose ? false : timelineOpen
 
-    const canOrder = isOpen
-      ? !truckLocation?.blockOnlineOrder
-      : truckLocation?.blockOnlineOrder
-        ? false
-        : nextSlot ? nextSlot.minutesUntilOpen <= 12 * 60 : false
+    const canOrder = !(truckLocation?.blockOnlineOrder ?? false)
 
     const locationData = truckLocation
       ? {

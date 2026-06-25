@@ -107,6 +107,7 @@ const filteredProducts = computed(() => {
 const modalProduct = ref<Product | null>(null)
 const modalOptions = reactive<Record<string, string[]>>({})
 const modalQty = ref(1)
+const editingIndex = ref<number | null>(null)
 
 // coupon picker
 const myUses = ref<CouponUseItem[]>([])
@@ -188,16 +189,29 @@ onMounted(async () => {
 })
 
 // ─── Product modal ────────────────────────────────────────────────────────────
-function openModal(product: Product) {
+function openModal(product: Product, cartIndex?: number) {
   modalProduct.value = product
-  modalQty.value = 1
+  editingIndex.value = cartIndex ?? null
   for (const key of Object.keys(modalOptions)) delete modalOptions[key]
-  for (const pg of product.optionGroups) {
-    if (!pg.optionGroup.multiSelect && pg.optionGroup.required) {
-      const first = pg.optionGroup.options.find(o => o.isActive)
-      modalOptions[pg.optionGroup.id] = first ? [first.id] : []
-    } else {
-      modalOptions[pg.optionGroup.id] = []
+
+  if (cartIndex !== undefined) {
+    const item = cart.value[cartIndex]
+    modalQty.value = item.quantity
+    for (const pg of product.optionGroups) {
+      const selected = item.selectedOptions.filter(o =>
+        pg.optionGroup.options.some(opt => opt.id === o.optionId)
+      ).map(o => o.optionId)
+      modalOptions[pg.optionGroup.id] = selected
+    }
+  } else {
+    modalQty.value = 1
+    for (const pg of product.optionGroups) {
+      if (!pg.optionGroup.multiSelect && pg.optionGroup.required) {
+        const first = pg.optionGroup.options.find(o => o.isActive)
+        modalOptions[pg.optionGroup.id] = first ? [first.id] : []
+      } else {
+        modalOptions[pg.optionGroup.id] = []
+      }
     }
   }
 }
@@ -227,14 +241,20 @@ function confirmModal() {
     }
   }
   const qty = modalQty.value
-  const existing = cart.value.find(
-    c => c.product.id === product.id &&
-    JSON.stringify(c.selectedOptions.map(o => o.optionId).sort()) ===
-    JSON.stringify(selectedOptions.map(o => o.optionId).sort())
-  )
-  if (existing) { existing.quantity += qty }
-  else { cart.value.push({ product, quantity: qty, selectedOptions, note: '' }) }
+
+  if (editingIndex.value !== null) {
+    cart.value[editingIndex.value] = { ...cart.value[editingIndex.value], selectedOptions, quantity: qty }
+  } else {
+    const existing = cart.value.find(
+      c => c.product.id === product.id &&
+      JSON.stringify(c.selectedOptions.map(o => o.optionId).sort()) ===
+      JSON.stringify(selectedOptions.map(o => o.optionId).sort())
+    )
+    if (existing) { existing.quantity += qty }
+    else { cart.value.push({ product, quantity: qty, selectedOptions, note: '' }) }
+  }
   modalProduct.value = null
+  editingIndex.value = null
 }
 
 function removeItem(index: number) { cart.value.splice(index, 1) }
@@ -428,7 +448,7 @@ const steps = [
 ]
 
 // ─── PromptPay QR dynamic ─────────────────────────────────────────────────────
-const PROMPTPAY_NUMBER = '0889523537' // ← เปลี่ยนเป็นเบอร์พร้อมเพย์ของร้านจริง
+const PROMPTPAY_NUMBER = '1571100153725' // ← เปลี่ยนเป็นเบอร์พร้อมเพย์ของร้านจริง
 
 const qrDataUrl = ref('')
 
@@ -646,6 +666,20 @@ async function downloadStaticQR() {
             <span class="text-sm font-semibold text-gray-800">
               ฿{{ ((Number(item.product.price) + item.selectedOptions.reduce((s, o) => s + o.extraPrice, 0)) * item.quantity).toFixed(0) }}
             </span>
+            <button
+              type="button"
+              class="text-gray-300 hover:text-[#1B2B4B] transition-colors p-0.5"
+              @click="openModal(item.product, index)"
+            >
+              <Icon name="mdi:pencil-outline" class="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              class="text-gray-300 hover:text-red-500 transition-colors p-0.5"
+              @click="removeItem(index)"
+            >
+              <Icon name="mdi:close" class="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -881,8 +915,8 @@ async function downloadStaticQR() {
             </div>
           </div>
           <div class="p-6 pt-0 flex gap-3 sm:mt-0 mt-auto sticky bottom-0 bg-white border-t border-gray-100 sm:border-none sm:static">
-            <button @click="modalProduct = null" class="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">ยกเลิก</button>
-            <button @click="confirmModal" class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b]">เพิ่มลงออเดอร์</button>
+            <button @click="modalProduct = null; editingIndex = null" class="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">ยกเลิก</button>
+            <button @click="confirmModal" class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b]">{{ editingIndex !== null ? 'บันทึก' : 'เพิ่มลงออเดอร์' }}</button>
           </div>
         </div>
       </div>

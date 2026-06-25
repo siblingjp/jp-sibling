@@ -177,6 +177,13 @@ export default defineEventHandler(async (event) => {
 
     await Promise.all(updates)
 
+    // แจ้งเตือน staff ทุกคนว่ามีออเดอร์ออนไลน์ใหม่ (fire-and-forget)
+    sendPushToAllStaff({
+      title: '🛒 ออเดอร์ออนไลน์ใหม่',
+      body: `#${queueNo} · ${member.name ?? member.phone} · ฿${total.toFixed(0)}`,
+      data: { url: '/pos/orders' },
+    }).catch(() => {})
+
     return okResponse({ id: order.id, queueStatus: order.status, total, pointsEarned, pointsRedeemed: 0 })
   } catch (e: any) {
     console.error('[member/orders POST]', e)

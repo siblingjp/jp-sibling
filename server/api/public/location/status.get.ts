@@ -39,11 +39,10 @@ export default defineEventHandler(async () => {
     }
 
     const next = getNextSlot(truck.schedules, now)
-    const canOrder = next ? next.minutesUntilOpen <= 12 * 60 : false
 
     return okResponse({
       isOpen: false,
-      canOrder,
+      canOrder: true,
       manualClose: truck.manualClose,
       nextOpenLabel: next?.label ?? null,
       nextOpenName: next?.name ?? null,

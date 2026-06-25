@@ -7,7 +7,7 @@ const { member, fetchMe } = useMemberAuth()
 interface HomeData {
   products: { id: string; name: string; imageUrl: string | null; category: { name: string } }[]
   campaigns: { id: string; name: string; description: string | null; imageUrl: string | null; displayMode: string | null; bannerColor: string | null }[]
-  truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean; nextOpenLabel: string | null; nextOpenName: string | null; schedules: { id: string; name: string; openTime: string; closeTime: string; daysOfWeek: string; mapUrl: string | null }[]; activeScheduleId: string | null } | null
+  truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean; canOrder: boolean; nextOpenLabel: string | null; nextOpenName: string | null; schedules: { id: string; name: string; openTime: string; closeTime: string; daysOfWeek: string; mapUrl: string | null }[]; activeScheduleId: string | null } | null
   topRequests: { id: string; name: string; description: string | null; voteCount: number }[]
 }
 
@@ -101,11 +101,11 @@ const marqueeProducts = computed(() => {
   <div>
     <!-- ─── Truck Location Banner ────────────────────────────────────────── -->
     <section v-if="data?.truckLocation" class="text-white py-4"
-      :class="data.truckLocation.isOpen ? 'bg-green-700' : 'bg-[#1B2B4B]'">
+      :class="data.truckLocation.isOpen ? 'bg-green-700' : data.truckLocation.canOrder ? 'bg-blue-700' : 'bg-[#1B2B4B]'">
       <div class="max-w-4xl mx-auto px-6 flex items-start justify-between gap-4">
         <div class="flex items-start gap-3 min-w-0">
           <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-white/15">
-            <Icon :name="data.truckLocation.isOpen ? 'mdi:store-check' : 'mdi:store-clock'" class="text-lg" />
+            <Icon :name="data.truckLocation.isOpen ? 'mdi:store-check' : data.truckLocation.canOrder ? 'mdi:store-clock' : 'mdi:store-off'" class="text-lg" />
           </div>
           <div class="min-w-0">
             <template v-if="data.truckLocation.isOpen">
@@ -115,6 +115,14 @@ const marqueeProducts = computed(() => {
                 <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white">เปิดอยู่</span>
               </div>
               <p class="text-white/70 text-sm">{{ data.truckLocation.openTime }}–{{ data.truckLocation.closeTime }}</p>
+            </template>
+            <template v-else-if="data.truckLocation.canOrder">
+              <div class="flex items-center gap-2 mb-0.5">
+                <p class="text-white/60 text-xs font-medium">ร้านปิดอยู่ แต่</p>
+                <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white">สั่งออนไลน์ได้</span>
+              </div>
+              <p v-if="data.truckLocation.nextOpenLabel" class="font-bold leading-snug">เปิดอีกครั้ง {{ data.truckLocation.nextOpenLabel }}</p>
+              <p v-if="data.truckLocation.nextOpenName" class="text-white/70 text-sm truncate">ที่ {{ data.truckLocation.nextOpenName }}</p>
             </template>
             <template v-else-if="data.truckLocation.nextOpenLabel">
               <div class="flex items-center gap-2 mb-0.5">
