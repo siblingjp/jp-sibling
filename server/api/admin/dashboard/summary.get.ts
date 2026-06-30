@@ -40,18 +40,26 @@ export default defineEventHandler(async (event) => {
     const orders = await prisma.order.findMany({
       where,
       include: {
-        items: { include: { product: { select: { id: true, name: true } } } },
+        items: { include: { product: { select: { id: true, name: true, category: { select: { slug: true } } } } } },
         payment: { select: { method: true, amount: true } },
       },
     })
 
     // ─── Summary ────────────────────────────────────────────────────────────────
     const totalOrders = orders.length
-    const totalCups = orders.reduce((s, o) => s + o.items.reduce((si, i) => si + i.quantity, 0), 0)
     const totalRevenue = orders.reduce((s, o) => s + Number(o.total), 0)
 
+    let totalCups = 0
+    let totalFoods = 0
+    for (const order of orders) {
+      const hasFood = order.items.some(i => i.product.category?.slug === 'foods')
+      const qty = order.items.reduce((s, i) => s + i.quantity, 0)
+      if (hasFood) totalFoods += qty
+      else totalCups += qty
+    }
+
     // ─── Top products ────────────────────────────────────────────────────────────
-    const productMap = new Map<string, { name: string; qty: number; revenue: number }>()
+    const productMap = new Map<string, { name: string; qty: number; revenue: number; isFood: boolean }>()
     for (const order of orders) {
       for (const item of order.items) {
         const key = item.product.id
@@ -60,7 +68,12 @@ export default defineEventHandler(async (event) => {
           existing.qty += item.quantity
           existing.revenue += Number(item.subtotal)
         } else {
-          productMap.set(key, { name: item.product.name, qty: item.quantity, revenue: Number(item.subtotal) })
+          productMap.set(key, {
+            name: item.product.name,
+            qty: item.quantity,
+            revenue: Number(item.subtotal),
+            isFood: item.product.category?.slug === 'foods',
+          })
         }
       }
     }
@@ -85,6 +98,7 @@ export default defineEventHandler(async (event) => {
       dateTo: dateTo ?? dateFrom ?? todayBKK,
       totalOrders,
       totalCups,
+      totalFoods,
       totalRevenue,
       topProducts,
       byPaymentMethod,

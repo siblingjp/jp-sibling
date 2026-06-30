@@ -65,6 +65,8 @@ interface Campaign {
 // ─── Step state (1 = เลือกสินค้า, 2 = ชำระเงิน) ──────────────────────────────
 const step = ref<1 | 2>(1)
 
+const route = useRoute()
+
 // ─── Shop status ──────────────────────────────────────────────────────────────
 interface ShopStatus {
   isOpen: boolean
@@ -181,6 +183,14 @@ onMounted(async () => {
 
     // restore cart หลังโหลด products เสร็จ (เพื่อ validate product ได้)
     loadCartFromStorage()
+
+    // auto-apply coupon จาก query param ?coupon=CODE (เก็บ code ไว้ก่อน discount จะคำนวณเมื่อมีสินค้า)
+    const presetCode = (route.query.coupon as string | undefined)?.trim().toUpperCase()
+    if (presetCode) {
+      appliedCouponCode.value = presetCode
+      appliedCouponName.value = presetCode
+      appliedCouponDiscount.value = 0
+    }
   } catch {
     // silent
   } finally {
@@ -270,9 +280,24 @@ const subtotal = computed(() =>
 
 const total = computed(() => Math.max(subtotal.value - appliedCouponDiscount.value, 0))
 
-const pointsEarned = computed(() => {
-  const multiplier = member.value?.tier === 'VIP' ? 1.5 : member.value?.tier === 'GOLD' ? 1.25 : 1.0
-  return Math.floor((total.value / 10) * multiplier)
+const pointsEarned = computed(() => calcPointsEarned(total.value, member.value?.tier ?? 'SILVER'))
+
+// re-validate ส่วนลดเมื่อ subtotal เปลี่ยน (รวม auto-apply จาก query param)
+watch(subtotal, async (newSubtotal) => {
+  if (!appliedCouponCode.value || newSubtotal === 0) return
+  try {
+    const res = await http.post<{ data: { discountAmount: number; coupon?: { name: string } } }>(API_ENDPOINTS.POS.COUPON_VALIDATE, {
+      code: appliedCouponCode.value,
+      subtotal: newSubtotal,
+      memberId: member.value?.id ?? null,
+    })
+    if (res.data?.coupon?.name) appliedCouponName.value = res.data.coupon.name
+    appliedCouponDiscount.value = Number(res.data?.discountAmount ?? 0)
+  } catch (e: any) {
+    // แสดง error แต่ไม่ clear code ออก ให้ user เห็นว่ายังติดอยู่
+    appliedCouponDiscount.value = 0
+    couponErrors.value[appliedCouponCode.value] = e?.data?.message ?? 'คูปองไม่สามารถใช้ได้'
+  }
 })
 
 // ─── Coupon picker ────────────────────────────────────────────────────────────
@@ -305,6 +330,7 @@ async function applyCouponFromPicker(code: string, _name: string, _discountKind:
 }
 
 function clearCoupon() {
+  if (appliedCouponCode.value) delete couponErrors.value[appliedCouponCode.value]
   appliedCouponCode.value = ''
   appliedCouponName.value = ''
   appliedCouponDiscount.value = 0
@@ -687,11 +713,27 @@ async function downloadStaticQR() {
       <!-- Coupon section -->
       <div class="bg-white rounded-2xl shadow p-4">
         <p class="text-sm font-semibold text-gray-700 mb-2">ส่วนลด / คูปอง</p>
-        <div v-if="appliedCouponCode" class="flex items-center justify-between bg-green-50 border border-green-200 rounded-xl p-3">
+        <div v-if="appliedCouponCode"
+          class="flex items-center justify-between rounded-xl p-3 border"
+          :class="couponErrors[appliedCouponCode]
+            ? 'bg-red-50 border-red-200'
+            : appliedCouponDiscount === 0
+              ? 'bg-yellow-50 border-yellow-200'
+              : 'bg-green-50 border-green-200'"
+        >
           <div>
-            <p class="text-xs font-bold text-green-700 font-mono">{{ appliedCouponCode }}</p>
-            <p class="text-xs text-green-600 mt-0.5">{{ appliedCouponName }}</p>
-            <p class="text-xs text-green-600">-฿{{ appliedCouponDiscount.toFixed(2) }}</p>
+            <p class="text-xs font-bold font-mono"
+              :class="couponErrors[appliedCouponCode] ? 'text-red-700' : 'text-green-700'">
+              {{ appliedCouponCode }}
+            </p>
+            <p class="text-xs mt-0.5"
+              :class="couponErrors[appliedCouponCode] ? 'text-red-600' : 'text-green-600'">
+              {{ couponErrors[appliedCouponCode] || appliedCouponName }}
+            </p>
+            <p v-if="!couponErrors[appliedCouponCode]" class="text-xs"
+              :class="appliedCouponDiscount > 0 ? 'text-green-600' : 'text-yellow-600'">
+              {{ appliedCouponDiscount > 0 ? `-฿${appliedCouponDiscount.toFixed(2)}` : 'เพิ่มสินค้าเพื่อคำนวณส่วนลด' }}
+            </p>
           </div>
           <button class="text-gray-400 hover:text-red-500 text-xl leading-none p-1" @click="clearCoupon">×</button>
         </div>

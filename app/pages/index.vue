@@ -35,7 +35,7 @@ async function copyUrlAndDismiss() {
 
 
 const benefits = [
-  { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'อัตราแลก 1pt = 1฿' },
+  { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'สะสมแต้มจากทุกการสั่ง' },
   { icon: 'mdi:gift', title: 'แต้มแลกลด', desc: 'ใช้แต้มแลกส่วนลด' },
   { icon: null, image: '/logo-icon-white.png', title: 'สั่งล่วงหน้า', desc: 'ไม่ต้องรอนาน' },
   { icon: 'flat-color-icons:vip', title: 'สิทธิ์ VIP', desc: 'แต้มโบนัสพิเศษ' },

@@ -290,6 +290,7 @@ model Order {
   items      OrderItem[]
   payment    Payment?
   couponUses CouponUse[]
+  pointLogs  PointLog[]
 
   @@map("orders")
 }
@@ -393,6 +394,7 @@ model PointLog {
   member   Member @relation(fields: [memberId], references: [id])
 
   orderId String?
+  order   Order?  @relation(fields: [orderId], references: [id])
 
   @@map("point_logs")
 }

@@ -101,8 +101,7 @@ export default defineEventHandler(async (event) => {
     const pointsRedeemed = Math.min(data.pointsRedeemed, member?.points ?? 0, maxRedeemable)
     const total = Math.max(0, afterDiscount - pointsRedeemed)
 
-    const tierMultiplier = member?.tier === 'VIP' ? 1.5 : member?.tier === 'GOLD' ? 1.25 : 1.0
-    const pointsEarned = member ? Math.floor((total / 10) * tierMultiplier) : 0
+    const pointsEarned = member ? calcPointsEarned(total, member.tier) : 0
 
     const { start: todayStart, end: todayEnd } = getTodayRangeBKK()
 

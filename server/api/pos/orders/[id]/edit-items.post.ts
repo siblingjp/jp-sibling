@@ -81,8 +81,7 @@ export default defineEventHandler(async (event) => {
     const newTotal = Math.max(0, newSubtotal - discountAmount - pointsRedeemed)
 
     const tier = existing.member?.tier
-    const tierMultiplier = tier === 'VIP' ? 1.5 : tier === 'GOLD' ? 1.25 : 1.0
-    const pointsEarned = existing.memberId ? Math.floor((newTotal / 10) * tierMultiplier) : 0
+    const pointsEarned = existing.memberId ? calcPointsEarned(newTotal, tier ?? 'SILVER') : 0
 
     const existingItemIds = existing.items.map((i) => i.id)
 

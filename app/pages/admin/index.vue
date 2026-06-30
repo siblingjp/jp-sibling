@@ -28,8 +28,9 @@ interface Summary {
   dateTo: string
   totalOrders: number
   totalCups: number
+  totalFoods: number
   totalRevenue: number
-  topProducts: { id: string; name: string; qty: number; revenue: number }[]
+  topProducts: { id: string; name: string; qty: number; revenue: number; isFood: boolean }[]
   byPaymentMethod: { method: string; amount: number }[]
 }
 
@@ -159,15 +160,15 @@ const totalPayment = computed(() =>
           <p class="text-xs text-gray-400 mt-1">ออเดอร์ที่เสร็จสิ้น</p>
         </div>
 
-        <!-- แก้ว -->
+        <!-- แก้ว / รายการ -->
         <div class="bg-white rounded-xl shadow-sm p-5">
           <div class="flex items-center justify-between mb-3">
             <p class="text-sm text-gray-500 font-medium">จำนวนแก้ว</p>
             <span class="text-2xl">☕</span>
           </div>
-          <p class="text-3xl font-bold text-gray-900">{{ summary.totalCups.toLocaleString() }}</p>
-          <p class="text-xs text-gray-400 mt-1">
-            เฉลี่ย {{ summary.totalOrders > 0 ? (summary.totalCups / summary.totalOrders).toFixed(1) : '0' }} แก้ว/ออเดอร์
+          <p class="text-3xl font-bold text-gray-900">{{ summary.totalCups.toLocaleString() }} <span class="text-lg font-medium text-gray-400">แก้ว</span></p>
+          <p v-if="summary.totalFoods > 0" class="text-sm font-semibold text-gray-700 mt-1">
+            + {{ summary.totalFoods.toLocaleString() }} <span class="font-medium text-gray-400">รายการ (อาหาร)</span>
           </p>
         </div>
 
@@ -210,7 +211,7 @@ const totalPayment = computed(() =>
                 <div class="flex items-center justify-between mb-1">
                   <p class="text-sm font-medium text-gray-800 truncate">{{ p.name }}</p>
                   <div class="flex items-center gap-3 flex-shrink-0 ml-2">
-                    <span class="text-xs text-gray-500">{{ p.qty }} แก้ว</span>
+                    <span class="text-xs text-gray-500">{{ p.qty }} {{ p.isFood ? 'รายการ' : 'แก้ว' }}</span>
                     <span class="text-xs font-semibold text-gray-700">฿{{ formatPrice(p.revenue) }}</span>
                   </div>
                 </div>

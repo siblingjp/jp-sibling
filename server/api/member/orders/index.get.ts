@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
         createdAt: true,
         items: {
           include: {
-            product: { select: { id: true, name: true, imageUrl: true } },
+            product: { select: { id: true, name: true, imageUrl: true, category: { select: { slug: true } } } },
             options: true,
           },
         },

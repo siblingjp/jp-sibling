@@ -90,6 +90,7 @@ interface Campaign {
 
 const campaigns = ref<Campaign[]>([])
 const expandedCampaign = ref<string | null>(null)
+const qrCoupon = ref<CampaignCoupon | null>(null)
 
 // ─── Campaign Popup ───────────────────────────────────────────────────────────
 const showCampaignPopup = ref(false)
@@ -269,7 +270,6 @@ function formatCouponValue(c: CampaignCoupon) {
       <div class="bg-white/10 rounded-xl p-4">
         <p class="text-white/70 text-sm mb-1">แต้มสะสม</p>
         <p class="text-4xl font-bold">{{ (member?.points ?? 0).toLocaleString() }}</p>
-        <p class="text-white/70 text-sm mt-1">1 แต้ม = ฿1 ส่วนลด</p>
       </div>
     </div>
 
@@ -373,16 +373,30 @@ function formatCouponValue(c: CampaignCoupon) {
             <div
               v-for="coupon in camp.coupons"
               :key="coupon.id"
-              class="flex items-center justify-between bg-[#F0F4F8] rounded-xl px-4 py-3"
+              class="flex items-center justify-between bg-[#F0F4F8] rounded-xl px-4 py-3 gap-3"
             >
               <div class="flex-1 min-w-0">
                 <p class="text-sm font-bold text-[#1B2B4B] font-mono">{{ coupon.code }}</p>
                 <p class="text-xs text-gray-600 truncate">{{ coupon.name }}</p>
                 <p v-if="coupon.description" class="text-xs text-gray-400 truncate">{{ coupon.description }}</p>
-              </div>
-              <div class="ml-3 text-right flex-shrink-0">
-                <p class="text-sm font-bold text-[#2a3f6b]">{{ formatCouponValue(coupon) }}</p>
+                <p class="text-sm font-bold text-[#2a3f6b] mt-0.5">{{ formatCouponValue(coupon) }}</p>
                 <p v-if="coupon.minTier" class="text-xs text-gray-400">{{ coupon.minTier }}+</p>
+              </div>
+              <div class="flex-shrink-0 flex flex-col gap-2">
+                <button
+                  class="flex items-center gap-1 text-xs text-[#1B2B4B] font-semibold border border-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#F0F4F8] transition-colors"
+                  @click="qrCoupon = coupon"
+                >
+                  <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
+                  แสดง QR
+                </button>
+                <NuxtLink
+                  :to="`/member/orders/new?coupon=${coupon.code}`"
+                  class="flex items-center gap-1 text-xs text-white font-semibold bg-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#2a3f6b] transition-colors"
+                >
+                  <Icon name="mdi:cart-arrow-right" class="w-3.5 h-3.5" />
+                  กดใช้
+                </NuxtLink>
               </div>
             </div>
           </div>
@@ -508,13 +522,30 @@ function formatCouponValue(c: CampaignCoupon) {
               <div
                 v-for="coupon in camp.coupons"
                 :key="coupon.id"
-                class="flex items-center justify-between bg-[#F0F4F8] rounded-xl px-4 py-3"
+                class="flex items-center justify-between bg-[#F0F4F8] rounded-xl px-4 py-3 gap-3"
               >
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-black text-[#1B2B4B] font-mono tracking-wider">{{ coupon.code }}</p>
                   <p class="text-xs text-gray-500 mt-0.5">{{ coupon.name }}</p>
+                  <p class="text-base font-black text-[#2a3f6b] mt-0.5">{{ formatCouponValue(coupon) }}</p>
                 </div>
-                <p class="text-base font-black text-[#2a3f6b] ml-3 flex-shrink-0">{{ formatCouponValue(coupon) }}</p>
+                <div class="flex-shrink-0 flex flex-col gap-2">
+                  <button
+                    class="flex items-center gap-1 text-xs text-[#1B2B4B] font-semibold border border-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#F0F4F8] transition-colors"
+                    @click="qrCoupon = coupon"
+                  >
+                    <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
+                    แสดง QR
+                  </button>
+                  <NuxtLink
+                    :to="`/member/orders/new?coupon=${coupon.code}`"
+                    class="flex items-center gap-1 text-xs text-white font-semibold bg-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#2a3f6b] transition-colors"
+                    @click="closeCampaignPopup"
+                  >
+                    <Icon name="mdi:cart-arrow-right" class="w-3.5 h-3.5" />
+                    กดใช้
+                  </NuxtLink>
+                </div>
               </div>
             </div>
           </div>
@@ -556,6 +587,43 @@ function formatCouponValue(c: CampaignCoupon) {
       </div>
     </div>
   </Transition>
+
+  <!-- QR Modal สำหรับ campaign coupon -->
+  <Teleport to="body">
+    <div v-if="qrCoupon" class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" @click="qrCoupon = null" />
+      <div class="relative bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xs space-y-4">
+        <div class="text-center">
+          <p class="font-bold text-gray-900 text-lg">{{ qrCoupon.name }}</p>
+          <p class="text-2xl font-bold text-[#1B2B4B] mt-0.5">{{ formatCouponValue(qrCoupon) }} ส่วนลด</p>
+        </div>
+        <div class="flex justify-center">
+          <div class="bg-white p-3 rounded-xl border-2 border-[#C8D8E8] shadow-sm">
+            <img
+              :src="`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrCoupon.code)}&margin=4`"
+              :alt="`QR ${qrCoupon.code}`"
+              class="w-52 h-52"
+            />
+          </div>
+        </div>
+        <div class="text-center space-y-1">
+          <p class="text-sm font-mono font-bold text-[#2a3f6b] tracking-widest">{{ qrCoupon.code }}</p>
+          <p class="text-xs text-gray-400">แสดง QR นี้ให้พนักงานสแกน</p>
+        </div>
+        <div class="flex gap-2">
+          <button
+            class="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
+            @click="qrCoupon = null"
+          >ปิด</button>
+          <NuxtLink
+            :to="`/member/orders/new?coupon=${qrCoupon.code}`"
+            class="flex-1 py-2.5 rounded-xl bg-[#1B2B4B] text-white text-sm font-semibold hover:bg-[#2a3f6b] text-center"
+            @click="qrCoupon = null"
+          >สั่งออเดอร์</NuxtLink>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>

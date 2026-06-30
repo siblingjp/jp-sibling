@@ -127,7 +127,12 @@ function formatDateTime(d: string) {
   return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
-const activeUses = computed(() => myUses.value.filter(u => !u.isUsed))
+const activeUses = computed(() =>
+  myUses.value.filter(u => !u.isUsed && !(u.id in countdowns.value && countdowns.value[u.id] === 0))
+)
+const expiredUses = computed(() =>
+  myUses.value.filter(u => !u.isUsed && u.id in countdowns.value && countdowns.value[u.id] === 0)
+)
 const historyUses = computed(() => myUses.value.filter(u => u.isUsed))
 
 const qrTarget = ref<CouponUse | null>(null)
@@ -171,13 +176,38 @@ const qrTarget = ref<CouponUse | null>(null)
               หมดอายุใน {{ countdowns[use.id] !== undefined ? formatCountdown(countdowns[use.id]) : '–' }}
             </p>
           </div>
-          <button
-            class="flex flex-col items-center gap-1 px-4 py-3 bg-[#1B2B4B] text-white rounded-xl hover:bg-[#2a3f6b] transition-colors flex-shrink-0"
-            @click="qrTarget = use"
-          >
-            <Icon name="mdi:qrcode" class="text-2xl" />
-            <span class="text-xs font-medium">แสดง QR</span>
-          </button>
+          <div class="flex flex-col gap-2 flex-shrink-0">
+            <button
+              class="flex flex-col items-center gap-1 px-4 py-2 border border-[#1B2B4B] text-[#1B2B4B] rounded-xl hover:bg-[#F0F4F8] transition-colors"
+              @click="qrTarget = use"
+            >
+              <Icon name="mdi:qrcode" class="text-xl" />
+              <span class="text-xs font-medium">แสดง QR</span>
+            </button>
+            <NuxtLink
+              :to="`/member/orders/new?coupon=${use.coupon.code}`"
+              class="flex flex-col items-center gap-1 px-4 py-2 bg-[#1B2B4B] text-white rounded-xl hover:bg-[#2a3f6b] transition-colors"
+            >
+              <Icon name="mdi:cart-arrow-right" class="text-xl" />
+              <span class="text-xs font-medium">กดใช้</span>
+            </NuxtLink>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expired redeemed coupons (disabled) -->
+    <div v-if="expiredUses.length > 0">
+      <h2 class="font-semibold text-gray-500 mb-3 flex items-center gap-2 text-sm">
+        <Icon name="mdi:ticket-off" class="text-gray-400" />
+        คูปองหมดอายุ
+      </h2>
+      <div class="space-y-2">
+        <div v-for="use in expiredUses" :key="use.id"
+          class="bg-gray-50 border border-gray-200 rounded-2xl p-4 opacity-60">
+          <p class="text-sm font-bold text-gray-500 font-mono">{{ use.coupon.code }}</p>
+          <p class="text-sm text-gray-500 mt-0.5">{{ use.coupon.name }}</p>
+          <p class="text-xs text-red-400 font-medium mt-1">หมดอายุแล้ว</p>
         </div>
       </div>
     </div>
@@ -195,6 +225,7 @@ const qrTarget = ref<CouponUse | null>(null)
             <p class="text-sm font-bold text-gray-700 font-mono">{{ use.coupon.code }}</p>
             <p class="text-xs text-gray-500 truncate">{{ use.coupon.name }}</p>
             <p class="text-xs text-gray-400 mt-0.5">แลกเมื่อ {{ formatDateTime(use.createdAt) }}</p>
+            <p v-if="use.usedAt" class="text-xs text-gray-400">ใช้เมื่อ {{ formatDateTime(use.usedAt) }}</p>
           </div>
           <span class="text-xs bg-gray-100 text-gray-500 px-2 py-1 rounded-full font-medium flex-shrink-0">
             ใช้แล้ว
@@ -283,10 +314,17 @@ const qrTarget = ref<CouponUse | null>(null)
             หมดอายุใน {{ countdowns[qrTarget.id] !== undefined ? formatCountdown(countdowns[qrTarget.id]) : '–' }}
           </p>
         </div>
-        <button
-          class="w-full py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
-          @click="qrTarget = null"
-        >ปิด</button>
+        <div class="flex gap-2">
+          <button
+            class="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
+            @click="qrTarget = null"
+          >ปิด</button>
+          <NuxtLink
+            :to="`/member/orders/new?coupon=${qrTarget.coupon.code}`"
+            class="flex-1 py-2.5 rounded-xl bg-[#1B2B4B] text-white text-sm font-semibold hover:bg-[#2a3f6b] text-center"
+            @click="qrTarget = null"
+          >สั่งออเดอร์</NuxtLink>
+        </div>
       </div>
     </div>
   </Teleport>

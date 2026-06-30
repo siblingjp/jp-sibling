@@ -58,7 +58,7 @@
           <Icon :name="isActive(item) ? item.activeIcon : item.icon" class="text-2xl" />
           <span class="font-medium">{{ item.label }}</span>
         </NuxtLink>
-        <span class="absolute bottom-1 right-2 text-[9px] text-gray-300 pointer-events-none">v{{ $config.public.appVersion }}</span>
+        <span class="absolute bottom-1 left-1/2 -translate-x-1/2 text-[6px] text-gray-300 pointer-events-none">v{{ $config.public.appVersion }}</span>
       </div>
     </nav>
   </div>

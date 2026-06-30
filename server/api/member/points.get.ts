@@ -7,6 +7,9 @@ export default defineEventHandler(async (event) => {
       where: { memberId: session.member.id },
       orderBy: { createdAt: 'desc' },
       take: 50,
+      include: {
+        order: { select: { queueNo: true } },
+      },
     })
 
     const member = await prisma.member.findUnique({

@@ -13,6 +13,7 @@ interface PointLogItem {
   note: string | null
   expiredAt: string | null
   createdAt: string
+  order: { queueNo: number | null } | null
 }
 
 const logs = ref<PointLogItem[]>([])
@@ -62,28 +63,6 @@ function formatDate(d: string) {
       <p class="text-white/70 text-sm mt-1">แต้ม</p>
     </div>
 
-    <!-- How to earn info -->
-    <div class="bg-white rounded-2xl shadow p-5 space-y-3">
-      <!-- <h3 class="font-semibold text-gray-800">อัตราการสะสมแต้ม</h3>
-      <div class="space-y-2 text-sm text-gray-600"> -->
-        <!-- <div class="flex justify-between">
-          <span>Silver</span>
-          <span class="font-medium">฿10 = 1 pt</span>
-        </div>
-        <div class="flex justify-between">
-          <span>Gold</span>
-          <span class="font-medium">฿10 = 1.25 pts</span>
-        </div>
-        <div class="flex justify-between">
-          <span>VIP</span>
-          <span class="font-medium">฿10 = 1.5 pts</span>
-        </div> -->
-        <div class="flex justify-between">
-          <span>อัตราแลก</span>
-          <span class="font-medium">1 แต้ม = ส่วนลด ฿1</span>
-        </div>
-      <!-- </div> -->
-    </div>
 
     <!-- Log list -->
     <div class="bg-white rounded-2xl shadow overflow-hidden">
@@ -98,7 +77,11 @@ function formatDate(d: string) {
         >
           <div>
             <p class="font-medium text-gray-800">{{ actionLabel[log.action] }}</p>
-            <p class="text-xs text-gray-400 mt-0.5">{{ log.note || formatDate(log.createdAt) }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ log.note }}</p>
+            <div class="flex items-center gap-2 mt-0.5">
+              <p class="text-xs text-gray-400">{{ formatDate(log.createdAt) }}</p>
+              <span v-if="log.order?.queueNo" class="text-xs text-[#1B2B4B] font-medium">· ออเดอร์ #{{ log.order.queueNo }}</span>
+            </div>
           </div>
           <span
             class="text-lg font-bold"

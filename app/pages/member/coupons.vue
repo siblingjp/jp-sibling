@@ -103,14 +103,22 @@ function isExpired(u: CouponUse) {
                     </p>
                   </div>
                   <span v-if="isExpired(u)" class="text-xs text-red-500 font-medium">หมดอายุ</span>
-                  <button
-                    v-else
-                    class="flex items-center gap-1 text-xs text-white font-medium bg-[#1B2B4B] px-3 py-1.5 rounded-lg hover:bg-[#2a3f6b] transition-colors"
-                    @click="qrTarget = u"
-                  >
-                    <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
-                    แสดง QR
-                  </button>
+                  <div v-else class="flex items-center gap-2">
+                    <button
+                      class="flex items-center gap-1 text-xs text-[#1B2B4B] font-medium border border-[#1B2B4B] px-3 py-1.5 rounded-lg hover:bg-[#F0F4F8] transition-colors"
+                      @click="qrTarget = u"
+                    >
+                      <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
+                      แสดง QR
+                    </button>
+                    <NuxtLink
+                      :to="`/member/orders/new?coupon=${u.coupon.code}`"
+                      class="flex items-center gap-1 text-xs text-white font-medium bg-[#1B2B4B] px-3 py-1.5 rounded-lg hover:bg-[#2a3f6b] transition-colors"
+                    >
+                      <Icon name="mdi:cart-arrow-right" class="w-3.5 h-3.5" />
+                      กดใช้
+                    </NuxtLink>
+                  </div>
                 </div>
               </div>
             </div>

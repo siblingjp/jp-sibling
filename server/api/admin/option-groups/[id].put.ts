@@ -31,31 +31,32 @@ export default defineEventHandler(async (event) => {
 
     const incomingIds = data.options.filter((o) => o.id).map((o) => o.id!)
 
-    const group = await prisma.$transaction(async (tx) => {
-      // ลบ options ที่ไม่ได้ส่งมา
-      await tx.option.deleteMany({
-        where: { groupId: id, id: { notIn: incomingIds } },
-      })
+    const toRemove = await prisma.option.findMany({
+      where: { groupId: id, id: { notIn: incomingIds } },
+      select: { id: true },
+    })
+    const toRemoveIds = toRemove.map(o => o.id)
 
-      // upsert แต่ละ option
-      for (const opt of data.options) {
-        if (opt.id) {
-          await tx.option.update({
+    if (toRemoveIds.length > 0) {
+      await prisma.orderItemOption.deleteMany({ where: { optionId: { in: toRemoveIds } } })
+      await prisma.option.deleteMany({ where: { id: { in: toRemoveIds } } })
+    }
+
+    await Promise.all(data.options.map(opt =>
+      opt.id
+        ? prisma.option.update({
             where: { id: opt.id },
             data: { name: opt.name, extraPrice: opt.extraPrice, isActive: opt.isActive, sortOrder: opt.sortOrder },
           })
-        } else {
-          await tx.option.create({
+        : prisma.option.create({
             data: { name: opt.name, extraPrice: opt.extraPrice, isActive: opt.isActive, sortOrder: opt.sortOrder, groupId: id },
           })
-        }
-      }
+    ))
 
-      return tx.optionGroup.update({
-        where: { id },
-        data: { name: data.name, required: data.required, multiSelect: data.multiSelect, isActive: data.isActive, sortOrder: data.sortOrder },
-        include: { options: { orderBy: [{ sortOrder: 'asc' }] } },
-      })
+    const group = await prisma.optionGroup.update({
+      where: { id },
+      data: { name: data.name, required: data.required, multiSelect: data.multiSelect, isActive: data.isActive, sortOrder: data.sortOrder },
+      include: { options: { orderBy: [{ sortOrder: 'asc' }] } },
     })
 
     return okResponse(group)

@@ -87,8 +87,7 @@ export default defineEventHandler(async (event) => {
     }
 
     const total = Math.max(subtotal - couponDiscount, 0)
-    const tierMultiplier = member.tier === 'VIP' ? 1.5 : member.tier === 'GOLD' ? 1.25 : 1.0
-    const pointsEarned = Math.floor((total / 10) * tierMultiplier)
+    const pointsEarned = calcPointsEarned(total, member.tier)
 
     // Queue number for today
     const { start: todayStart, end: todayEnd } = getTodayRangeBKK()
@@ -170,7 +169,7 @@ export default defineEventHandler(async (event) => {
           action: 'EARN',
           amount: pointsEarned,
           orderId: order.id,
-          note: `ได้รับแต้มจากออเดอร์ #${queueNo}`,
+          note: `ได้จากออนไลน์ #${queueNo}`,
         },
       }))
     }

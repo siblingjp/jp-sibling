@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
             memberId: result.memberId,
             action: 'EARN',
             amount: result.pointsEarned,
-            note: `Earned from order #${result.queueNo}`,
+            note: `ได้จากหน้าร้าน #${result.queueNo}`,
             orderId: id,
             expiredAt,
           },

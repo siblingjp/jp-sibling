@@ -17,7 +17,7 @@ interface MemberOrder {
     id: string
     quantity: number
     unitPrice: string | number
-    product: { id: string; name: string; imageUrl: string | null }
+    product: { id: string; name: string; imageUrl: string | null; category: { slug: string } | null }
   }[]
 }
 
@@ -78,6 +78,12 @@ const statusIcon: Record<string, string> = {
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
+
+function orderItemLabel(order: MemberOrder) {
+  const totalQty = order.items.reduce((s, i) => s + i.quantity, 0)
+  const hasFood = order.items.some(i => i.product.category?.slug === 'foods')
+  return `${totalQty} ${hasFood ? 'รายการ' : 'แก้ว'}`
+}
 </script>
 
 <template>
@@ -119,13 +125,13 @@ function formatDate(d: string) {
         class="block bg-white rounded-2xl shadow p-5 hover:shadow-md transition-shadow"
       >
         <div class="flex items-start justify-between mb-3">
-          <div class="flex items-center gap-3">
+          <div class="flex items-start gap-3">
             <div class="w-12 h-12 rounded-xl bg-[#1B2B4B] flex items-center justify-center flex-shrink-0">
               <span class="text-white font-black text-lg leading-none">#{{ order.queueNo ?? '–' }}</span>
             </div>
             <div>
-              <p class="text-xs text-gray-400 font-mono">{{ order.id.slice(-8).toUpperCase() }}</p>
               <p class="text-xs text-gray-400 mt-0.5">{{ formatDate(order.createdAt) }}</p>
+              <p class="text-xs text-gray-500 font-medium">{{ orderItemLabel(order) }}</p>
             </div>
           </div>
           <span class="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full" :class="statusColor[order.status]">
