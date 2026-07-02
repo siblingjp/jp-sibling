@@ -30,8 +30,11 @@ interface Summary {
   totalCups: number
   totalFoods: number
   totalRevenue: number
+  revenueFood: number
+  revenueDrink: number
   topProducts: { id: string; name: string; qty: number; revenue: number; isFood: boolean }[]
   byPaymentMethod: { method: string; amount: number }[]
+  byCategory: { name: string; slug: string; qty: number; revenue: number }[]
 }
 
 const summary = ref<Summary | null>(null)
@@ -90,6 +93,18 @@ const dateLabel = computed(() => {
 })
 
 const maxQty = computed(() => Math.max(...(summary.value?.topProducts.map((p) => p.qty) ?? [1])))
+
+const totalCategoryRevenue = computed(() =>
+  (summary.value?.byCategory ?? []).reduce((s, c) => s + c.revenue, 0),
+)
+
+const categoryColors: Record<string, { dot: string; bar: string; badge: string }> = {
+  foods:    { dot: 'bg-orange-400', bar: 'bg-orange-400', badge: 'bg-orange-100 text-orange-700' },
+  drinks:   { dot: 'bg-blue-400',   bar: 'bg-blue-400',   badge: 'bg-blue-100 text-blue-700' },
+  unknown:  { dot: 'bg-gray-400',   bar: 'bg-gray-400',   badge: 'bg-gray-100 text-gray-600' },
+}
+const fallbackColors = { dot: 'bg-teal-400', bar: 'bg-teal-400', badge: 'bg-teal-100 text-teal-700' }
+function catColor(slug: string) { return categoryColors[slug] ?? fallbackColors }
 
 const totalPayment = computed(() =>
   (summary.value?.byPaymentMethod ?? []).reduce((s, m) => s + m.amount, 0),
@@ -179,7 +194,10 @@ const totalPayment = computed(() =>
             <span class="text-2xl">💰</span>
           </div>
           <p class="text-3xl font-bold">฿{{ formatPrice(summary.totalRevenue) }}</p>
-          <p class="text-xs text-blue-200 mt-1">เฉพาะออเดอร์ที่เสร็จสิ้น</p>
+          <div class="mt-2 space-y-0.5">
+            <p class="text-xs text-blue-200">เครื่องดื่ม ฿{{ formatPrice(summary.revenueDrink) }}</p>
+            <p v-if="summary.revenueFood > 0" class="text-xs text-blue-200">อาหาร ฿{{ formatPrice(summary.revenueFood) }}</p>
+          </div>
         </div>
       </div>
 
@@ -272,6 +290,55 @@ const totalPayment = computed(() =>
           </div>
         </div>
 
+      </div>
+
+      <!-- สรุปเมนูแยกตาม Category -->
+      <div class="mt-4 bg-white rounded-xl shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-4">สรุปเมนูแยกตาม Category</h2>
+
+        <div v-if="summary.byCategory.length === 0" class="text-center py-8 text-gray-400 text-sm">
+          ยังไม่มีข้อมูล
+        </div>
+
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div
+            v-for="cat in summary.byCategory"
+            :key="cat.slug"
+            class="border border-gray-100 rounded-xl p-4 flex flex-col gap-2 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all"
+            @click="$router.push({ path: `/admin/dashboard/category/${cat.slug}`, query: { dateFrom, dateTo } })"
+          >
+            <!-- Header -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" :class="catColor(cat.slug).dot" />
+                <span
+                  class="inline-flex px-2 py-0.5 rounded-full text-xs font-semibold"
+                  :class="catColor(cat.slug).badge"
+                >{{ cat.name }}</span>
+              </div>
+              <span class="text-xs text-gray-400">
+                {{ totalCategoryRevenue > 0 ? Math.round((cat.revenue / totalCategoryRevenue) * 100) : 0 }}%
+              </span>
+            </div>
+
+            <!-- Stats -->
+            <div class="flex items-end justify-between">
+              <div>
+                <p class="text-2xl font-bold text-gray-900">฿{{ formatPrice(cat.revenue) }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">{{ cat.qty.toLocaleString() }} รายการ</p>
+              </div>
+            </div>
+
+            <!-- Bar -->
+            <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all"
+                :class="catColor(cat.slug).bar"
+                :style="{ width: totalCategoryRevenue > 0 ? `${Math.round((cat.revenue / totalCategoryRevenue) * 100)}%` : '0%' }"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </template>
 

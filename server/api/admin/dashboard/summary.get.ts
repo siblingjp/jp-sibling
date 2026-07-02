@@ -40,7 +40,7 @@ export default defineEventHandler(async (event) => {
     const orders = await prisma.order.findMany({
       where,
       include: {
-        items: { include: { product: { select: { id: true, name: true, category: { select: { slug: true } } } } } },
+        items: { include: { product: { select: { id: true, name: true, category: { select: { slug: true, name: true } } } } } },
         payment: { select: { method: true, amount: true } },
       },
     })
@@ -51,15 +51,26 @@ export default defineEventHandler(async (event) => {
 
     let totalCups = 0
     let totalFoods = 0
+    let revenueFood = 0
+    let revenueDrink = 0
     for (const order of orders) {
-      const hasFood = order.items.some(i => i.product.category?.slug === 'foods')
-      const qty = order.items.reduce((s, i) => s + i.quantity, 0)
-      if (hasFood) totalFoods += qty
-      else totalCups += qty
+      for (const item of order.items) {
+        const isFood = item.product.category?.slug === 'foods'
+        if (isFood) {
+          totalFoods += item.quantity
+          revenueFood += Number(item.subtotal)
+        } else {
+          totalCups += item.quantity
+          revenueDrink += Number(item.subtotal)
+        }
+      }
     }
 
     // ─── Top products ────────────────────────────────────────────────────────────
     const productMap = new Map<string, { name: string; qty: number; revenue: number; isFood: boolean }>()
+    // ─── By category ─────────────────────────────────────────────────────────────
+    const categoryMap = new Map<string, { name: string; slug: string; qty: number; revenue: number }>()
+
     for (const order of orders) {
       for (const item of order.items) {
         const key = item.product.id
@@ -75,12 +86,24 @@ export default defineEventHandler(async (event) => {
             isFood: item.product.category?.slug === 'foods',
           })
         }
+
+        const catSlug = item.product.category?.slug ?? 'unknown'
+        const catName = item.product.category?.name ?? 'ไม่ระบุ'
+        const catExisting = categoryMap.get(catSlug)
+        if (catExisting) {
+          catExisting.qty += item.quantity
+          catExisting.revenue += Number(item.subtotal)
+        } else {
+          categoryMap.set(catSlug, { name: catName, slug: catSlug, qty: item.quantity, revenue: Number(item.subtotal) })
+        }
       }
     }
     const topProducts = [...productMap.entries()]
       .map(([id, v]) => ({ id, ...v }))
       .sort((a, b) => b.qty - a.qty)
       .slice(0, 10)
+
+    const byCategory = [...categoryMap.values()].sort((a, b) => b.revenue - a.revenue)
 
     // ─── Revenue by payment method ───────────────────────────────────────────────
     const paymentMethodMap: Record<string, number> = {}
@@ -100,8 +123,11 @@ export default defineEventHandler(async (event) => {
       totalCups,
       totalFoods,
       totalRevenue,
+      revenueFood,
+      revenueDrink,
       topProducts,
       byPaymentMethod,
+      byCategory,
     })
   } catch (e) {
     handleError(e)

@@ -64,6 +64,7 @@ export const API_ENDPOINTS = {
     },
     DASHBOARD: {
       SUMMARY: '/api/admin/dashboard/summary',
+      CATEGORY_DETAIL: '/api/admin/dashboard/category-detail',
     },
     REWARDS: {
       LIST: '/api/admin/rewards',
