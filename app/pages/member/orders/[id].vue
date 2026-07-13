@@ -112,7 +112,7 @@ function formatPickupTime(pt: string | null | undefined): string {
 }
 
 const paymentLabel: Record<string, string> = {
-  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'ไทยช่วยไทยพลัส', CARD: 'บัตร',
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร',
 }
 </script>
 

@@ -233,6 +233,36 @@ const lastOrderStatus = ref<'paid' | 'unpaid' | 'preparing'>('paid')
 const showSuccess2 = ref(false)
 
 async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string, startPreparing?: boolean) {
+  // ถ้าอยู่ใน edit mode และกดเปลี่ยนการชำระ → บันทึก payment ให้ order นั้น
+  if (store.editingOrderId && method !== 'UNPAID') {
+    try {
+      const orderId = store.editingOrderId
+      const http = useHttpClient()
+      // ดึงข้อมูล order เพื่อเช็คว่ามี payment อยู่แล้วไหม
+      const res = await http.get<{ data: any }>(API_ENDPOINTS.POS.ORDERS.SHOW(orderId))
+      const existing = res.data
+      if (existing?.payment) {
+        await http.patch(API_ENDPOINTS.POS.PAYMENTS.UPDATE(existing.payment.id), {
+          method,
+          amount,
+          transactionRef: ref || null,
+        })
+      } else {
+        await http.post(API_ENDPOINTS.POS.PAYMENTS.CREATE, {
+          orderId,
+          method,
+          amount,
+          transactionRef: ref || undefined,
+        })
+      }
+      showPayment.value = false
+      showSuccess('บันทึกการชำระเงินสำเร็จ')
+    } catch (e: any) {
+      showError(e?.data?.message ?? e?.message ?? 'บันทึกไม่สำเร็จ')
+    }
+    return
+  }
+
   try {
     const order = await store.checkout(method, amount, ref, startPreparing)
     lastOrderQueue.value = order.queueNo
@@ -450,6 +480,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         @update-points-redeem="store.pointsToRedeem = $event"
         @checkout="store.editingOrderId ? handleEditOrderSave() : (showPayment = true)"
         @checkout-unpaid="handleCheckout('UNPAID', 0, undefined, true)"
+        @change-payment="showPayment = true"
         @badge-created="store.fetchDiscounts()"
       />
     </div>

@@ -193,8 +193,14 @@ const marqueeProducts = computed(() => {
               to="/member/orders/new"
               class="inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-all shadow-lg hover:-translate-y-0.5 text-sm md:text-base"
             >
-              สั่งออนไลน์
+              สั่งออนไลน์ (สมาชิก)
               <span v-if="member" class="w-3.5 h-3.5 rounded-full bg-white/40 animate-ping inline-block" />
+            </NuxtLink>
+            <NuxtLink
+              to="/order"
+              class="inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-teal-600 text-white font-bold rounded-2xl hover:bg-teal-700 transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
+            >
+              สั่งด่วน (ไม่ต้องสมัคร)
             </NuxtLink>
             <NuxtLink
               to="/member/register"

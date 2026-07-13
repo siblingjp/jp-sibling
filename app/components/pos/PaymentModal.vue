@@ -14,7 +14,7 @@ const method = ref<'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID'>('CASH')
 const methodLabel: Record<string, string> = {
   CASH: 'เงินสด',
   QR: 'QR พร้อมเพย์',
-  THAI_HELP: 'ไทยช่วยไทยพลัส',
+  THAI_HELP: 'โครงการรัฐ',
   UNPAID: 'ยังไม่ได้จ่าย',
 }
 const cashReceived = ref(0)

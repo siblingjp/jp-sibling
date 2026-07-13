@@ -118,7 +118,7 @@ const isSavingPayment = ref(false)
 const pendingCompleteAction = ref<(() => Promise<void>) | null>(null)
 
 const methodLabel: Record<string, string> = {
-  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'ไทยช่วยไทยพลัส', CARD: 'บัตร',
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร',
 }
 
 const orderTotal = computed(() => Number(order.value?.total ?? 0))
@@ -311,7 +311,7 @@ onMounted(load)
             </div>
           </div>
           <button
-            v-if="order.status !== 'COMPLETED' && order.status !== 'CANCELLED'"
+            v-if="order.status !== 'CANCELLED'"
             class="text-xs text-blue-600 hover:text-blue-800 font-medium border border-blue-200 px-2.5 py-1 rounded-lg"
             @click="openPaymentModal"
           >แก้ไข</button>
@@ -322,7 +322,7 @@ onMounted(load)
             <span class="text-sm font-semibold text-orange-600">ค้างชำระ</span>
           </div>
           <button
-            v-if="order.status !== 'CANCELLED' && order.source !== 'ONLINE'"
+            v-if="order.status !== 'CANCELLED'"
             class="text-xs text-white bg-green-600 hover:bg-green-700 font-medium px-3 py-1.5 rounded-lg"
             @click="openPaymentModal"
           >บันทึกการชำระ</button>

@@ -31,7 +31,7 @@ const payRef = ref('')
 const isSavingPayment = ref(false)
 
 const methodLabel: Record<string, string> = {
-  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'ไทยช่วยไทยพลัส', CARD: 'บัตร',
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร',
 }
 
 const orderTotal = computed(() => Number(payTargetOrder.value?.total ?? 0))
@@ -312,9 +312,18 @@ function formatPickupTime(pt: string | null | undefined): string {
             </span>
           </div>
 
-          <!-- Member -->
+          <!-- Source badge -->
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span v-if="order.source === 'ONLINE'" class="text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">ออนไลน์</span>
+            <span v-else-if="order.source === 'WEBAPP'" class="text-xs px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">🌐 Web</span>
+          </div>
+
+          <!-- Member / Guest name -->
           <div v-if="order.member" class="text-xs text-blue-600 font-medium">
             <Icon name="flat-color-icons:businessman" class="inline-block align-middle" /> {{ order.member.name }}
+          </div>
+          <div v-else-if="order.guestName" class="text-xs text-teal-600 font-medium">
+            <Icon name="mdi:account-outline" class="inline-block align-middle" /> {{ order.guestName }}
           </div>
 
           <!-- Items -->
@@ -346,10 +355,11 @@ function formatPickupTime(pt: string | null | undefined): string {
             <div class="text-right">
               <span class="font-bold text-gray-900">฿{{ formatPrice(order.total) }}</span>
               <span v-if="order.payment" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-                {{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'ไทยช่วยไทย', CARD: 'บัตร' } as Record<string,string>)[order.payment.method] ?? order.payment.method }}
+                {{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร' } as Record<string,string>)[order.payment.method] ?? order.payment.method }}
               </span>
-              <span v-else-if="order.status !== 'CANCELLED' && order.source !== 'ONLINE'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-medium">ค้างชำระ</span>
+              <span v-else-if="order.status !== 'CANCELLED' && order.source === 'POS'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-medium">ค้างชำระ</span>
               <span v-else-if="order.source === 'ONLINE'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">QR</span>
+              <span v-else-if="order.source === 'WEBAPP'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร' } as Record<string,string>)[order.payment?.method] ?? 'รอชำระ' }}</span>
             </div>
           </div>
 
@@ -382,8 +392,8 @@ function formatPickupTime(pt: string | null | undefined): string {
 
           <!-- Actions -->
           <div class="flex gap-2 flex-wrap" @click.stop>
-            <!-- ONLINE PENDING: ปุ่ม กำลังทำ + รับทราบ -->
-            <template v-if="order.source === 'ONLINE' && order.status === 'PENDING'">
+            <!-- ONLINE / WEBAPP PENDING: ปุ่ม กำลังทำ + รับทราบ -->
+            <template v-if="(order.source === 'ONLINE' || order.source === 'WEBAPP') && order.status === 'PENDING'">
               <button
                 class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
                 @click="updateStatus(order, 'PREPARING')"

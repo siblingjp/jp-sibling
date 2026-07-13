@@ -176,7 +176,7 @@ async function updateStatus(status: string) {
           <div v-if="order.payment" class="text-sm space-y-2">
             <div class="flex justify-between">
               <span class="text-gray-500">วิธีชำระ</span>
-              <span class="font-medium text-gray-900">{{ ({ CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'ไทยช่วยไทยพลัส', CARD: 'บัตร' } as Record<string,string>)[order.payment.method] ?? order.payment.method }}</span>
+              <span class="font-medium text-gray-900">{{ ({ CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร' } as Record<string,string>)[order.payment.method] ?? order.payment.method }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-500">จำนวนเงิน</span>

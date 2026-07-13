@@ -67,7 +67,7 @@ const paymentLabel: Record<string, string> = {
   CASH: 'เงินสด',
   CARD: 'บัตร',
   QR: 'QR พร้อมเพย์',
-  THAI_HELP: 'ไทยช่วยไทยพลัส',
+  THAI_HELP: 'โครงการรัฐ',
 }
 
 function formatDate(d: string) {

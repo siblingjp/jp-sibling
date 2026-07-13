@@ -142,6 +142,8 @@ export const API_ENDPOINTS = {
 
   PUBLIC: {
     LOCATION_STATUS: '/api/public/location/status',
+    PRODUCTS: '/api/public/products',
+    WEBAPP_ORDER: '/api/public/orders',
     ARTICLES: {
       LIST: '/api/public/news',
       SHOW: (slug: string) => `/api/public/news/${slug}`,

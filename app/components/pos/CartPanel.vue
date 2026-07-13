@@ -37,6 +37,7 @@ const emit = defineEmits<{
   updatePointsRedeem: [v: number]
   checkout: []
   checkoutUnpaid: []
+  changePayment: []
   badgeCreated: [badge: any]
   scanCoupon: []
   scanMember: []
@@ -409,13 +410,22 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
           ยังไม่จ่าย
         </button>
         <button
+          v-if="editMode"
+          type="button"
+          class="flex-shrink-0 px-3 py-3.5 rounded-xl font-semibold transition-colors border border-gray-300 text-gray-600 hover:bg-gray-100 text-sm"
+          :disabled="isSubmitting"
+          @click="emit('changePayment')"
+        >
+          💳 ชำระ
+        </button>
+        <button
           type="button"
           class="flex-1 py-3.5 rounded-xl font-semibold text-white transition-colors"
           :class="cart.length > 0 && !isSubmitting ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'"
           :disabled="cart.length === 0 || isSubmitting"
           @click="emit('checkout')"
         >
-          {{ editMode ? '💾 บันทึกการแก้ไข' : 'ชำระเงิน →' }}
+          {{ editMode ? '💾 บันทึก' : 'ชำระเงิน →' }}
         </button>
       </div>
     </div>
