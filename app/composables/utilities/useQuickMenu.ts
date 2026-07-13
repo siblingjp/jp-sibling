@@ -21,6 +21,7 @@ export function useQuickMenu() {
         product,
         options: resolvedOptions,
         label: item.label ?? item.productName,
+        categoryName: product.category?.name ?? 'อื่นๆ',
       }]
     })
   })

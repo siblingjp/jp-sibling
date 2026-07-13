@@ -95,8 +95,11 @@ watch(() => route.path, () => { sidebarOpen.value = false })
           </div>
         </nav>
 
-        <div class="p-4 border-t">
-          <p class="text-xs text-gray-500 truncate mb-2">{{ user?.name }}</p>
+        <div class="p-4 border-t space-y-2">
+          <NuxtLink to="/" class="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+            <Icon name="mdi:home-outline" class="text-base" />หน้าหลัก
+          </NuxtLink>
+          <p class="text-xs text-gray-500 truncate">{{ user?.name }}</p>
           <button
             class="w-full text-left text-sm text-red-500 hover:text-red-700 transition-colors"
             @click="logout"
@@ -136,8 +139,11 @@ watch(() => route.path, () => { sidebarOpen.value = false })
         </div>
       </nav>
 
-      <div class="p-4 border-t">
-        <p class="text-xs text-gray-500 truncate mb-2">{{ user?.name }}</p>
+      <div class="p-4 border-t space-y-2">
+        <NuxtLink to="/" class="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+          <Icon name="mdi:home-outline" class="text-base" />หน้าหลัก
+        </NuxtLink>
+        <p class="text-xs text-gray-500 truncate">{{ user?.name }}</p>
         <button
           class="w-full text-left text-sm text-red-500 hover:text-red-700 transition-colors"
           @click="logout"
@@ -157,9 +163,14 @@ watch(() => route.path, () => { sidebarOpen.value = false })
         >
           <Icon name="mdi:menu" class="text-2xl" />
         </button>
-        <div>
+        <div class="flex-1">
           <p class="text-xs text-gray-400 leading-none">ระบบหลังบ้าน</p>
           <p class="text-sm font-bold text-gray-900 leading-tight">JP Sibling</p>
+        </div>
+        <div class="pt-1">
+          <NuxtLink to="/" class="text-gray-600 hover:text-gray-700 transition-colors">
+            <Icon name="mdi:home-outline" class="text-xl" />
+          </NuxtLink>
         </div>
       </header>
 

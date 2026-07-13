@@ -75,7 +75,6 @@ async function savePaymentAndComplete() {
 
 const statusOptions = [
   { value: 'ACTIVE', label: 'ที่ต้องทำ' },
-  { value: 'PREPARING', label: 'กำลังทำ' },
   { value: 'READY', label: 'พร้อมส่ง' },
   { value: 'COMPLETED', label: 'เสร็จสิ้น' },
   { value: 'OVERDUE', label: 'ตกค้าง' },

@@ -8,6 +8,16 @@ const store = usePosStore()
 const { showError, showSuccess } = useAlert()
 const { resolvedItems: quickItems, addToCart: addQuickItem } = useQuickMenu()
 const showCartPanel = ref(true)
+
+const quickItemsByCategory = computed(() => {
+  const map = new Map<string, { index: number; label: string }[]>()
+  quickItems.value.forEach((item, i) => {
+    const cat = item.categoryName
+    if (!map.has(cat)) map.set(cat, [])
+    map.get(cat)!.push({ index: i, label: item.label })
+  })
+  return [...map.entries()].map(([name, items]) => ({ name, items }))
+})
 const productTab = ref<'products' | 'quick'>('products')
 
 onMounted(async () => {
@@ -372,17 +382,22 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
       </div>
 
       <!-- Quick Menu Grid -->
-      <div v-if="productTab === 'quick' || mobileTab === 'quick'" class="flex-1 overflow-y-auto p-4">
+      <div v-if="productTab === 'quick' || mobileTab === 'quick'" class="flex-1 overflow-y-auto p-4 space-y-5">
         <div v-if="quickItems.length === 0" class="text-center py-16 text-gray-400 text-sm">ไม่มีเมนูด่วน</div>
-        <div v-else class="flex flex-wrap gap-2">
-          <button
-            v-for="(item, i) in quickItems"
-            :key="i"
-            type="button"
-            class="px-4 py-2 rounded-full bg-white border border-amber-200 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:border-amber-300 active:scale-95 transition-all whitespace-nowrap shadow-sm"
-            @click="addQuickItem(i); mobileTab = 'cart'"
-          >{{ item.label }}</button>
-        </div>
+        <template v-else>
+          <div v-for="group in quickItemsByCategory" :key="group.name">
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{{ group.name }}</p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="item in group.items"
+                :key="item.index"
+                type="button"
+                class="px-4 py-2 rounded-full bg-white border border-amber-200 text-sm font-medium text-gray-700 hover:bg-amber-50 hover:border-amber-300 active:scale-95 transition-all whitespace-nowrap shadow-sm"
+                @click="addQuickItem(item.index); mobileTab = 'cart'"
+              >{{ item.label }}</button>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
 

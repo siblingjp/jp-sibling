@@ -78,9 +78,12 @@ function handleConfirm() {
       <div class="absolute inset-0 bg-black/40 hidden sm:block" @click="emit('cancel')" />
       <div class="relative bg-white w-full sm:max-w-md sm:rounded-2xl shadow-xl flex flex-col h-full sm:h-auto sm:max-h-[90vh]">
         <!-- Header -->
-        <div class="px-5 pt-5 pb-3 border-b border-gray-100">
-          <h2 class="text-lg font-semibold text-gray-900">{{ product.name }}</h2>
-          <p class="text-sm text-gray-400">ราคาเริ่มต้น: ฿{{ Number(product.price).toFixed(0) }}</p>
+        <div class="px-5 pt-5 pb-3 border-b border-gray-100 flex items-start justify-between gap-2">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">{{ product.name }}</h2>
+            <p class="text-sm text-gray-400">ราคาเริ่มต้น: ฿{{ Number(product.price).toFixed(0) }}</p>
+          </div>
+          <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none flex-shrink-0 mt-0.5" @click="emit('cancel')">×</button>
         </div>
 
         <!-- Options -->
