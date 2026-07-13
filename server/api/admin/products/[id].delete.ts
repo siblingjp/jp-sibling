@@ -5,10 +5,17 @@ export default defineEventHandler(async (event) => {
 
     const id = getRouterParam(event, 'id')!
 
-    const existing = await prisma.product.findUnique({ where: { id } })
+    const existing = await prisma.product.findUnique({
+      where: { id },
+      include: { _count: { select: { orderItems: true } } },
+    })
     if (!existing) throw notFound('Product')
 
-    await prisma.product.update({ where: { id }, data: { isActive: false } })
+    if (existing._count.orderItems === 0) {
+      await prisma.product.delete({ where: { id } })
+    } else {
+      await prisma.product.update({ where: { id }, data: { isActive: false } })
+    }
 
     invalidateCache('pos:products')
     invalidateCache('member:products')

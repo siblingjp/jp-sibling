@@ -77,7 +77,10 @@ async function applyMode(mode: 'close' | 'closeBlock' | 'reset') {
           </span>
         </button>
         <!-- <span class="text-sm text-gray-500 hidden md:inline truncate max-w-[100px] lg:max-w-none">{{ user?.name }}</span> -->
-        <NuxtLink to="/admin" class="text-sm text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap hidden sm:inline">ระบบหลังบ้าน</NuxtLink>
+        <NuxtLink to="/admin" class="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors whitespace-nowrap">
+          <Icon name="mdi:cog" class="text-base sm:hidden" />
+          <span class="hidden sm:inline">ระบบหลังบ้าน</span>
+        </NuxtLink>
       </div>
     </header>
     <main class="flex-1 overflow-hidden">

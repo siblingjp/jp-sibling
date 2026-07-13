@@ -133,17 +133,14 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-white border-l border-gray-200">
+  <div class="overflow-y-auto bg-white border-l border-gray-200 px-4 py-3 space-y-2">
     <!-- Header -->
-    <div class="px-4 pt-4 pb-3 border-b border-gray-100">
-      <div class="flex items-center justify-between">
-        <h2 class="font-semibold text-gray-900">ตะกร้า</h2>
-        <span class="text-xs text-gray-400">{{ cart.length }} รายการ</span>
-      </div>
+    <div class="flex items-center justify-between pt-1 pb-2 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-900">ตะกร้า</h2>
+      <span class="text-xs text-gray-400">{{ cart.length }} รายการ</span>
     </div>
 
-    <!-- Cart Items -->
-    <div class="flex-1 overflow-y-auto px-4 py-3 space-y-2">
+    <div class="space-y-2">
       <div v-if="cart.length === 0" class="text-center py-12 text-gray-300 text-sm">
         ยังไม่มีรายการ
       </div>
@@ -400,7 +397,7 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
       </div>
 
       <!-- Checkout Buttons -->
-      <div class="flex gap-2">
+      <div class="flex gap-2 pt-1 pb-8">
         <button
           v-if="!editMode"
           type="button"

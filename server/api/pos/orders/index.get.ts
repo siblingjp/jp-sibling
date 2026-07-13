@@ -3,15 +3,22 @@ export default defineEventHandler(async (event) => {
     const session = await getUserSession(event)
     if (!session.user) throw unauthorized()
 
-    const { status } = getQuery(event) as { status?: string }
+    const query = getQuery(event) as { status?: string | string[]; allDays?: string }
+    const statusRaw = query.status
+    const allDays = query.allDays === 'true'
 
     const { start, end } = getTodayRangeBKK()
 
-    const statusFilter = status && status !== 'ALL'
-      ? { status: status as any }
-      : { status: { notIn: ['COMPLETED', 'CANCELLED'] as any[] } }
+    const statuses = statusRaw
+      ? (Array.isArray(statusRaw) ? statusRaw : [statusRaw]).filter(s => s !== 'ALL')
+      : []
 
-    const where = { ...statusFilter, createdAt: { gte: start, lte: end } }
+    const statusFilter = statuses.length > 0
+      ? { status: { in: statuses as any[] } }
+      : { status: { notIn: ['READY', 'COMPLETED', 'CANCELLED'] as any[] } }
+
+    const dateFilter = allDays ? {} : { createdAt: { gte: start, lte: end } }
+    const where = { ...statusFilter, ...dateFilter }
 
     const orders = await prisma.order.findMany({
       where,

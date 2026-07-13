@@ -252,16 +252,52 @@ onMounted(() => load())
       </button>
     </div>
 
-    <!-- Table -->
-    <div class="bg-white rounded-2xl shadow overflow-hidden">
+    <!-- Mobile: card list -->
+    <div class="flex flex-col gap-3 sm:hidden">
+      <div v-if="isLoading" class="text-center py-12 text-gray-400">กำลังโหลด...</div>
+      <div v-else-if="coupons.length === 0" class="text-center py-12 text-gray-400">ยังไม่มีคูปอง</div>
+      <div
+        v-for="c in coupons"
+        :key="c.id"
+        class="bg-white rounded-xl shadow-sm p-4 space-y-2"
+      >
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0">
+            <span class="font-mono text-xs bg-gray-100 px-2 py-0.5 rounded font-semibold text-gray-700">{{ c.code }}</span>
+            <p class="font-medium text-gray-900 mt-1">{{ c.name }}</p>
+            <p v-if="c.description" class="text-xs text-gray-400 truncate">{{ c.description }}</p>
+          </div>
+          <button
+            class="flex-shrink-0 inline-flex px-2.5 py-1 rounded-full text-xs font-semibold transition hover:opacity-80"
+            :class="c.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+            @click="handleToggleActive(c)"
+          >
+            {{ c.isActive ? 'เปิดอยู่' : 'ปิดอยู่' }}
+          </button>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap text-xs text-gray-500">
+          <span class="inline-flex px-2 py-0.5 rounded-full font-semibold" :class="typeColor[c.type]">{{ typeLabel[c.type] }}</span>
+          <span class="font-bold text-gray-900">{{ discountLabel(c) }}</span>
+          <span>ใช้แล้ว {{ c.usedCount }}/{{ c.maxUses ?? '∞' }}</span>
+          <span v-if="c.expiredAt">หมดอายุ {{ formatDate(c.expiredAt) }}</span>
+        </div>
+        <div class="flex gap-3 pt-1 border-t border-gray-100">
+          <button class="text-xs font-medium text-blue-600 hover:text-blue-800" @click="openEdit(c)">แก้ไข</button>
+          <button class="text-xs font-medium text-red-500 hover:text-red-700" @click="handleDelete(c)">ลบ</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Desktop: table -->
+    <div class="hidden sm:block bg-white rounded-2xl shadow overflow-hidden">
       <table class="w-full text-sm">
         <thead style="background: #C8D8E8;">
           <tr>
             <th class="text-left px-5 py-3.5 font-semibold text-xs uppercase tracking-wide" style="color: #1B2B4B;">รหัส / ชื่อ</th>
             <th class="text-center px-4 py-3.5 font-semibold text-xs uppercase tracking-wide" style="color: #1B2B4B;">ประเภท</th>
             <th class="text-center px-4 py-3.5 font-semibold text-xs uppercase tracking-wide" style="color: #1B2B4B;">มูลค่า</th>
-            <th class="text-center px-4 py-3.5 font-semibold text-xs uppercase tracking-wide" style="color: #1B2B4B;">ใช้แล้ว/สูงสุด</th>
-            <th class="text-center px-4 py-3.5 font-semibold text-xs uppercase tracking-wide" style="color: #1B2B4B;">หมดอายุ</th>
+            <th class="text-center px-4 py-3.5 font-semibold text-xs uppercase tracking-wide hidden md:table-cell" style="color: #1B2B4B;">ใช้แล้ว/สูงสุด</th>
+            <th class="text-center px-4 py-3.5 font-semibold text-xs uppercase tracking-wide hidden md:table-cell" style="color: #1B2B4B;">หมดอายุ</th>
             <th class="text-center px-4 py-3.5 font-semibold text-xs uppercase tracking-wide" style="color: #1B2B4B;">สถานะ</th>
             <th class="px-4 py-3.5" />
           </tr>
@@ -299,10 +335,10 @@ onMounted(() => load())
                 {{ c.pointCost }} แต้ม
               </div>
             </td>
-            <td class="px-4 py-3.5 text-center text-gray-600">
+            <td class="px-4 py-3.5 text-center text-gray-600 hidden md:table-cell">
               {{ c.usedCount }}<span class="text-gray-300"> / </span>{{ c.maxUses ?? '∞' }}
             </td>
-            <td class="px-4 py-3.5 text-center text-gray-500 text-xs">
+            <td class="px-4 py-3.5 text-center text-gray-500 text-xs hidden md:table-cell">
               {{ formatDate(c.expiredAt) }}
             </td>
             <td class="px-4 py-3.5 text-center">

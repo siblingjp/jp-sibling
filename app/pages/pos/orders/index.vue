@@ -3,6 +3,20 @@ definePageMeta({ layout: 'pos', middleware: 'auth' })
 
 const { showError, showConfirm } = useAlert()
 
+// ─── Daily summary ────────────────────────────────────────────────────────────
+const summary = ref<{ totalOrders: number; totalCups: number; totalFoods: number } | null>(null)
+
+async function loadSummary() {
+  try {
+    const res = await useHttpClient().get<{ data: { totalOrders: number; totalCups: number; totalFoods: number } }>(
+      API_ENDPOINTS.ADMIN.DASHBOARD.SUMMARY,
+    )
+    summary.value = res.data
+  } catch {
+    // silent
+  }
+}
+
 const statusFilter = ref<string>('ACTIVE')
 const isLoading = ref(false)
 const orders = ref<any[]>([])
@@ -64,12 +78,19 @@ const statusOptions = [
   { value: 'PREPARING', label: 'กำลังทำ' },
   { value: 'READY', label: 'พร้อมส่ง' },
   { value: 'COMPLETED', label: 'เสร็จสิ้น' },
+  { value: 'OVERDUE', label: 'ตกค้าง' },
+  { value: 'SUMMARY', label: 'สรุป' },
 ]
 
 async function load() {
+  if (statusFilter.value === 'SUMMARY') { await loadSummary(); return }
   isLoading.value = true
   try {
-    const q = statusFilter.value === 'ACTIVE' ? '' : `?status=${statusFilter.value}`
+    const q = statusFilter.value === 'ACTIVE'
+      ? ''
+      : statusFilter.value === 'OVERDUE'
+        ? '?status=PENDING&status=PREPARING&allDays=true'
+        : `?status=${statusFilter.value}`
     const res = await useHttpClient().get<{ data: any[] }>(`${API_ENDPOINTS.POS.ORDERS.LIST}${q}`)
     orders.value = res.data ?? []
   } catch (e: any) {
@@ -185,7 +206,15 @@ const statusLabel: Record<string, string> = {
 }
 
 function formatTime(d: string) {
-  return new Date(d).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+  const date = new Date(d)
+  const todayBKK = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+  const dateBKK = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(date)
+  const time = date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' })
+  if (dateBKK !== todayBKK) {
+    const dateLabel = date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', timeZone: 'Asia/Bangkok' })
+    return `${dateLabel} ${time}`
+  }
+  return time
 }
 
 function formatPrice(n: number) {
@@ -211,38 +240,62 @@ function formatPickupTime(pt: string | null | undefined): string {
 <template>
   <div class="flex flex-col h-full bg-gray-50">
     <!-- Header -->
-    <div class="bg-white border-b border-gray-200 px-3 md:px-6 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-      <h1 class="text-base font-semibold text-gray-900 flex-shrink-0">คิวออเดอร์</h1>
-      <div class="flex items-center gap-2 flex-wrap">
-        <div class="flex gap-1 bg-gray-100 p-1 rounded-lg">
+    <div class="bg-white border-b border-gray-200 px-3 md:px-6 py-3 flex flex-col gap-2">
+      <!-- Row 1: title + refresh -->
+      <div class="flex items-center justify-between gap-2">
+        <h1 class="text-base font-semibold text-gray-900 flex-shrink-0">คิวออเดอร์</h1>
+        <div class="flex items-center gap-2">
+          <button class="p-1.5 md:px-3 md:py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 flex items-center gap-1.5" @click="load">
+            <Icon name="mdi:refresh" class="text-base" />
+            <span class="hidden md:inline">รีเฟรช</span>
+          </button>
           <button
-            v-for="opt in statusOptions"
-            :key="opt.value"
-            class="px-2 md:px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap"
-            :class="statusFilter === opt.value ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'"
-            @click="statusFilter = opt.value"
-          >{{ opt.label }}</button>
+            class="p-1.5 md:px-3 md:py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
+            :class="autoRefresh ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+            @click="toggleAutoRefresh"
+          >
+            <Icon :name="autoRefresh ? 'mdi:autorenew' : 'mdi:autorenew-off'" class="text-base" />
+            <span class="hidden sm:inline">{{ autoRefresh ? `auto (${countdown}s)` : 'auto: ปิด' }}</span>
+          </button>
         </div>
-        <button class="p-1.5 md:px-3 md:py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 flex items-center gap-1.5" @click="load">
-          <Icon name="mdi:refresh" class="text-base" />
-          <span class="hidden md:inline">รีเฟรช</span>
-        </button>
+      </div>
+      <!-- Row 2: status filter -->
+      <div class="flex gap-1 bg-gray-100 p-1 rounded-lg w-full overflow-x-auto">
         <button
-          class="p-1.5 md:px-3 md:py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors"
-          :class="autoRefresh ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
-          @click="toggleAutoRefresh"
-        >
-          <Icon :name="autoRefresh ? 'mdi:autorenew' : 'mdi:autorenew-off'" class="text-base" />
-          <span class="hidden sm:inline">{{ autoRefresh ? `auto (${countdown}s)` : 'auto: ปิด' }}</span>
-        </button>
+          v-for="opt in statusOptions"
+          :key="opt.value"
+          class="px-2 md:px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap"
+          :class="statusFilter === opt.value ? 'bg-white shadow text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+          @click="statusFilter = opt.value"
+        >{{ opt.label }}</button>
       </div>
     </div>
 
     <!-- Orders Grid -->
     <div class="flex-1 overflow-y-auto p-6">
-      <div v-if="isLoading" class="text-center py-16 text-gray-400">กำลังโหลด...</div>
-      <div v-else-if="orders.length === 0" class="text-center py-16 text-gray-400 text-sm">ยังไม่มีออเดอร์</div>
-      <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <!-- Summary view -->
+      <template v-if="statusFilter === 'SUMMARY'">
+        <div v-if="isLoading" class="text-center py-16 text-gray-400">กำลังโหลด...</div>
+        <div v-else-if="summary" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div class="bg-white rounded-xl shadow-sm p-5">
+            <p class="text-xs text-gray-500 mb-1">ออเดอร์ทั้งหมด</p>
+            <p class="text-3xl font-bold text-gray-900">{{ summary.totalOrders }}</p>
+          </div>
+          <div class="bg-white rounded-xl shadow-sm p-5">
+            <p class="text-xs text-gray-500 mb-1">แก้วทั้งหมด</p>
+            <p class="text-3xl font-bold text-gray-900">{{ summary.totalCups }} <span class="text-lg font-medium text-gray-400">แก้ว</span></p>
+          </div>
+          <div v-if="summary.totalFoods > 0" class="bg-white rounded-xl shadow-sm p-5">
+            <p class="text-xs text-gray-500 mb-1">อาหารทั้งหมด</p>
+            <p class="text-3xl font-bold text-gray-900">{{ summary.totalFoods }} <span class="text-lg font-medium text-gray-400">รายการ</span></p>
+          </div>
+        </div>
+      </template>
+
+      <template v-else>
+        <div v-if="isLoading" class="text-center py-16 text-gray-400">กำลังโหลด...</div>
+        <div v-else-if="orders.length === 0" class="text-center py-16 text-gray-400 text-sm">ยังไม่มีออเดอร์</div>
+        <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         <div
           v-for="order in orders"
           :key="order.id"
@@ -383,6 +436,7 @@ function formatPickupTime(pt: string | null | undefined): string {
           </div>
         </div>
       </div>
+      </template>
     </div>
   </div>
 

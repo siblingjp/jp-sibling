@@ -44,7 +44,7 @@ const filteredProducts = computed(() => {
 })
 
 // ─── Mobile tab ──────────────────────────────────────────────────────────────
-const mobileTab = ref<'products' | 'cart'>('products')
+const mobileTab = ref<'products' | 'quick' | 'cart'>('products')
 
 // ─── Option Modal ────────────────────────────────────────────────────────────
 const optionModalProduct = ref<PosProduct | null>(null)
@@ -239,7 +239,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
 <template>
   <div class="flex h-full flex-col md:flex-row">
 
-    <!-- Mobile tab bar -->
+    <!-- Combined tab bar (mobile only) -->
     <div class="flex md:hidden border-b border-gray-200 bg-white flex-shrink-0">
       <button
         class="flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
@@ -247,6 +247,13 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         @click="mobileTab = 'products'"
       >
         <Icon name="mdi:grid" class="text-base" />สินค้า
+      </button>
+      <button
+        class="flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5"
+        :class="mobileTab === 'quick' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'"
+        @click="mobileTab = 'quick'"
+      >
+        <Icon name="mdi:lightning-bolt" class="text-base" />เมนูด่วน
       </button>
       <button
         class="flex-1 py-2.5 text-sm font-medium transition-colors flex items-center justify-center gap-1.5 relative"
@@ -276,8 +283,8 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         >ยกเลิก</button>
       </div>
 
-      <!-- Tab bar: สินค้า / เมนูด่วน -->
-      <div class="flex border-b border-gray-200 bg-white flex-shrink-0">
+      <!-- Tab bar: สินค้า / เมนูด่วน (desktop only) -->
+      <div class="hidden md:flex border-b border-gray-200 bg-white flex-shrink-0">
         <button
           class="flex-1 py-2.5 text-sm font-medium transition-colors"
           :class="productTab === 'products' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700'"
@@ -291,7 +298,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
       </div>
 
       <!-- Search + Category Filter -->
-      <div v-if="productTab === 'products'" class="px-4 pt-3 pb-3 bg-white border-b border-gray-200 space-y-2">
+      <div v-if="productTab === 'products' && mobileTab !== 'quick'" class="px-4 pt-3 pb-3 bg-white border-b border-gray-200 space-y-2">
         <!-- Row: search + จองคิว -->
         <div class="grid grid-cols-12 gap-2">
           <input
@@ -339,7 +346,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
       </div>
 
       <!-- Product Grid -->
-      <div v-if="productTab === 'products'" class="flex-1 overflow-y-auto p-4">
+      <div v-if="productTab === 'products' && mobileTab !== 'quick'" class="flex-1 overflow-y-auto p-4">
         <div v-if="store.isLoadingProducts" class="text-center py-16 text-gray-400">กำลังโหลด...</div>
         <div v-else-if="filteredProducts.length === 0" class="text-center py-16 text-gray-400 text-sm">ไม่พบสินค้า</div>
         <div v-else class="grid gap-3" :class="showCartPanel ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7'">
@@ -365,7 +372,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
       </div>
 
       <!-- Quick Menu Grid -->
-      <div v-if="productTab === 'quick'" class="flex-1 overflow-y-auto p-4">
+      <div v-if="productTab === 'quick' || mobileTab === 'quick'" class="flex-1 overflow-y-auto p-4">
         <div v-if="quickItems.length === 0" class="text-center py-16 text-gray-400 text-sm">ไม่มีเมนูด่วน</div>
         <div v-else class="flex flex-wrap gap-2">
           <button
@@ -390,7 +397,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
     </button>
 
     <!-- Cart Panel -->
-    <div class="w-full md:w-80 xl:w-96 flex-shrink-0 flex flex-col min-h-0" :class="[mobileTab === 'products' ? 'hidden md:flex' : 'flex', { 'md:hidden': !showCartPanel }]">
+    <div class="w-full md:w-80 xl:w-96 flex-shrink-0 flex flex-col min-h-0 h-full" :class="[mobileTab !== 'cart' ? 'hidden md:flex' : 'flex', { 'md:hidden': !showCartPanel }]">
       <PosCartPanel
         :cart="store.cart"
         :member="store.member"
