@@ -156,7 +156,7 @@ function orderItemLabel(order: MemberOrder) {
         <div class="flex items-center justify-between pt-3 border-t border-gray-50">
           <span class="font-bold text-gray-900">฿{{ Number(order.total).toFixed(2) }}</span>
           <span v-if="order.pointsEarned > 0" class="text-xs text-[#1B2B4B] font-medium">
-            +{{ order.pointsEarned }} แต้ม
+            {{ order.status === 'COMPLETED' ? `+${order.pointsEarned} แต้ม` : `จะได้ +${order.pointsEarned} แต้ม` }}
           </span>
         </div>
       </NuxtLink>

@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
         name: true,
         phone: true,
         points: true,
+        stampCount: true,
         isActive: true,
         createdAt: true,
         orders: {
@@ -26,6 +27,17 @@ export default defineEventHandler(async (event) => {
           },
         },
         pointLogs: {
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            action: true,
+            amount: true,
+            note: true,
+            createdAt: true,
+          },
+        },
+        stampLogs: {
           orderBy: { createdAt: 'desc' },
           take: 20,
           select: {

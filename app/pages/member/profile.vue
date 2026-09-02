@@ -4,6 +4,9 @@ definePageMeta({ layout: 'member', middleware: 'member' })
 const { member } = useMemberAuth()
 const store = useMemberStore()
 const { showSuccess, showError } = useAlert()
+const { mode, fetchMode } = useLoyaltyMode()
+
+onMounted(fetchMode)
 
 const qrUrl = computed(() =>
   `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(member.value?.id ?? '')}&margin=8`
@@ -134,8 +137,9 @@ function formatDate(d: string) {
     <!-- Stats -->
     <div class="grid grid-cols-2 gap-4">
       <div class="bg-white rounded-2xl shadow p-5 text-center">
-        <p class="text-3xl font-bold text-[#1B2B4B]">{{ (member?.points ?? 0).toLocaleString() }}</p>
-        <p class="text-sm text-gray-500 mt-1">แต้ม</p>
+        <p v-if="mode === 'STAMPS'" class="text-3xl font-bold text-[#1B2B4B]">{{ member?.stampCount ?? 0 }}<span class="text-lg text-gray-400">/10</span></p>
+        <p v-else class="text-3xl font-bold text-[#1B2B4B]">{{ (member?.points ?? 0).toLocaleString() }}</p>
+        <p class="text-sm text-gray-500 mt-1">{{ mode === 'STAMPS' ? 'แสตมป์' : 'แต้ม' }}</p>
       </div>
       <div class="bg-white rounded-2xl shadow p-5 text-center">
         <p class="text-3xl font-bold text-green-600">฿{{ Number(member?.totalSpent ?? 0).toLocaleString() }}</p>
@@ -165,8 +169,9 @@ function formatDate(d: string) {
         <div class="bg-[#F0F4F8] rounded-xl p-3 flex items-center gap-3">
           <Icon name="flat-color-icons:approval" class="text-2xl flex-shrink-0" />
           <div>
-            <p class="font-semibold text-[#0F1C30] text-sm">{{ (member?.points ?? 0).toLocaleString() }} pts</p>
-            <p class="text-xs text-[#2a3f6b]">แสดงที่เคาน์เตอร์เพื่อสะสมแต้ม</p>
+            <p v-if="mode === 'STAMPS'" class="font-semibold text-[#0F1C30] text-sm">{{ member?.stampCount ?? 0 }}/10 แสตมป์</p>
+            <p v-else class="font-semibold text-[#0F1C30] text-sm">{{ (member?.points ?? 0).toLocaleString() }} pts</p>
+            <p class="text-xs text-[#2a3f6b]">แสดงที่เคาน์เตอร์เพื่อสะสม{{ mode === 'STAMPS' ? 'แสตมป์' : 'แต้ม' }}</p>
           </div>
         </div>
         <button class="w-full py-2.5 rounded-xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"

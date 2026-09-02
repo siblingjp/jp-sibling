@@ -38,14 +38,15 @@ export default defineEventHandler(async () => {
     ])
 
     // lazy reset: ถ้าผ่าน 17:00 BKK รอบใหม่มาแล้ว ให้ clear manual override
-    if (truckLocation && (truckLocation.manualClose || truckLocation.blockOnlineOrder)) {
+    if (truckLocation && (truckLocation.manualClose || truckLocation.manualOpen || truckLocation.blockOnlineOrder)) {
       const { start } = getTodayRangeBKK()
       if (truckLocation.updatedAt < start) {
         await prisma.truckLocation.update({
           where: { id: truckLocation.id },
-          data: { manualClose: false, blockOnlineOrder: false },
+          data: { manualClose: false, manualOpen: false, blockOnlineOrder: false },
         })
         truckLocation.manualClose = false
+        truckLocation.manualOpen = false
         truckLocation.blockOnlineOrder = false
       }
     }
@@ -58,7 +59,7 @@ export default defineEventHandler(async () => {
     const timelineOpen = truckLocation
       ? (truckLocation.schedules.length > 0 ? !!activeSchedule : truckLocation.isOpen)
       : false
-    const isOpen = truckLocation?.manualClose ? false : timelineOpen
+    const isOpen = truckLocation?.manualOpen ? true : truckLocation?.manualClose ? false : timelineOpen
 
     const canOrder = !(truckLocation?.blockOnlineOrder ?? false)
 
@@ -74,6 +75,7 @@ export default defineEventHandler(async () => {
           isOpen,
           canOrder,
           manualClose: truckLocation.manualClose,
+          manualOpen: truckLocation.manualOpen,
           blockOnlineOrder: truckLocation.blockOnlineOrder,
           schedules: truckLocation.schedules,
           activeScheduleId: activeSchedule?.id ?? null,

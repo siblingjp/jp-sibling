@@ -11,6 +11,7 @@ export interface MemberUser {
   profileImage: string | null
   tier: 'SILVER' | 'GOLD' | 'VIP'
   points: number
+  stampCount: number
   totalSpent: number
   lineUserId: string | null
   googleId: string | null
@@ -103,6 +104,10 @@ export const useMemberStore = defineStore('member', () => {
     if (member.value) member.value.points += amount
   }
 
+  function setStampCount(n: number) {
+    if (member.value) member.value.stampCount = n
+  }
+
   return {
     state: readonly(state),
     member,
@@ -114,5 +119,6 @@ export const useMemberStore = defineStore('member', () => {
     fetchMe,
     updateProfile,
     addPoints,
+    setStampCount,
   }
 })

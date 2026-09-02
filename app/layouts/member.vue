@@ -70,6 +70,9 @@ const store = useMemberStore()
 const { logout } = useMemberAuth()
 const router = useRouter()
 const { requestAndRegister } = useFcm()
+const { mode, fetchMode } = useLoyaltyMode()
+
+onMounted(fetchMode)
 
 const showNotifBanner = ref(false)
 
@@ -98,15 +101,17 @@ async function handleLogout() {
   router.push('/')
 }
 
-const navItems = [
+const navItems = computed(() => [
   { to: '/member', icon: 'mdi:home', activeIcon: 'flat-color-icons:home', label: 'หน้าแรก', exact: true },
   { to: '/member/orders', icon: 'mdi:clipboard-list', activeIcon: 'flat-color-icons:list', label: 'ออเดอร์', exact: false },
-  { to: '/member/redeem', icon: 'mdi:gift', activeIcon: 'mdi:gift', label: 'แลกแต้ม', exact: false },
+  mode.value === 'STAMPS'
+    ? { to: '/member/points', icon: 'mdi:coffee', activeIcon: 'mdi:coffee', label: 'แสตมป์', exact: false }
+    : { to: '/member/redeem', icon: 'mdi:gift', activeIcon: 'mdi:gift', label: 'แลกแต้ม', exact: false },
   { to: '/member/coupons', icon: 'mdi:ticket-percent', activeIcon: 'mdi:ticket-percent', label: 'คูปอง', exact: false },
   { to: '/member/profile', icon: 'mdi:account', activeIcon: 'flat-color-icons:businessman', label: 'โปรไฟล์', exact: false },
-]
+])
 
-function isActive(item: typeof navItems[number]) {
+function isActive(item: { to: string; exact: boolean }) {
   const path = useRoute().path
   if (item.exact) return path === item.to
   return path === item.to || path.startsWith(item.to + '/')

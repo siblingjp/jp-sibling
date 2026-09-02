@@ -8,6 +8,7 @@ const schema = z.object({
   imageUrl: z.string().url().optional().or(z.literal('')),
   categoryId: z.string().cuid(),
   isActive: z.boolean().default(true),
+  isStampEligible: z.boolean().default(true),
   optionGroupIds: z.array(z.string()).default([]),
 })
 

@@ -90,6 +90,12 @@ export const API_ENDPOINTS = {
         DELETE: (id: string) => `/api/admin/location/schedules/${id}`,
       },
     },
+    SETTINGS: {
+      LOYALTY: '/api/admin/settings/loyalty',
+    },
+    STAMP_REDEMPTIONS: {
+      LIST: '/api/admin/stamp-redemptions',
+    },
   },
 
   POS: {
@@ -112,6 +118,8 @@ export const API_ENDPOINTS = {
       UPDATE: (id: string) => `/api/pos/payments/${id}`,
     },
     QUEUE_RESERVE: '/api/pos/queue-reserve',
+    STAMP_REDEEM: '/api/pos/stamp-redeem',
+    STAMP_REDEMPTION_CONFIRM: (id: string) => `/api/pos/stamp-redemptions/${id}`,
   },
 
   MEMBER: {
@@ -132,6 +140,10 @@ export const API_ENDPOINTS = {
     POINTS: '/api/member/points',
     REDEEM: '/api/member/redeem',
     REWARDS: '/api/member/rewards',
+    STAMPS: {
+      SHOW: '/api/member/stamps',
+      REDEEM: '/api/member/stamps/redeem',
+    },
     COUPONS: {
       LIST: '/api/member/coupons',
       REDEEM: '/api/member/coupons/redeem',
@@ -142,8 +154,10 @@ export const API_ENDPOINTS = {
 
   PUBLIC: {
     LOCATION_STATUS: '/api/public/location/status',
+    LOYALTY_MODE: '/api/public/loyalty-mode',
     PRODUCTS: '/api/public/products',
     WEBAPP_ORDER: '/api/public/orders',
+    MEMBER_LOOKUP: '/api/public/member-lookup',
     ARTICLES: {
       LIST: '/api/public/news',
       SHOW: (slug: string) => `/api/public/news/${slug}`,

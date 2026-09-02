@@ -111,14 +111,14 @@ async function handleNextQueue() {
 
 // ─── Payment modal ───────────────────────────────────────────────────────────
 const showPaymentModal = ref(false)
-const payMethod = ref<'CASH' | 'QR' | 'THAI_HELP' | 'CARD'>('CASH')
+const payMethod = ref<'CASH' | 'QR' | 'THAI_HELP' | 'CARD' | null>(null)
 const payCash = ref(0)
 const payRef = ref('')
 const isSavingPayment = ref(false)
 const pendingCompleteAction = ref<(() => Promise<void>) | null>(null)
 
 const methodLabel: Record<string, string> = {
-  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร',
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร', UNSPECIFIED: 'ไม่ระบุ',
 }
 
 const orderTotal = computed(() => Number(order.value?.total ?? 0))
@@ -134,7 +134,7 @@ const quickAmounts = computed(() => {
 function openPaymentModal() {
   payCash.value = orderTotal.value
   payRef.value = order.value?.payment?.transactionRef ?? ''
-  payMethod.value = order.value?.payment?.method ?? 'CASH'
+  payMethod.value = order.value?.payment?.method === 'UNSPECIFIED' ? 'CASH' : order.value?.payment?.method ?? 'CASH'
   showPaymentModal.value = true
 }
 
@@ -143,10 +143,11 @@ async function savePayment() {
   isSavingPayment.value = true
   try {
     const amount = payMethod.value === 'CASH' ? payCash.value : orderTotal.value
+    const method = payMethod.value ?? 'UNSPECIFIED'
     if (order.value.payment) {
       // แก้ไข payment ที่มีอยู่
       await useHttpClient().patch(API_ENDPOINTS.POS.PAYMENTS.UPDATE(order.value.payment.id), {
-        method: payMethod.value,
+        method,
         amount,
         transactionRef: payRef.value || null,
       })
@@ -154,7 +155,7 @@ async function savePayment() {
       // สร้าง payment ใหม่ (order ค้างชำระ)
       await useHttpClient().post(API_ENDPOINTS.POS.PAYMENTS.CREATE, {
         orderId: id,
-        method: payMethod.value,
+        method,
         amount,
         transactionRef: payRef.value || undefined,
       })

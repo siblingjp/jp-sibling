@@ -81,10 +81,16 @@ function formatPrice(n: number) {
           </div>
         </div>
 
-        <!-- Points Badge -->
-        <div class="bg-blue-50 rounded-lg p-4 text-center">
-          <p class="text-xs text-blue-500 mb-1">แต้มสะสม</p>
-          <p class="text-3xl font-bold text-blue-600">{{ member.points.toLocaleString() }}</p>
+        <!-- Points / Stamps Badge -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="bg-blue-50 rounded-lg p-4 text-center">
+            <p class="text-xs text-blue-500 mb-1">แต้มสะสม</p>
+            <p class="text-3xl font-bold text-blue-600">{{ member.points.toLocaleString() }}</p>
+          </div>
+          <div class="bg-amber-50 rounded-lg p-4 text-center">
+            <p class="text-xs text-amber-600 mb-1">แสตมป์</p>
+            <p class="text-3xl font-bold text-amber-700">{{ member.stampCount }}<span class="text-base text-amber-500">/10</span></p>
+          </div>
         </div>
       </div>
 
@@ -151,6 +157,42 @@ function formatPrice(n: number) {
               <td class="px-3 py-2 text-gray-500">{{ log.note ?? '-' }}</td>
               <td class="px-3 py-2 text-right font-medium" :class="log.action === 'EARN' ? 'text-green-600' : 'text-red-500'">
                 {{ log.action === 'EARN' ? '+' : '-' }}{{ Math.abs(log.amount) }}
+              </td>
+              <td class="px-3 py-2 text-right text-gray-500">{{ formatDate(log.createdAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Stamp History -->
+      <div class="bg-white rounded-xl shadow-sm p-6 lg:col-span-3">
+        <h2 class="font-semibold text-gray-900 mb-4">ประวัติแสตมป์</h2>
+        <div v-if="member.stampLogs.length === 0" class="text-center py-8 text-gray-400 text-sm">
+          ยังไม่มีประวัติแสตมป์
+        </div>
+        <table v-else class="w-full text-sm">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="text-left px-3 py-2 font-medium text-gray-600">ประเภท</th>
+              <th class="text-left px-3 py-2 font-medium text-gray-600">หมายเหตุ</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600">แสตมป์</th>
+              <th class="text-right px-3 py-2 font-medium text-gray-600">วันที่</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="log in member.stampLogs"
+              :key="log.id"
+              class="border-t border-gray-100"
+            >
+              <td class="px-3 py-2">
+                <span class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium" :class="actionBadge[log.action]">
+                  {{ log.action }}
+                </span>
+              </td>
+              <td class="px-3 py-2 text-gray-500">{{ log.note ?? '-' }}</td>
+              <td class="px-3 py-2 text-right font-medium" :class="log.amount >= 0 ? 'text-green-600' : 'text-red-500'">
+                {{ log.amount >= 0 ? '+' : '' }}{{ log.amount }}
               </td>
               <td class="px-3 py-2 text-right text-gray-500">{{ formatDate(log.createdAt) }}</td>
             </tr>

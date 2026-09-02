@@ -9,6 +9,7 @@ const schema = z.object({
   categoryId: z.string().cuid().optional(),
   isActive: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
+  isStampEligible: z.boolean().optional(),
   optionGroupIds: z.array(z.string()).optional(),
 })
 

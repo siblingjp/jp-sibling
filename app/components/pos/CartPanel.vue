@@ -4,6 +4,7 @@ import type { CartItem, PosDiscount, PosMember, PosCoupon } from '~/stores/pos'
 const props = defineProps<{
   cart: readonly CartItem[]
   member: PosMember | null
+  loyaltyMode: 'POINTS' | 'STAMPS'
   discountMode: 'badge' | 'percent' | 'amount' | null
   discountBadge: PosDiscount | null
   discountPercent: number
@@ -35,6 +36,7 @@ const emit = defineEmits<{
   applyCoupon: [code: string]
   clearCoupon: []
   updatePointsRedeem: [v: number]
+  redeemStamp: []
   checkout: []
   checkoutUnpaid: []
   changePayment: []
@@ -182,7 +184,9 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
                 {{ useTier(member.tier).label }}
               </span>
             </div>
-            <p class="text-xs text-gray-500">{{ member.points.toLocaleString() }} pts</p>
+            <p class="text-xs text-gray-500">
+              {{ loyaltyMode === 'STAMPS' ? `${member.stampCount}/10 แสตมป์` : `${member.points.toLocaleString()} pts` }}
+            </p>
           </div>
           <button class="text-gray-400 hover:text-red-500 text-lg" @click="emit('clearMember')">×</button>
         </div>
@@ -196,7 +200,7 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
       </div>
 
       <!-- Point Redeem -->
-      <div v-if="member && member.points > 0">
+      <div v-if="loyaltyMode === 'POINTS' && member && member.points > 0">
         <div class="flex items-center justify-between mb-1">
           <span class="text-xs text-gray-500">แลกแต้ม (สูงสุด {{ maxRedeemable }})</span>
           <span class="text-xs font-medium text-purple-600">-฿{{ pointsRedeemCapped.toFixed(0) }}</span>
@@ -215,6 +219,18 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
           <span>ใช้ {{ pointsRedeemCapped }} แต้ม</span>
           <span>{{ Math.min(member.points, maxRedeemable) }}</span>
         </div>
+      </div>
+
+      <!-- Stamp Redeem -->
+      <div v-else-if="loyaltyMode === 'STAMPS' && member">
+        <button
+          class="w-full py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+          :disabled="member.stampCount < 10"
+          @click="emit('redeemStamp')"
+        >
+          <Icon name="mdi:coffee" class="text-base" />
+          แลกฟรี 1 แก้ว ({{ member.stampCount }}/10)
+        </button>
       </div>
 
       <!-- Discount / Coupon -->
@@ -407,7 +423,7 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
           :disabled="cart.length === 0 || isSubmitting"
           @click="emit('checkoutUnpaid')"
         >
-          ยังไม่จ่าย
+          สร้างออเดอร์
         </button>
         <button
           v-if="editMode"

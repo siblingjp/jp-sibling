@@ -8,6 +8,7 @@ const store = usePosStore()
 const { showError, showSuccess } = useAlert()
 const { resolvedItems: quickItems, addToCart: addQuickItem } = useQuickMenu()
 const showCartPanel = ref(true)
+const { mode: loyaltyModeValue, fetchMode: fetchLoyaltyMode } = useLoyaltyMode()
 
 const quickItemsByCategory = computed(() => {
   const map = new Map<string, { index: number; label: string }[]>()
@@ -21,7 +22,7 @@ const quickItemsByCategory = computed(() => {
 const productTab = ref<'products' | 'quick'>('products')
 
 onMounted(async () => {
-  await Promise.all([store.fetchProducts(), store.fetchDiscounts()])
+  await Promise.all([store.fetchProducts(), store.fetchDiscounts(), fetchLoyaltyMode()])
 })
 
 // ─── Product Grid ───────────────────────────────────────────────────────────
@@ -167,6 +168,19 @@ async function handleCouponUseScan(id: string) {
   }
 }
 
+// ─── Stamp Redeem ────────────────────────────────────────────────────────────
+async function handleRedeemStamp() {
+  if (!store.member) return
+  try {
+    const http = useHttpClient()
+    await http.post(API_ENDPOINTS.POS.STAMP_REDEEM, { memberId: store.member.id })
+    store.setMemberStampCount(0)
+    showSuccess('แลกฟรี 1 แก้วสำเร็จ')
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'แลกแสตมป์ไม่สำเร็จ')
+  }
+}
+
 // ─── Queue Reserve ───────────────────────────────────────────────────────────
 async function handleReserveQueue() {
   try {
@@ -232,7 +246,7 @@ const lastOrderQueue = ref<number | null>(null)
 const lastOrderStatus = ref<'paid' | 'unpaid' | 'preparing'>('paid')
 const showSuccess2 = ref(false)
 
-async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string, startPreparing?: boolean) {
+async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID' | 'UNSPECIFIED', amount: number, ref?: string, startPreparing?: boolean) {
   // ถ้าอยู่ใน edit mode และกดเปลี่ยนการชำระ → บันทึก payment ให้ order นั้น
   if (store.editingOrderId && method !== 'UNPAID') {
     try {
@@ -446,6 +460,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
       <PosCartPanel
         :cart="store.cart"
         :member="store.member"
+        :loyalty-mode="loyaltyModeValue ?? 'POINTS'"
         :discount-mode="store.discountMode"
         :discount-badge="store.discountBadge"
         :discount-percent="store.discountPercent"
@@ -478,6 +493,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', am
         @clear-coupon="store.clearCoupon()"
         @scan-coupon="showCouponScanner = true"
         @update-points-redeem="store.pointsToRedeem = $event"
+        @redeem-stamp="handleRedeemStamp"
         @checkout="store.editingOrderId ? handleEditOrderSave() : (showPayment = true)"
         @checkout-unpaid="handleCheckout('UNPAID', 0, undefined, true)"
         @change-payment="showPayment = true"

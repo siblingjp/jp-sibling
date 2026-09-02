@@ -26,6 +26,9 @@ logs
 # pnpm
 .pnpm-store/
 
+# Database backups (contain member PII)
+backups/
+
 # Editor
 .vscode/
 *.swp

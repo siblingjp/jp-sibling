@@ -61,6 +61,7 @@ const paymentLabel: Record<string, string> = {
   CARD: 'บัตร',
   QR: 'QR พร้อมเพย์',
   THAI_HELP: 'โครงการรัฐ',
+  UNSPECIFIED: 'ไม่ระบุ',
 }
 
 const paymentColor: Record<string, string> = {
@@ -68,6 +69,7 @@ const paymentColor: Record<string, string> = {
   CARD: 'bg-purple-100 text-purple-700',
   QR: 'bg-cyan-100 text-cyan-700',
   THAI_HELP: 'bg-orange-100 text-orange-700',
+  UNSPECIFIED: 'bg-gray-100 text-gray-500',
 }
 
 const paymentDot: Record<string, string> = {
@@ -75,6 +77,7 @@ const paymentDot: Record<string, string> = {
   CARD: 'bg-purple-500',
   QR: 'bg-cyan-500',
   THAI_HELP: 'bg-orange-500',
+  UNSPECIFIED: 'bg-gray-300',
 }
 
 function formatPrice(n: number) {

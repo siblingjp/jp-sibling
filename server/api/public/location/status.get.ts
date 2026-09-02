@@ -15,27 +15,27 @@ export default defineEventHandler(async () => {
     if (!truck) return okResponse({ isOpen: false, canOrder: false, nextOpenLabel: null, nextOpenName: null })
 
     // lazy reset: ถ้าผ่าน 17:00 BKK ของรอบถัดไปมาแล้ว ให้ clear manual override
-    if (truck.manualClose || truck.blockOnlineOrder) {
+    if (truck.manualClose || truck.manualOpen || truck.blockOnlineOrder) {
       const { start } = getTodayRangeBKK()
       if (truck.updatedAt < start) {
         await prisma.truckLocation.update({
           where: { id: truck.id },
-          data: { manualClose: false, blockOnlineOrder: false },
+          data: { manualClose: false, manualOpen: false, blockOnlineOrder: false },
         })
-        truck = { ...truck, manualClose: false, blockOnlineOrder: false }
+        truck = { ...truck, manualClose: false, manualOpen: false, blockOnlineOrder: false }
       }
     }
 
     const activeSchedule = getActiveSchedule(truck.schedules, now)
     const timelineOpen = truck.schedules.length > 0 ? !!activeSchedule : truck.isOpen
-    const isOpen = truck.manualClose ? false : timelineOpen
+    const isOpen = truck.manualOpen ? true : truck.manualClose ? false : timelineOpen
 
     if (isOpen) {
-      return okResponse({ isOpen: true, canOrder: true, manualClose: false, nextOpenLabel: null, nextOpenName: null })
+      return okResponse({ isOpen: true, canOrder: true, manualClose: false, manualOpen: truck.manualOpen, nextOpenLabel: null, nextOpenName: null })
     }
 
     if (truck.blockOnlineOrder) {
-      return okResponse({ isOpen: false, canOrder: false, manualClose: true, nextOpenLabel: null, nextOpenName: null })
+      return okResponse({ isOpen: false, canOrder: false, manualClose: true, manualOpen: false, nextOpenLabel: null, nextOpenName: null })
     }
 
     const next = getNextSlot(truck.schedules, now)
@@ -44,6 +44,7 @@ export default defineEventHandler(async () => {
       isOpen: false,
       canOrder: true,
       manualClose: truck.manualClose,
+      manualOpen: false,
       nextOpenLabel: next?.label ?? null,
       nextOpenName: next?.name ?? null,
     })

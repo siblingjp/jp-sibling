@@ -12,6 +12,7 @@ const form = reactive({
   imageUrl: '',
   categoryId: '',
   isActive: true,
+  isStampEligible: true,
   optionGroupIds: [] as string[],
 })
 
@@ -43,6 +44,7 @@ async function handleSubmit() {
       imageUrl: form.imageUrl || undefined,
       categoryId: form.categoryId,
       isActive: form.isActive,
+      isStampEligible: form.isStampEligible,
       optionGroupIds: form.optionGroupIds,
     })
     showSuccess('Product created')
@@ -98,6 +100,11 @@ async function handleSubmit() {
         <div class="flex items-center gap-3">
           <input id="isActive" v-model="form.isActive" type="checkbox" class="rounded" />
           <label for="isActive" class="text-sm text-gray-700">เปิดใช้งาน</label>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <input id="isStampEligible" v-model="form.isStampEligible" type="checkbox" class="rounded" />
+          <label for="isStampEligible" class="text-sm text-gray-700">นับแสตมป์ได้ (สำหรับระบบสะสมแสตมป์)</label>
         </div>
       </div>
 

@@ -12,6 +12,7 @@ export interface Product {
   imageUrl: string | null
   isActive: boolean
   isFeatured: boolean
+  isStampEligible: boolean
   categoryId: string
   category: { id: string; name: string }
   createdAt: string
@@ -26,6 +27,7 @@ export interface ProductForm {
   categoryId: string
   isActive: boolean
   isFeatured?: boolean
+  isStampEligible?: boolean
   optionGroupIds?: string[]
 }
 

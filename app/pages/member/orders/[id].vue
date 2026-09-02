@@ -112,7 +112,7 @@ function formatPickupTime(pt: string | null | undefined): string {
 }
 
 const paymentLabel: Record<string, string> = {
-  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร',
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร', UNSPECIFIED: 'ไม่ระบุ',
 }
 </script>
 
@@ -212,7 +212,7 @@ const paymentLabel: Record<string, string> = {
           <span>รวมทั้งหมด</span><span>฿{{ Number(order.total).toFixed(2) }}</span>
         </div>
         <p v-if="order.pointsEarned > 0" class="text-xs text-[#1B2B4B] text-right">
-          +{{ order.pointsEarned }} แต้มจากออเดอร์นี้
+          {{ order.status === 'COMPLETED' ? `+${order.pointsEarned} แต้มจากออเดอร์นี้` : `จะได้ +${order.pointsEarned} แต้มเมื่อร้านยืนยันออเดอร์` }}
         </p>
       </div>
 

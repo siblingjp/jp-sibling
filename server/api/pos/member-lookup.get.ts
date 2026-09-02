@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
         phone: true,
         tier: true,
         points: true,
+        stampCount: true,
         profileImage: true,
       },
     })

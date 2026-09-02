@@ -89,12 +89,17 @@ export default defineEventHandler(async (event) => {
         : Math.min(Number(coupon.discountValue), subtotal)
     }
 
+    const loyaltyMode = await getLoyaltyMode()
+
     const afterDiscount = subtotal - discountAmount - couponDiscountAmount
     const maxRedeemable = Math.floor(afterDiscount)
-    const pointsRedeemed = Math.min(data.pointsRedeemed, member?.points ?? 0, maxRedeemable)
+    const pointsRedeemed = loyaltyMode === 'POINTS' ? Math.min(data.pointsRedeemed, member?.points ?? 0, maxRedeemable) : 0
     const total = Math.max(0, afterDiscount - pointsRedeemed)
 
-    const pointsEarned = member ? calcPointsEarned(total, member.tier) : 0
+    const pointsEarned = member && loyaltyMode === 'POINTS' ? calcPointsEarned(total, member.tier) : 0
+    const stampsEligible = member && loyaltyMode === 'STAMPS'
+      ? calcEligibleCupCount(itemsCalc.map(({ item, product }) => ({ quantity: item.quantity, product })))
+      : 0
 
     const order = await prisma.$transaction(async (tx) => {
       const updated = await tx.order.update({
@@ -112,6 +117,7 @@ export default defineEventHandler(async (event) => {
           total,
           pointsEarned,
           pointsRedeemed,
+          stampsEligible,
           discountId: data.discountId ?? null,
           items: {
             create: itemsCalc.map(({ item, unitPrice, subtotal: itemSubtotal, itemOptions }) => ({
@@ -154,6 +160,9 @@ export default defineEventHandler(async (event) => {
           data: { memberId: member.id, action: 'REDEEM', amount: pointsRedeemed, note: `Redeem at POS #${existing.queueNo}`, orderId: id },
         })
       }
+
+      // หมายเหตุ: แต้ม/แสตมป์ที่ได้จากออเดอร์นี้ (pointsEarned/stampsEligible) จะถูกให้จริง
+      // ตอนออเดอร์ COMPLETED + มี payment เท่านั้น (ดู pos/orders/[id].patch.ts) ไม่ใช่ตอนสร้างออเดอร์
 
       return updated
     }, { timeout: 15000 })

@@ -12,17 +12,14 @@ export default defineEventHandler(async (event) => {
       throw badRequest('ไม่สามารถยกเลิกออเดอร์ที่อยู่ในสถานะนี้ได้')
     }
 
-    // คืน points ที่ใช้ redeem
-    if (order.pointsRedeemed > 0) {
-      await prisma.member.update({
-        where: { id: session.member.id },
-        data: { points: { increment: order.pointsRedeemed } },
-      })
-    }
+    const updated = await prisma.$transaction(async (tx) => {
+      // คืนแต้มที่เคยหักไปตอนแลก
+      await reverseRedeemedPoints(tx, order.id, session.member!.id, order.pointsRedeemed)
 
-    const updated = await prisma.order.update({
-      where: { id },
-      data: { status: 'CANCELLED' },
+      return tx.order.update({
+        where: { id },
+        data: { status: 'CANCELLED' },
+      })
     })
 
     return okResponse(updated)

@@ -8,6 +8,9 @@ const { member } = useMemberAuth()
 const http = useHttpClient()
 const { uploadViaPresign } = useUpload()
 const { showSuccess, showError } = useAlert()
+const { mode: loyaltyMode, fetchMode: fetchLoyaltyMode } = useLoyaltyMode()
+
+onMounted(fetchLoyaltyMode)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Product {
@@ -387,7 +390,7 @@ async function placeOrder() {
     )
     uploadingSlip.value = false
 
-    const res = await http.post<{ data: { id: string; pointsEarned: number } }>(
+    const res = await http.post<{ data: { id: string; pointsEarned: number; loyaltyMode: 'POINTS' | 'STAMPS'; stampsEligible: number } }>(
       API_ENDPOINTS.MEMBER.ORDERS.CREATE,
       {
         items: cart.value.map(item => ({
@@ -404,7 +407,11 @@ async function placeOrder() {
     )
     if (res.data) {
       clearCartStorage()
-      showSuccess(`สั่งสำเร็จ! ได้รับ ${res.data.pointsEarned} แต้ม`)
+      if (res.data.loyaltyMode === 'STAMPS') {
+        showSuccess(`สั่งสำเร็จ! จะได้รับ ${res.data.stampsEligible} แสตมป์เมื่อร้านยืนยันออเดอร์`)
+      } else {
+        showSuccess(`สั่งสำเร็จ! จะได้รับ ${res.data.pointsEarned} แต้มเมื่อร้านยืนยันออเดอร์`)
+      }
       await navigateTo(`/member/orders/${res.data.id}`)
     }
   } catch (e: any) {
@@ -782,7 +789,8 @@ async function downloadStaticQR() {
         <div class="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100 text-base">
           <span>รวมทั้งหมด</span><span>฿{{ total.toFixed(2) }}</span>
         </div>
-        <p class="text-xs text-[#1B2B4B] text-right">+{{ pointsEarned }} แต้มที่จะได้รับ</p>
+        <p v-if="loyaltyMode === 'STAMPS'" class="text-xs text-[#1B2B4B] text-right">+{{ cartCount }} แสตมป์ที่จะได้รับ</p>
+        <p v-else class="text-xs text-[#1B2B4B] text-right">+{{ pointsEarned }} แต้มที่จะได้รับ</p>
       </div>
 
       <!-- ── Payment section ── -->

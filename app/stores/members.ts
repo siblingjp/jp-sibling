@@ -9,6 +9,7 @@ export interface AdminMember {
   name: string
   phone: string | null
   points: number
+  stampCount: number
   isActive: boolean
   createdAt: string
   _count?: { orders: number }
@@ -22,6 +23,13 @@ export interface AdminMemberDetail extends AdminMember {
     createdAt: string
   }[]
   pointLogs: {
+    id: string
+    action: string
+    amount: number
+    note: string | null
+    createdAt: string
+  }[]
+  stampLogs: {
     id: string
     action: string
     amount: number

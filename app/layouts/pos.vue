@@ -4,15 +4,17 @@ const http = useHttpClient()
 
 const isOpen = ref(false)
 const manualClose = ref(false)
+const manualOpen = ref(false)
 const blockOnlineOrder = ref(false)
 const isToggling = ref(false)
 const showCloseModal = ref(false)
 
 async function fetchStatus() {
   try {
-    const res = await http.get<{ data: { truckLocation: { isOpen: boolean; manualClose: boolean; blockOnlineOrder: boolean } | null } }>('/api/public/home')
+    const res = await http.get<{ data: { truckLocation: { isOpen: boolean; manualClose: boolean; manualOpen: boolean; blockOnlineOrder: boolean } | null } }>('/api/public/home')
     isOpen.value = res.data?.truckLocation?.isOpen ?? false
     manualClose.value = res.data?.truckLocation?.manualClose ?? false
+    manualOpen.value = res.data?.truckLocation?.manualOpen ?? false
     blockOnlineOrder.value = res.data?.truckLocation?.blockOnlineOrder ?? false
   } catch {
     // silent
@@ -21,14 +23,15 @@ async function fetchStatus() {
 
 onMounted(fetchStatus)
 
-async function applyMode(mode: 'close' | 'closeBlock' | 'reset') {
+async function applyMode(mode: 'close' | 'closeBlock' | 'reset' | 'openNow') {
   isToggling.value = true
   try {
-    const res = await http.post<{ data: { manualClose: boolean; blockOnlineOrder: boolean } }>(
+    const res = await http.post<{ data: { manualClose: boolean; manualOpen: boolean; blockOnlineOrder: boolean } }>(
       API_ENDPOINTS.ADMIN.LOCATION.TOGGLE_OPEN,
       { mode },
     )
     manualClose.value = res.data?.manualClose ?? false
+    manualOpen.value = res.data?.manualOpen ?? false
     blockOnlineOrder.value = res.data?.blockOnlineOrder ?? false
     // re-fetch isOpen เพื่อให้ปุ่มสะท้อน timeline จริง
     await fetchStatus()
@@ -102,19 +105,34 @@ async function applyMode(mode: 'close' | 'closeBlock' | 'reset') {
         <p class="text-xs text-gray-400 text-center">การตั้งค่านี้จะ reset อัตโนมัติเมื่อถึง 17:00 น.</p>
 
         <div class="space-y-2">
+          <!-- open now (override timeline) -->
+          <button
+            class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors text-left"
+            :class="manualOpen ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'"
+            :disabled="isToggling"
+            @click="applyMode('openNow')"
+          >
+            <Icon name="mdi:store-plus" class="text-xl text-green-600 flex-shrink-0" />
+            <div>
+              <p class="text-sm font-medium text-gray-900">เปิดร้านทันที</p>
+              <p class="text-xs text-gray-500">เปิดขายทันทีแม้อยู่นอกเวลา timeline</p>
+            </div>
+            <Icon v-if="manualOpen" name="mdi:check-circle" class="ml-auto text-green-600 text-lg flex-shrink-0" />
+          </button>
+
           <!-- reset to auto -->
           <button
             class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-colors text-left"
-            :class="!manualClose ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:bg-gray-50'"
+            :class="!manualClose && !manualOpen ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'"
             :disabled="isToggling"
             @click="applyMode('reset')"
           >
-            <Icon name="mdi:store-check" class="text-xl text-green-600 flex-shrink-0" />
+            <Icon name="mdi:store-check" class="text-xl text-blue-600 flex-shrink-0" />
             <div>
               <p class="text-sm font-medium text-gray-900">เปิดร้านตาม timeline</p>
               <p class="text-xs text-gray-500">เปิด/ปิดอัตโนมัติ และรับออเดอร์ออนไลน์ตามปกติ</p>
             </div>
-            <Icon v-if="!manualClose" name="mdi:check-circle" class="ml-auto text-green-600 text-lg flex-shrink-0" />
+            <Icon v-if="!manualClose && !manualOpen" name="mdi:check-circle" class="ml-auto text-blue-600 text-lg flex-shrink-0" />
           </button>
 
           <!-- close store, allow online orders -->

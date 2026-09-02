@@ -96,12 +96,17 @@ export default defineEventHandler(async (event) => {
         : Math.min(Number(coupon.discountValue), subtotal)
     }
 
+    const loyaltyMode = await getLoyaltyMode()
+
     const afterDiscount = subtotal - discountAmount - couponDiscountAmount
     const maxRedeemable = Math.floor(afterDiscount)
-    const pointsRedeemed = Math.min(data.pointsRedeemed, member?.points ?? 0, maxRedeemable)
+    const pointsRedeemed = loyaltyMode === 'POINTS' ? Math.min(data.pointsRedeemed, member?.points ?? 0, maxRedeemable) : 0
     const total = Math.max(0, afterDiscount - pointsRedeemed)
 
-    const pointsEarned = member ? calcPointsEarned(total, member.tier) : 0
+    const pointsEarned = member && loyaltyMode === 'POINTS' ? calcPointsEarned(total, member.tier) : 0
+    const stampsEligible = member && loyaltyMode === 'STAMPS'
+      ? calcEligibleCupCount(itemsCalc.map(({ item, product }) => ({ quantity: item.quantity, product })))
+      : 0
 
     const { start: todayStart, end: todayEnd } = getTodayRangeBKK()
 
@@ -126,6 +131,7 @@ export default defineEventHandler(async (event) => {
           total,
           pointsEarned,
           pointsRedeemed,
+          stampsEligible,
           userId: session.user!.id,
           memberId: data.memberId ?? null,
           discountId: data.discountId ?? null,
@@ -171,6 +177,10 @@ export default defineEventHandler(async (event) => {
           data: { memberId: member.id, action: 'REDEEM', amount: pointsRedeemed, note: `Redeem at POS #${queueNo}`, orderId: created.id },
         })
       }
+
+      // หมายเหตุ: แต้ม/แสตมป์ที่ได้จากออเดอร์นี้ (pointsEarned/stampsEligible) จะถูกให้จริง
+      // ตอนออเดอร์ COMPLETED + มี payment เท่านั้น (ดู pos/orders/[id].patch.ts) ไม่ใช่ตอนสร้างออเดอร์
+      // เพื่อไม่ให้ลูกค้าได้แต้ม/แสตมป์จากออเดอร์ที่ยังไม่ได้จ่ายเงินจริง
 
       return created
     }, { timeout: 15000 })

@@ -87,7 +87,11 @@ export default defineEventHandler(async (event) => {
     }
 
     const total = Math.max(subtotal - couponDiscount, 0)
-    const pointsEarned = calcPointsEarned(total, member.tier)
+    const loyaltyMode = await getLoyaltyMode()
+    const pointsEarned = loyaltyMode === 'POINTS' ? calcPointsEarned(total, member.tier) : 0
+    const stampsEligible = loyaltyMode === 'STAMPS'
+      ? calcEligibleCupCount(itemsData.map(item => ({ quantity: item.quantity, product: productMap.get(item.productId)! })))
+      : 0
 
     // Queue number for today
     const { start: todayStart, end: todayEnd } = getTodayRangeBKK()
@@ -116,6 +120,7 @@ export default defineEventHandler(async (event) => {
         total,
         pointsEarned,
         pointsRedeemed: 0,
+        stampsEligible,
         status: 'PENDING',
         items: {
           create: itemsData.map(item => ({
@@ -145,32 +150,15 @@ export default defineEventHandler(async (event) => {
     })
 
     // Post-order updates (fire-and-forget style, outside transaction)
+    // หมายเหตุ: แต้ม/แสตมป์ (pointsEarned/stampsEligible) จะถูกให้จริงตอนออเดอร์ COMPLETED
+    // + มี payment เท่านั้น (ดู pos/orders/[id].patch.ts, admin/orders/[id]/status.patch.ts)
+    // ไม่ใช่ตอนสร้างออเดอร์ — เพื่อให้สอดคล้องกับออเดอร์ POS และไม่ต้องคืนแต้มเมื่อยกเลิก
     const updates: Promise<unknown>[] = []
 
     if (couponCode) {
       updates.push(prisma.coupon.update({
         where: { code: couponCode },
         data: { usedCount: { increment: 1 } },
-      }))
-    }
-
-    updates.push(prisma.member.update({
-      where: { id: member.id },
-      data: {
-        ...(pointsEarned > 0 && { points: { increment: pointsEarned } }),
-        totalSpent: { increment: total },
-      },
-    }))
-
-    if (pointsEarned > 0) {
-      updates.push(prisma.pointLog.create({
-        data: {
-          memberId: member.id,
-          action: 'EARN',
-          amount: pointsEarned,
-          orderId: order.id,
-          note: `ได้จากออนไลน์ #${queueNo}`,
-        },
       }))
     }
 
@@ -183,7 +171,15 @@ export default defineEventHandler(async (event) => {
       data: { url: '/pos/orders' },
     }).catch(() => {})
 
-    return okResponse({ id: order.id, queueStatus: order.status, total, pointsEarned, pointsRedeemed: 0 })
+    return okResponse({
+      id: order.id,
+      queueStatus: order.status,
+      total,
+      pointsEarned,
+      pointsRedeemed: 0,
+      loyaltyMode,
+      stampsEligible,
+    })
   } catch (e: any) {
     console.error('[member/orders POST]', e)
     if (process.env.NODE_ENV !== 'production') {
@@ -201,7 +197,8 @@ async function checkCanOrder() {
   })
   if (!truck) return
 
-  const isOpen = truck.schedules.length > 0 ? !!getActiveSchedule(truck.schedules, now) : truck.isOpen
+  const timelineOpen = truck.schedules.length > 0 ? !!getActiveSchedule(truck.schedules, now) : truck.isOpen
+  const isOpen = truck.manualOpen ? true : timelineOpen
   if (isOpen) return
 
   const next = getNextSlot(truck.schedules, now)

@@ -21,6 +21,7 @@ export default defineEventHandler(async (event) => {
           name: true,
           phone: true,
           points: true,
+          stampCount: true,
           isActive: true,
           createdAt: true,
           _count: { select: { orders: true } },

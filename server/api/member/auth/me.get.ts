@@ -7,14 +7,14 @@ export default defineEventHandler(async (event) => {
       where: { id: session.member.id, isActive: true },
       select: {
         id: true, name: true, email: true, phone: true,
-        tier: true, points: true, totalSpent: true,
+        tier: true, points: true, stampCount: true, totalSpent: true,
         profileImage: true, lineUserId: true, googleId: true,
         createdAt: true,
       },
     })
     if (!member) throw unauthorized()
 
-    // sync session ถ้า points เปลี่ยน
+    // sync session ถ้า points เปลี่ยน (stampCount ไม่ได้เก็บใน session)
     if (member.points !== session.member.points) {
       await setUserSession(event, {
         ...session,

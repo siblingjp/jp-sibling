@@ -47,6 +47,7 @@ export interface PosMember {
   phone: string | null
   tier: 'SILVER' | 'GOLD' | 'VIP'
   points: number
+  stampCount: number
   profileImage: string | null
 }
 
@@ -148,6 +149,10 @@ export const usePosStore = defineStore('pos', () => {
   function clearMember() {
     member.value = null
     pointsToRedeem.value = 0
+  }
+
+  function setMemberStampCount(n: number) {
+    if (member.value) member.value.stampCount = n
   }
 
   // ─── Discount ───────────────────────────────────────────────────────────────
@@ -338,7 +343,7 @@ export const usePosStore = defineStore('pos', () => {
   const isSubmitting = ref(false)
   const lastOrder = ref<any>(null)
 
-  async function checkout(paymentMethod: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', paymentAmount: number, transactionRef?: string, startPreparing?: boolean) {
+  async function checkout(paymentMethod: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID' | 'UNSPECIFIED', paymentAmount: number, transactionRef?: string, startPreparing?: boolean) {
     if (cart.value.length === 0) throw new Error('Cart is empty')
     isSubmitting.value = true
     try {
@@ -433,6 +438,7 @@ export const usePosStore = defineStore('pos', () => {
     clearCart,
     lookupMember,
     clearMember,
+    setMemberStampCount,
     applyDiscountBadge,
     applyDiscountPercent,
     applyDiscountAmount,

@@ -5,13 +5,24 @@ const { showError, showConfirm } = useAlert()
 
 // ─── Daily summary ────────────────────────────────────────────────────────────
 const summary = ref<{ totalOrders: number; totalCups: number; totalFoods: number } | null>(null)
+const allStatusSummary = ref<{ totalOrders: number; totalCups: number } | null>(null)
 
 async function loadSummary() {
   try {
-    const res = await useHttpClient().get<{ data: { totalOrders: number; totalCups: number; totalFoods: number } }>(
-      API_ENDPOINTS.ADMIN.DASHBOARD.SUMMARY,
-    )
-    summary.value = res.data
+    const [completedRes, allRes] = await Promise.all([
+      useHttpClient().get<{ data: { totalOrders: number; totalCups: number; totalFoods: number } }>(
+        API_ENDPOINTS.ADMIN.DASHBOARD.SUMMARY,
+      ),
+      useHttpClient().get<{ data: any[] }>(
+        `${API_ENDPOINTS.POS.ORDERS.LIST}?status=PENDING&status=PREPARING&status=READY&status=COMPLETED`,
+      ),
+    ])
+    summary.value = completedRes.data
+    const allOrders = allRes.data ?? []
+    allStatusSummary.value = {
+      totalOrders: allOrders.length,
+      totalCups: allOrders.reduce((sum, o) => sum + o.items.reduce((s: number, i: any) => s + i.quantity, 0), 0),
+    }
   } catch {
     // silent
   }
@@ -25,13 +36,13 @@ const slipModal = ref<string | null>(null)
 // ─── Payment modal (for unpaid READY→COMPLETED) ──────────────────────────────
 const showPaymentModal = ref(false)
 const payTargetOrder = ref<any>(null)
-const payMethod = ref<'CASH' | 'QR' | 'THAI_HELP' | 'CARD'>('CASH')
+const payMethod = ref<'CASH' | 'QR' | 'THAI_HELP' | 'CARD' | null>(null)
 const payCash = ref(0)
 const payRef = ref('')
 const isSavingPayment = ref(false)
 
 const methodLabel: Record<string, string> = {
-  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร',
+  CASH: 'เงินสด', QR: 'QR พร้อมเพย์', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร', UNSPECIFIED: 'ไม่ระบุ',
 }
 
 const orderTotal = computed(() => Number(payTargetOrder.value?.total ?? 0))
@@ -58,7 +69,7 @@ async function savePaymentAndComplete() {
     const amount = payMethod.value === 'CASH' ? payCash.value : orderTotal.value
     await useHttpClient().post(API_ENDPOINTS.POS.PAYMENTS.CREATE, {
       orderId: payTargetOrder.value.id,
-      method: payMethod.value,
+      method: payMethod.value ?? 'UNSPECIFIED',
       amount,
       transactionRef: payRef.value || undefined,
     })
@@ -118,16 +129,54 @@ async function updateStatus(order: any, status: string) {
     const ok = await showConfirm({ title: 'ยกเลิกออเดอร์', message: 'ต้องการยกเลิกออเดอร์นี้?', confirmText: 'ยกเลิกออเดอร์' })
     if (!ok) return
   }
-  if (status === 'COMPLETED' && !order.payment) {
-    openPaymentForOrder(order)
-    return
-  }
   try {
     await useHttpClient().patch(API_ENDPOINTS.POS.ORDERS.UPDATE(order.id), { status })
     await load()
   } catch (e: any) {
     showError(e?.message ?? 'Failed to update')
   }
+}
+
+// ─── Complete order (instant submit, no modal — payment auto-recorded as UNSPECIFIED if missing) ──
+const completingId = ref<string | null>(null)
+
+async function completeOrder(order: any) {
+  if (completingId.value) return
+  completingId.value = order.id
+  try {
+    await useHttpClient().patch(API_ENDPOINTS.POS.ORDERS.UPDATE(order.id), { status: 'COMPLETED' })
+    await load()
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'ไม่สำเร็จ')
+  } finally {
+    completingId.value = null
+  }
+}
+
+// ─── "เพิ่มเติม" dropdown menu ────────────────────────────────────────────────
+const openMenuId = ref<string | null>(null)
+
+function toggleMenu(orderId: string) {
+  openMenuId.value = openMenuId.value === orderId ? null : orderId
+}
+
+function closeMenu() {
+  openMenuId.value = null
+}
+
+function handleMenuPayment(order: any) {
+  closeMenu()
+  openPaymentForOrder(order)
+}
+
+function handleMenuEdit(order: any) {
+  closeMenu()
+  editOrder(order)
+}
+
+function handleMenuCancel(order: any) {
+  closeMenu()
+  updateStatus(order, 'CANCELLED')
 }
 
 const posStore = usePosStore()
@@ -275,20 +324,32 @@ function formatPickupTime(pt: string | null | undefined): string {
       <!-- Summary view -->
       <template v-if="statusFilter === 'SUMMARY'">
         <div v-if="isLoading" class="text-center py-16 text-gray-400">กำลังโหลด...</div>
-        <div v-else-if="summary" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <div class="bg-white rounded-xl shadow-sm p-5">
-            <p class="text-xs text-gray-500 mb-1">ออเดอร์ทั้งหมด</p>
-            <p class="text-3xl font-bold text-gray-900">{{ summary.totalOrders }}</p>
+        <template v-else>
+          <div v-if="allStatusSummary" class="grid grid-cols-2 gap-4 mb-4">
+            <div class="bg-white rounded-xl shadow-sm p-5">
+              <p class="text-xs text-gray-500 mb-1">ออเดอร์ทั้งหมด</p>
+              <p class="text-3xl font-bold text-gray-900">{{ allStatusSummary.totalOrders }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-5">
+              <p class="text-xs text-gray-500 mb-1">แก้วทั้งหมด</p>
+              <p class="text-3xl font-bold text-gray-900">{{ allStatusSummary.totalCups }} <span class="text-lg font-medium text-gray-400">แก้ว</span></p>
+            </div>
           </div>
-          <div class="bg-white rounded-xl shadow-sm p-5">
-            <p class="text-xs text-gray-500 mb-1">แก้วทั้งหมด</p>
-            <p class="text-3xl font-bold text-gray-900">{{ summary.totalCups }} <span class="text-lg font-medium text-gray-400">แก้ว</span></p>
+          <div v-if="summary" class="grid gap-4" :class="summary.totalFoods > 0 ? 'grid-cols-3' : 'grid-cols-2'">
+            <div class="bg-white rounded-xl shadow-sm p-5">
+              <p class="text-xs text-gray-500 mb-1">ออเดอร์เสร็จสิ้น</p>
+              <p class="text-3xl font-bold text-gray-900">{{ summary.totalOrders }}</p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-5">
+              <p class="text-xs text-gray-500 mb-1">แก้วที่เสร็จสิ้น</p>
+              <p class="text-3xl font-bold text-gray-900">{{ summary.totalCups }} <span class="text-lg font-medium text-gray-400">แก้ว</span></p>
+            </div>
+            <div v-if="summary.totalFoods > 0" class="bg-white rounded-xl shadow-sm p-5">
+              <p class="text-xs text-gray-500 mb-1">อาหารที่เสร็จสิ้น</p>
+              <p class="text-3xl font-bold text-gray-900">{{ summary.totalFoods }} <span class="text-lg font-medium text-gray-400">รายการ</span></p>
+            </div>
           </div>
-          <div v-if="summary.totalFoods > 0" class="bg-white rounded-xl shadow-sm p-5">
-            <p class="text-xs text-gray-500 mb-1">อาหารทั้งหมด</p>
-            <p class="text-3xl font-bold text-gray-900">{{ summary.totalFoods }} <span class="text-lg font-medium text-gray-400">รายการ</span></p>
-          </div>
-        </div>
+        </template>
       </template>
 
       <template v-else>
@@ -355,11 +416,11 @@ function formatPickupTime(pt: string | null | undefined): string {
             <div class="text-right">
               <span class="font-bold text-gray-900">฿{{ formatPrice(order.total) }}</span>
               <span v-if="order.payment" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
-                {{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร' } as Record<string,string>)[order.payment.method] ?? order.payment.method }}
+                {{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร', UNSPECIFIED: 'ไม่ระบุ' } as Record<string,string>)[order.payment.method] ?? order.payment.method }}
               </span>
               <span v-else-if="order.status !== 'CANCELLED' && order.source === 'POS'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-medium">ค้างชำระ</span>
               <span v-else-if="order.source === 'ONLINE'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">QR</span>
-              <span v-else-if="order.source === 'WEBAPP'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร' } as Record<string,string>)[order.payment?.method] ?? 'รอชำระ' }}</span>
+              <span v-else-if="order.source === 'WEBAPP'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร', UNSPECIFIED: 'ไม่ระบุ' } as Record<string,string>)[order.payment?.method] ?? 'รอชำระ' }}</span>
             </div>
           </div>
 
@@ -413,35 +474,60 @@ function formatPickupTime(pt: string | null | undefined): string {
                 @click="updateStatus(order, 'READY')"
               >พร้อมส่ง</button>
               <button
-                class="flex-1 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors"
-                @click="updateStatus(order, 'COMPLETED')"
-              >เสร็จสิ้น</button>
+                :disabled="completingId === order.id"
+                class="flex-1 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                @click="completeOrder(order)"
+              >{{ completingId === order.id ? '...' : 'เสร็จสิ้น' }}</button>
             </template>
 
             <!-- อื่นๆ: ปุ่มเดียว next status -->
             <template v-else>
               <button
-                v-if="nextStatus[order.status]"
+                v-if="nextStatus[order.status] === 'COMPLETED'"
+                :disabled="completingId === order.id"
+                class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+                @click="completeOrder(order)"
+              >
+                {{ completingId === order.id ? '...' : '→ เสร็จสิ้น' }}
+              </button>
+              <button
+                v-else-if="nextStatus[order.status]"
                 class="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
                 @click="updateStatus(order, nextStatus[order.status])"
               >
-                → {{ { PENDING: 'กำลังทำ', READY: 'เสร็จสิ้น' }[order.status] || nextStatus[order.status] }}
+                → {{ { PENDING: 'กำลังทำ' }[order.status] || nextStatus[order.status] }}
               </button>
             </template>
 
-            <!-- แก้ไขเมนู (PENDING / PREPARING) -->
-            <button
-              v-if="order.status === 'PENDING' || order.status === 'PREPARING'"
-              :disabled="isEditingOrder === order.id"
-              class="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
-              @click="editOrder(order)"
-            >{{ isEditingOrder === order.id ? '...' : '✏️ แก้ไขเมนู' }}</button>
+            <!-- เพิ่มเติม dropdown: ชำระเงิน / แก้ไขเมนู (PENDING / PREPARING) -->
+            <div v-if="order.status === 'PENDING' || order.status === 'PREPARING'" class="relative">
+              <button
+                :disabled="isEditingOrder === order.id"
+                class="px-3 py-2 rounded-lg border border-gray-300 text-gray-600 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                @click="toggleMenu(order.id)"
+              >{{ isEditingOrder === order.id ? '...' : 'เพิ่มเติม ▾' }}</button>
 
-            <button
-              v-if="order.status === 'PENDING'"
-              class="px-3 py-2 rounded-lg border border-red-200 text-red-500 text-sm hover:bg-red-50 transition-colors"
-              @click="updateStatus(order, 'CANCELLED')"
-            >ยกเลิก</button>
+              <Teleport to="body">
+                <div v-if="openMenuId === order.id" class="fixed inset-0 z-40" @click="closeMenu" />
+              </Teleport>
+              <div
+                v-if="openMenuId === order.id"
+                class="absolute right-0 bottom-full mb-1 z-50 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1"
+              >
+                <button
+                  class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  @click="handleMenuPayment(order)"
+                >💳 ชำระเงิน</button>
+                <button
+                  class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  @click="handleMenuEdit(order)"
+                >✏️ แก้ไขเมนู</button>
+                <button
+                  class="w-full text-left px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                  @click="handleMenuCancel(order)"
+                >🚫 ยกเลิก</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

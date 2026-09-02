@@ -33,6 +33,12 @@ const navGroups = [
       { to: '/admin/location', label: 'ตำแหน่งรถ', icon: 'flat-color-icons:globe', exact: false },
     ],
   },
+  {
+    label: 'ตั้งค่า',
+    items: [
+      { to: '/admin/settings/loyalty', label: 'สะสมแต้ม/แสตมป์', icon: 'flat-color-icons:like', exact: false },
+    ],
+  },
 ]
 
 const route = useRoute()

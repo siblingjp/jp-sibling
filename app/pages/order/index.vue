@@ -6,6 +6,9 @@ definePageMeta({ layout: 'public' })
 const http = useHttpClient()
 const { showSuccess, showError } = useAlert()
 const router = useRouter()
+const { member: authedMember, fetchMe } = useMemberAuth()
+
+const checkingSession = ref(true)
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Product {
@@ -43,6 +46,35 @@ const guestName = ref('')
 const paymentMethod = ref<'CASH' | 'CARD' | 'QR' | 'THAI_HELP'>('QR')
 const orderNote = ref('')
 const pickupTime = ref('')
+
+// ─── Phone lookup (ผูกสมาชิกถ้าเจอ) ────────────────────────────────────────────
+interface FoundMember { id: string; name: string; phone: string; tier: string }
+const phoneInput = ref('')
+const foundMember = ref<FoundMember | null>(null)
+const lookingUpMember = ref(false)
+const memberLookupError = ref('')
+
+async function lookupMemberByPhone() {
+  if (!phoneInput.value.trim()) return
+  lookingUpMember.value = true
+  memberLookupError.value = ''
+  try {
+    const res = await http.get<{ data: FoundMember }>(API_ENDPOINTS.PUBLIC.MEMBER_LOOKUP, { phone: phoneInput.value.trim() })
+    foundMember.value = res.data
+    if (res.data) guestName.value = res.data.name
+  } catch (e: any) {
+    foundMember.value = null
+    memberLookupError.value = e?.data?.message ?? 'ไม่พบสมาชิกจากเบอร์นี้'
+  } finally {
+    lookingUpMember.value = false
+  }
+}
+
+function clearFoundMember() {
+  foundMember.value = null
+  phoneInput.value = ''
+  memberLookupError.value = ''
+}
 
 // ─── Pickup time options ──────────────────────────────────────────────────────
 const TZ = 'Asia/Bangkok'
@@ -176,6 +208,13 @@ const cartCount = computed(() => cart.value.reduce((s, i) => s + i.quantity, 0))
 
 // ─── Load data ────────────────────────────────────────────────────────────────
 onMounted(async () => {
+  if (!authedMember.value) await fetchMe()
+  if (authedMember.value) {
+    await router.replace('/member/orders/new')
+    return
+  }
+  checkingSession.value = false
+
   try {
     const res = await http.get<{ data: Product[] }>(API_ENDPOINTS.PUBLIC.PRODUCTS)
     products.value = res.data ?? []
@@ -224,6 +263,7 @@ async function placeOrder() {
         note: orderNote.value || undefined,
         pickupTime: pickupTime.value || undefined,
         paymentMethod: paymentMethod.value,
+        memberId: foundMember.value?.id,
       }
     )
     if (res.data) {
@@ -246,8 +286,13 @@ const steps = [
 <template>
   <div class="max-w-lg mx-auto px-4 pb-28 pt-4">
 
+    <!-- Checking session (avoid flashing guest form before redirect) -->
+    <div v-if="checkingSession" class="flex items-center justify-center py-24 text-gray-400">
+      <Icon name="mdi:loading" class="text-3xl animate-spin" />
+    </div>
+
     <!-- Success screen -->
-    <div v-if="successData" class="flex flex-col items-center justify-center py-16 text-center gap-5">
+    <div v-else-if="successData" class="flex flex-col items-center justify-center py-16 text-center gap-5">
       <div class="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
         <Icon name="mdi:check-circle" class="text-5xl text-green-500" />
       </div>
@@ -266,7 +311,7 @@ const steps = [
         </NuxtLink>
         <button
           class="flex-1 px-6 py-3 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-colors"
-          @click="successData = null; step = 1; guestName = ''; orderNote = ''; pickupTime = ''"
+          @click="successData = null; step = 1; guestName = ''; orderNote = ''; pickupTime = ''; clearFoundMember()"
         >
           สั่งอีกครั้ง
         </button>
@@ -309,6 +354,36 @@ const steps = [
 
       <!-- ── STEP 1: เลือกสินค้า ── -->
       <div v-if="step === 1" class="space-y-4">
+
+        <!-- เบอร์โทร (สมาชิก) -->
+        <div class="bg-white rounded-2xl shadow p-4">
+          <label class="text-sm font-semibold text-gray-700 mb-2 block">เบอร์โทร (สำหรับสมาชิก ไม่บังคับ)</label>
+          <div v-if="!foundMember" class="flex gap-2">
+            <input
+              v-model="phoneInput"
+              type="tel"
+              placeholder="กรอกเบอร์โทรเพื่อรับแต้ม/แสตมป์..."
+              maxlength="20"
+              class="flex-1 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
+              @keyup.enter="lookupMemberByPhone"
+            />
+            <button
+              type="button"
+              :disabled="lookingUpMember || !phoneInput.trim()"
+              class="px-4 py-2.5 bg-[#1B2B4B] text-white text-sm font-semibold rounded-xl hover:bg-[#2a3f6b] disabled:opacity-40 transition-colors flex-shrink-0"
+              @click="lookupMemberByPhone"
+            >{{ lookingUpMember ? '...' : 'ค้นหา' }}</button>
+          </div>
+          <div v-else class="flex items-center gap-2 p-2.5 rounded-lg bg-green-50 border border-green-200">
+            <Icon name="mdi:check-decagram" class="text-green-600 text-lg flex-shrink-0" />
+            <div class="flex-1 min-w-0">
+              <p class="text-sm font-medium text-gray-900 truncate">{{ foundMember.name }}</p>
+              <p class="text-xs text-green-600">เป็นสมาชิก · จะได้รับแต้ม/แสตมป์จากออเดอร์นี้</p>
+            </div>
+            <button class="text-gray-400 hover:text-red-500 text-lg flex-shrink-0" @click="clearFoundMember">×</button>
+          </div>
+          <p v-if="memberLookupError" class="text-xs text-red-500 mt-1.5">{{ memberLookupError }}</p>
+        </div>
 
         <!-- ชื่อผู้สั่ง -->
         <div class="bg-white rounded-2xl shadow p-4">

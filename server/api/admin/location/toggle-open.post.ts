@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 const schema = z.object({
-  mode: z.enum(['close', 'closeBlock', 'reset']),
+  mode: z.enum(['close', 'closeBlock', 'reset', 'openNow']),
 })
 
 export default defineEventHandler(async (event) => {
@@ -16,10 +16,12 @@ export default defineEventHandler(async (event) => {
 
     const data =
       mode === 'reset'
-        ? { manualClose: false, blockOnlineOrder: false }
-        : mode === 'closeBlock'
-          ? { manualClose: true, blockOnlineOrder: true }
-          : { manualClose: true, blockOnlineOrder: false }
+        ? { manualClose: false, manualOpen: false, blockOnlineOrder: false }
+        : mode === 'openNow'
+          ? { manualClose: false, manualOpen: true, blockOnlineOrder: false }
+          : mode === 'closeBlock'
+            ? { manualClose: true, manualOpen: false, blockOnlineOrder: true }
+            : { manualClose: true, manualOpen: false, blockOnlineOrder: false }
 
     const updated = await prisma.truckLocation.update({
       where: { id: truck.id },
@@ -28,6 +30,7 @@ export default defineEventHandler(async (event) => {
 
     return okResponse({
       manualClose: updated.manualClose,
+      manualOpen: updated.manualOpen,
       blockOnlineOrder: updated.blockOnlineOrder,
     })
   } catch (e) {

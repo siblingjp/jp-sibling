@@ -5,11 +5,11 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  confirm: [method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID', amount: number, ref?: string, startPreparing?: boolean]
+  confirm: [method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID' | 'UNSPECIFIED', amount: number, ref?: string, startPreparing?: boolean]
   cancel: []
 }>()
 
-const method = ref<'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID'>('CASH')
+const method = ref<'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID' | null>('CASH')
 
 const methodLabel: Record<string, string> = {
   CASH: 'เงินสด',
@@ -44,7 +44,7 @@ const quickAmounts = computed(() => {
 function handleConfirm(startPreparing = false) {
   if (!isValid.value) return
   const amount = method.value === 'CASH' ? cashReceived.value : method.value === 'UNPAID' ? 0 : props.total
-  emit('confirm', method.value, amount, transactionRef.value || undefined, startPreparing)
+  emit('confirm', method.value ?? 'UNSPECIFIED', amount, transactionRef.value || undefined, startPreparing)
 }
 </script>
 
