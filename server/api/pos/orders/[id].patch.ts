@@ -20,9 +20,6 @@ export default defineEventHandler(async (event) => {
     if (order.status === 'COMPLETED' || order.status === 'CANCELLED') {
       throw badRequest('Order is already finalized')
     }
-    if (data.status === 'CANCELLED' && order.payment) {
-      throw badRequest('Cannot cancel a paid order')
-    }
     // RESERVED order สามารถ cancel ได้เท่านั้น
     if (order.status === 'RESERVED' && data.status !== 'CANCELLED') {
       throw badRequest('Reserved order can only be cancelled')
