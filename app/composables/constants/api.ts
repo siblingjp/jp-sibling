@@ -149,6 +149,7 @@ export const API_ENDPOINTS = {
       REDEEM: '/api/member/coupons/redeem',
     },
     CAMPAIGNS: '/api/member/campaigns',
+    CAMPAIGN_DETAIL: (id: string) => `/api/member/campaigns/${id}`,
     PRODUCTS: '/api/member/products',
   },
 
@@ -164,7 +165,7 @@ export const API_ENDPOINTS = {
     },
     CAMPAIGNS: {
       LIST: '/api/public/campaigns',
-      SHOW: (slug: string) => `/api/public/campaigns/${slug}`,
+      SHOW: (id: string) => `/api/public/campaigns/${id}`,
     },
     VOTE: (campaignId: string) => `/api/public/vote/${campaignId}`,
   },

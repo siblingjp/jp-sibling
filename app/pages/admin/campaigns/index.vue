@@ -10,6 +10,7 @@ type Tier = 'SILVER' | 'GOLD' | 'VIP'
 type CouponType = 'POINT_REDEEM' | 'PROMOTION' | 'DISCOUNT'
 type BenefitType = 'DISCOUNT' | 'FREE_ITEM'
 type DisplayMode = 'image' | 'banner'
+type ImageOrientation = 'landscape' | 'portrait'
 
 interface CouponDetail {
   id: string
@@ -34,12 +35,14 @@ interface Campaign {
   name: string
   description: string | null
   imageUrl: string | null
+  imageOrientation: ImageOrientation | null
   displayMode: DisplayMode | null
   bannerColor: string | null
   startAt: string | null
   expiredAt: string | null
   isActive: boolean
   memberOnly: boolean
+  showOnPublic: boolean
   minTier: Tier | null
   coupons: { coupon: CouponDetail }[]
 }
@@ -77,12 +80,14 @@ const form = reactive({
   name: '',
   description: '',
   imageUrl: '',
+  imageOrientation: 'landscape' as ImageOrientation,
   displayMode: 'image' as DisplayMode,
   bannerColor: '#1B2B4B',
   startAt: '',
   expiredAt: '',
   isActive: true,
   memberOnly: false,
+  showOnPublic: false,
   minTier: '' as Tier | '',
   couponIds: [] as string[],
 })
@@ -116,12 +121,14 @@ function resetForm() {
   form.name = ''
   form.description = ''
   form.imageUrl = ''
+  form.imageOrientation = 'landscape'
   form.displayMode = 'image'
   form.bannerColor = '#1B2B4B'
   form.startAt = ''
   form.expiredAt = ''
   form.isActive = true
   form.memberOnly = false
+  form.showOnPublic = false
   form.minTier = ''
   form.couponIds = []
   dateError.value = ''
@@ -139,12 +146,14 @@ function openEdit(c: Campaign) {
   form.name = c.name
   form.description = c.description ?? ''
   form.imageUrl = c.imageUrl ?? ''
+  form.imageOrientation = c.imageOrientation ?? 'landscape'
   form.displayMode = c.displayMode ?? 'image'
   form.bannerColor = c.bannerColor ?? '#1B2B4B'
   form.startAt = c.startAt ? c.startAt.slice(0, 16) : ''
   form.expiredAt = c.expiredAt ? c.expiredAt.slice(0, 16) : ''
   form.isActive = c.isActive
   form.memberOnly = c.memberOnly
+  form.showOnPublic = c.showOnPublic
   form.minTier = c.minTier ?? ''
   form.couponIds = c.coupons.map(cc => cc.coupon.id)
   dateError.value = ''
@@ -167,12 +176,14 @@ async function handleSave() {
       name: form.name,
       description: form.description || null,
       imageUrl: form.imageUrl || null,
+      imageOrientation: form.imageOrientation,
       displayMode: form.displayMode,
       bannerColor: form.bannerColor || null,
       startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
       expiredAt: form.expiredAt ? new Date(form.expiredAt).toISOString() : null,
       isActive: form.isActive,
       memberOnly: form.memberOnly,
+      showOnPublic: form.showOnPublic,
       minTier: form.minTier || null,
       couponIds: form.couponIds,
     }
@@ -348,6 +359,7 @@ onMounted(() => load())
               <h2 class="font-bold text-gray-900 text-base">{{ c.name }}</h2>
               <span v-if="c.memberOnly" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">เฉพาะสมาชิก</span>
               <span v-if="c.minTier" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">{{ c.minTier }}+</span>
+              <span v-if="c.showOnPublic" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-sky-100 text-sky-700">หน้าเว็บสาธารณะ</span>
             </div>
             <p v-if="c.description" class="text-sm text-gray-500 mt-0.5">{{ c.description }}</p>
             <div class="flex items-center gap-4 mt-2 text-xs text-gray-400">
@@ -484,6 +496,33 @@ onMounted(() => load())
                 <AdminImageUpload v-model="form.imageUrl" folder="campaigns" />
               </div>
 
+              <!-- Image orientation (only for image mode) -->
+              <div v-if="form.displayMode === 'image'">
+                <label class="block text-xs font-medium text-gray-500 mb-2">แนวรูปภาพ</label>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="flex-1 py-2 rounded-xl border text-xs font-semibold transition"
+                    :class="form.imageOrientation === 'landscape'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:bg-gray-50'"
+                    @click="form.imageOrientation = 'landscape'"
+                  >
+                    แนวนอน
+                  </button>
+                  <button
+                    type="button"
+                    class="flex-1 py-2 rounded-xl border text-xs font-semibold transition"
+                    :class="form.imageOrientation === 'portrait'
+                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      : 'border-gray-200 text-gray-500 hover:bg-gray-50'"
+                    @click="form.imageOrientation = 'portrait'"
+                  >
+                    แนวตั้ง
+                  </button>
+                </div>
+              </div>
+
               <!-- Banner color (only for banner mode) -->
               <div v-if="form.displayMode === 'banner'">
                 <label class="block text-xs font-medium text-gray-500 mb-1">สีพื้นหลัง</label>
@@ -571,6 +610,16 @@ onMounted(() => load())
                     <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" :class="form.memberOnly ? 'translate-x-5' : ''" />
                   </div>
                   <span class="text-sm text-gray-700 font-medium">เฉพาะสมาชิกเท่านั้น</span>
+                </label>
+                <label class="flex items-center gap-3 cursor-pointer">
+                  <div
+                    class="relative w-10 h-5 rounded-full transition"
+                    :class="form.showOnPublic ? 'bg-blue-500' : 'bg-gray-300'"
+                    @click="form.showOnPublic = !form.showOnPublic"
+                  >
+                    <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform" :class="form.showOnPublic ? 'translate-x-5' : ''" />
+                  </div>
+                  <span class="text-sm text-gray-700 font-medium">แสดงในหน้าเว็บสาธารณะ</span>
                 </label>
               </div>
 
@@ -660,11 +709,11 @@ onMounted(() => load())
 
               <!-- Image mode preview -->
               <div v-if="form.displayMode === 'image'" class="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
-                <div class="relative aspect-video bg-gray-100">
+                <div class="relative bg-gray-100" :class="form.imageOrientation === 'portrait' ? 'aspect-[3/4]' : 'aspect-video'">
                   <img
                     v-if="form.imageUrl"
                     :src="form.imageUrl"
-                    class="w-full h-full object-cover"
+                    class="w-full h-full object-cover object-top"
                     alt="preview"
                   />
                   <div v-else class="w-full h-full flex items-center justify-center text-gray-400 text-sm">

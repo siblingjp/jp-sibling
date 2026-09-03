@@ -214,12 +214,14 @@ model Campaign {
   name        String
   description String?
   imageUrl    String?
+  imageOrientation String? @default("landscape")
   displayMode String?   @default("image")
   bannerColor String?
   startAt     DateTime?
   expiredAt   DateTime?
   isActive    Boolean   @default(true)
   memberOnly  Boolean   @default(false)
+  showOnPublic Boolean  @default(false)
   minTier     Tier?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

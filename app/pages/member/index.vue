@@ -96,6 +96,7 @@ interface Campaign {
   name: string
   description: string | null
   imageUrl: string | null
+  imageOrientation: string | null
   displayMode: string | null
   bannerColor: string | null
   expiredAt: string | null
@@ -105,7 +106,6 @@ interface Campaign {
 }
 
 const campaigns = ref<Campaign[]>([])
-const expandedCampaign = ref<string | null>(null)
 const qrCoupon = ref<CampaignCoupon | null>(null)
 
 // ─── Campaign Popup ───────────────────────────────────────────────────────────
@@ -144,8 +144,9 @@ onMounted(async () => {
   }
 })
 
-function toggleCampaign(id: string) {
-  expandedCampaign.value = expandedCampaign.value === id ? null : id
+function goToCampaign(id: string) {
+  closeCampaignPopup()
+  navigateTo(`/member/campaigns/${id}`)
 }
 
 function formatCouponValue(c: CampaignCoupon) {
@@ -366,19 +367,19 @@ function formatCouponValue(c: CampaignCoupon) {
             type="button"
             class="w-full text-left relative flex items-center gap-4 px-4 py-4"
             :style="`background: ${camp.bannerColor || '#1B2B4B'}`"
-            @click="toggleCampaign(camp.id)"
+            @click="goToCampaign(camp.id)"
           >
             <img v-if="camp.imageUrl" :src="camp.imageUrl" class="w-12 h-12 rounded-xl object-cover shrink-0 border-2 border-white/20" alt="" />
             <div class="flex-1 min-w-0">
               <p class="font-semibold text-white truncate">{{ camp.name }}</p>
-              <p v-if="camp.description" class="text-xs text-white/70 mt-0.5 truncate">{{ camp.description }}</p>
+              <p v-if="camp.coupons.length === 0 && camp.description" class="text-xs text-white/70 mt-0.5 line-clamp-3 whitespace-normal">{{ camp.description }}</p>
               <p v-if="camp.expiredAt" class="text-xs text-white/50 mt-0.5">
                 ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) }}
               </p>
             </div>
             <div class="flex items-center gap-2 ml-2 flex-shrink-0">
-              <span class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
-              <Icon :name="expandedCampaign === camp.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5 text-white/70" />
+              <span v-if="camp.coupons.length > 0" class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
+              <Icon name="mdi:chevron-right" class="w-5 h-5 text-white/70" />
             </div>
           </button>
 
@@ -387,73 +388,39 @@ function formatCouponValue(c: CampaignCoupon) {
             v-else
             type="button"
             class="w-full text-left"
-            @click="toggleCampaign(camp.id)"
+            @click="goToCampaign(camp.id)"
           >
-            <div v-if="camp.imageUrl" class="relative aspect-video overflow-hidden">
-              <img :src="camp.imageUrl" class="w-full h-full object-cover" alt="" />
+            <div v-if="camp.imageUrl" class="relative overflow-hidden" :class="camp.imageOrientation === 'portrait' ? 'aspect-[3/4]' : 'aspect-video'">
+              <img :src="camp.imageUrl" class="w-full h-full object-cover object-top" alt="" />
               <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
               <div class="absolute bottom-0 left-0 right-0 p-3 flex items-end justify-between">
                 <div class="flex-1 min-w-0">
                   <p class="font-semibold text-white truncate">{{ camp.name }}</p>
+                  <p v-if="camp.coupons.length === 0 && camp.description" class="text-xs text-white/80 mt-0.5 line-clamp-3 whitespace-normal">{{ camp.description }}</p>
                   <p v-if="camp.expiredAt" class="text-xs text-white/60 mt-0.5">
                     ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) }}
                   </p>
                 </div>
                 <div class="flex items-center gap-1.5 ml-2 flex-shrink-0">
-                  <span class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
-                  <Icon :name="expandedCampaign === camp.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5 text-white/70" />
+                  <span v-if="camp.coupons.length > 0" class="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
+                  <Icon name="mdi:chevron-right" class="w-5 h-5 text-white/70" />
                 </div>
               </div>
             </div>
             <div v-else class="flex items-center justify-between p-4">
               <div class="flex-1 min-w-0">
                 <p class="font-semibold text-gray-900 truncate">{{ camp.name }}</p>
-                <p v-if="camp.description" class="text-xs text-gray-400 mt-0.5 truncate">{{ camp.description }}</p>
+                <p v-if="camp.coupons.length === 0 && camp.description" class="text-xs text-gray-400 mt-0.5 line-clamp-3 whitespace-normal">{{ camp.description }}</p>
                 <p v-if="camp.expiredAt" class="text-xs text-gray-400 mt-0.5">
                   ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) }}
                 </p>
               </div>
               <div class="flex items-center gap-2 ml-3 flex-shrink-0">
-                <span class="text-xs bg-[#F0F4F8] text-[#1B2B4B] px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
-                <Icon :name="expandedCampaign === camp.id ? 'mdi:chevron-up' : 'mdi:chevron-down'" class="w-5 h-5 text-gray-400" />
+                <span v-if="camp.coupons.length > 0" class="text-xs bg-[#F0F4F8] text-[#1B2B4B] px-2 py-0.5 rounded-full font-medium">{{ camp.coupons.length }} คูปอง</span>
+                <Icon name="mdi:chevron-right" class="w-5 h-5 text-gray-400" />
               </div>
             </div>
           </button>
-
-          <div v-if="expandedCampaign === camp.id" class="border-t border-gray-50 px-4 pb-4 pt-2 space-y-2">
-            <div v-if="camp.coupons.length === 0" class="text-xs text-gray-400 text-center py-2">
-              ยังไม่มีคูปองในแคมเปญนี้
-            </div>
-            <div
-              v-for="coupon in camp.coupons"
-              :key="coupon.id"
-              class="flex items-center justify-between bg-[#F0F4F8] rounded-xl px-4 py-3 gap-3"
-            >
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-bold text-[#1B2B4B] font-mono">{{ coupon.code }}</p>
-                <p class="text-xs text-gray-600 truncate">{{ coupon.name }}</p>
-                <p v-if="coupon.description" class="text-xs text-gray-400 truncate">{{ coupon.description }}</p>
-                <p class="text-sm font-bold text-[#2a3f6b] mt-0.5">{{ formatCouponValue(coupon) }}</p>
-                <p v-if="coupon.minTier" class="text-xs text-gray-400">{{ coupon.minTier }}+</p>
-              </div>
-              <div class="flex-shrink-0 flex flex-col gap-2">
-                <button
-                  class="flex items-center gap-1 text-xs text-[#1B2B4B] font-semibold border border-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#F0F4F8] transition-colors"
-                  @click="qrCoupon = coupon"
-                >
-                  <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
-                  แสดง QR
-                </button>
-                <NuxtLink
-                  :to="`/member/orders/new?coupon=${coupon.code}`"
-                  class="flex items-center gap-1 text-xs text-white font-semibold bg-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#2a3f6b] transition-colors"
-                >
-                  <Icon name="mdi:cart-arrow-right" class="w-3.5 h-3.5" />
-                  กดใช้
-                </NuxtLink>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -521,7 +488,10 @@ function formatCouponValue(c: CampaignCoupon) {
       <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeCampaignPopup" />
 
       <!-- Modal -->
-      <div class="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div
+        class="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        style="max-height: 85vh; max-height: 85dvh;"
+      >
         <!-- Header -->
         <div class="bg-gradient-to-r from-[#1B2B4B] to-[#2a3f6b] px-5 py-4 flex items-center justify-between flex-shrink-0">
           <div class="flex items-center gap-2">
@@ -541,23 +511,30 @@ function formatCouponValue(c: CampaignCoupon) {
             class="border-b border-gray-100 last:border-0"
           >
             <!-- Image (image mode) -->
-            <div v-if="camp.imageUrl && camp.displayMode !== 'banner'" class="relative aspect-video overflow-hidden">
-              <img :src="camp.imageUrl" class="w-full h-full object-cover" alt="" />
+            <button
+              v-if="camp.imageUrl && camp.displayMode !== 'banner'"
+              type="button"
+              class="relative w-full overflow-hidden text-left"
+              :class="camp.imageOrientation === 'portrait' ? 'aspect-[3/4]' : 'aspect-video'"
+              @click="goToCampaign(camp.id)"
+            >
+              <img :src="camp.imageUrl" class="w-full h-full object-cover object-top" alt="" />
               <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
               <div class="absolute bottom-0 left-0 right-0 p-4">
                 <p class="font-bold text-white text-base leading-tight">{{ camp.name }}</p>
-                <p v-if="camp.description" class="text-xs text-white/80 mt-1 leading-relaxed">{{ camp.description }}</p>
                 <p v-if="camp.expiredAt" class="text-xs text-white/50 mt-1">
                   ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) }}
                 </p>
               </div>
-            </div>
+            </button>
 
             <!-- Banner color mode -->
-            <div
+            <button
               v-else
-              class="px-4 py-4"
+              type="button"
+              class="w-full px-4 py-4 text-left"
               :style="camp.displayMode === 'banner' ? `background: ${camp.bannerColor || '#1B2B4B'}` : ''"
+              @click="goToCampaign(camp.id)"
             >
               <div class="flex items-start gap-3">
                 <img v-if="camp.imageUrl" :src="camp.imageUrl" class="w-12 h-12 rounded-xl object-cover flex-shrink-0" alt="" />
@@ -569,7 +546,7 @@ function formatCouponValue(c: CampaignCoupon) {
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
 
             <!-- Coupons -->
             <div v-if="camp.coupons.length" class="px-2 pt-3 pb-4 space-y-2">
@@ -612,8 +589,10 @@ function formatCouponValue(c: CampaignCoupon) {
             <span class="text-xs text-blue-600">สั่งออเดอร์</span>
             <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
             <span class="text-xs text-blue-600">เลือกสินค้า</span>
-            <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
-            <span class="text-xs text-blue-600">กดใช้คูปอง</span>
+            <template v-if="campaigns.some(c => c.coupons.length > 0)">
+              <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
+              <span class="text-xs text-blue-600">กดใช้คูปอง</span>
+            </template>
             <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
             <span class="text-xs text-blue-600">ชำระเงิน</span>
             <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />

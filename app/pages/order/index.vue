@@ -35,6 +35,17 @@ interface CartItem {
   note: string
 }
 
+interface Campaign {
+  id: string
+  name: string
+  description: string | null
+  imageUrl: string | null
+  imageOrientation: string | null
+  displayMode: string | null
+  bannerColor: string | null
+  expiredAt: string | null
+}
+
 // ─── State ────────────────────────────────────────────────────────────────────
 const products = ref<Product[]>([])
 const cart = ref<CartItem[]>([])
@@ -206,6 +217,28 @@ const subtotal = computed(() =>
 
 const cartCount = computed(() => cart.value.reduce((s, i) => s + i.quantity, 0))
 
+// ─── Campaign popup ───────────────────────────────────────────────────────────
+const campaigns = ref<Campaign[]>([])
+const showCampaignPopup = ref(false)
+const popupDismissToday = ref(false)
+const POPUP_KEY = 'campaign_popup_dismissed_guest'
+
+function getTodayStr() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok' }).format(new Date())
+}
+
+function closeCampaignPopup() {
+  if (popupDismissToday.value) {
+    localStorage.setItem(POPUP_KEY, getTodayStr())
+  }
+  showCampaignPopup.value = false
+}
+
+function goToCampaign(id: string) {
+  closeCampaignPopup()
+  navigateTo(`/campaigns/${id}`)
+}
+
 // ─── Load data ────────────────────────────────────────────────────────────────
 onMounted(async () => {
   if (!authedMember.value) await fetchMe()
@@ -216,8 +249,19 @@ onMounted(async () => {
   checkingSession.value = false
 
   try {
-    const res = await http.get<{ data: Product[] }>(API_ENDPOINTS.PUBLIC.PRODUCTS)
-    products.value = res.data ?? []
+    const [productsRes, homeRes] = await Promise.all([
+      http.get<{ data: Product[] }>(API_ENDPOINTS.PUBLIC.PRODUCTS),
+      http.get<{ data: { campaigns: Campaign[] } }>('/api/public/home'),
+    ])
+    products.value = productsRes.data ?? []
+    campaigns.value = homeRes.data?.campaigns ?? []
+
+    if (campaigns.value.length > 0) {
+      const dismissed = localStorage.getItem(POPUP_KEY)
+      if (dismissed !== getTodayStr()) {
+        showCampaignPopup.value = true
+      }
+    }
   } catch {
     // silent
   } finally {
@@ -634,5 +678,117 @@ const steps = [
         </div>
       </div>
     </Teleport>
+
+    <!-- Campaign Popup -->
+    <Transition name="fade">
+      <div
+        v-if="showCampaignPopup"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      >
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" @click="closeCampaignPopup" />
+
+        <!-- Modal -->
+        <div
+          class="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+          style="max-height: 85vh; max-height: 85dvh;"
+        >
+          <!-- Header -->
+          <div class="bg-gradient-to-r from-[#1B2B4B] to-[#2a3f6b] px-5 py-4 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center gap-2">
+              <Icon name="mdi:tag-multiple" class="text-xl text-white" />
+              <p class="font-bold text-white">โปรโมชันและแคมเปญ</p>
+            </div>
+            <button class="text-white/60 hover:text-white transition-colors p-1" @click="closeCampaignPopup">
+              <Icon name="mdi:close" class="text-xl" />
+            </button>
+          </div>
+
+          <!-- Campaign list -->
+          <div class="overflow-y-auto flex-1">
+            <div
+              v-for="camp in campaigns"
+              :key="camp.id"
+              class="border-b border-gray-100 last:border-0"
+            >
+              <!-- Image (image mode) -->
+              <button
+                v-if="camp.imageUrl && camp.displayMode !== 'banner'"
+                type="button"
+                class="relative w-full overflow-hidden text-left"
+                :class="camp.imageOrientation === 'portrait' ? 'aspect-[3/4]' : 'aspect-video'"
+                @click="goToCampaign(camp.id)"
+              >
+                <img :src="camp.imageUrl" class="w-full h-full object-cover object-top" alt="" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                <div class="absolute bottom-0 left-0 right-0 p-4">
+                  <p class="font-bold text-white text-base leading-tight">{{ camp.name }}</p>
+                  <p v-if="camp.expiredAt" class="text-xs text-white/50 mt-1">
+                    ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) }}
+                  </p>
+                </div>
+              </button>
+
+              <!-- Banner color mode -->
+              <button
+                v-else
+                type="button"
+                class="w-full px-4 py-4 text-left"
+                :style="camp.displayMode === 'banner' ? `background: ${camp.bannerColor || '#1B2B4B'}` : ''"
+                @click="goToCampaign(camp.id)"
+              >
+                <div class="flex items-start gap-3">
+                  <img v-if="camp.imageUrl" :src="camp.imageUrl" class="w-12 h-12 rounded-xl object-cover flex-shrink-0" alt="" />
+                  <div class="flex-1 min-w-0">
+                    <p class="font-bold text-base leading-tight" :class="camp.displayMode === 'banner' ? 'text-white' : 'text-gray-900'">{{ camp.name }}</p>
+                    <p v-if="camp.description" class="text-sm mt-1 leading-relaxed" :class="camp.displayMode === 'banner' ? 'text-white/80' : 'text-gray-600'">{{ camp.description }}</p>
+                    <p v-if="camp.expiredAt" class="text-xs mt-1.5" :class="camp.displayMode === 'banner' ? 'text-white/50' : 'text-gray-400'">
+                      ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) }}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
+
+            <!-- How to use -->
+            <div class="mx-4">
+             <span class="text-xs font-bold text-blue-700 mr-1">วิธีใช้:</span>
+            </div>
+            <div class="mx-2 mb-4 mt-1 bg-blue-50 rounded-xl px-2 py-2 flex items-center gap-0.5 flex-wrap">
+              <span class="text-xs text-blue-600">สั่งออเดอร์</span>
+              <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
+              <span class="text-xs text-blue-600">เลือกสินค้า</span>
+              <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
+              <span class="text-xs text-blue-600">ชำระเงิน</span>
+              <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
+              <span class="text-xs text-blue-600">รับที่ร้าน</span>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-5 py-4 border-t border-gray-100 flex items-center justify-between gap-3 flex-shrink-0 bg-white">
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                v-model="popupDismissToday"
+                type="checkbox"
+                class="w-4 h-4 rounded accent-[#1B2B4B] cursor-pointer"
+              />
+              <span class="text-sm text-gray-500">ไม่ต้องแสดงวันนี้อีก</span>
+            </label>
+            <button
+              class="px-5 py-2 bg-[#1B2B4B] text-white text-sm font-semibold rounded-xl hover:bg-[#2a3f6b] transition-colors"
+              @click="closeCampaignPopup"
+            >
+              ปิด
+            </button>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+</style>

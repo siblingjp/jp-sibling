@@ -3,10 +3,12 @@ export default defineEventHandler(async (event) => {
     const session = await getUserSession(event)
     const memberId = session.member?.id ?? null
     const memberTier = session.member?.tier ?? null
+    const id = getRouterParam(event, 'id')!
     const now = new Date()
 
-    const campaigns = await prisma.campaign.findMany({
+    const campaign = await prisma.campaign.findFirst({
       where: {
+        id,
         isActive: true,
         OR: [{ startAt: null }, { startAt: { lte: now } }],
         AND: [{ OR: [{ expiredAt: null }, { expiredAt: { gte: now } }] }],
@@ -33,33 +35,33 @@ export default defineEventHandler(async (event) => {
           },
         },
       },
-      orderBy: { createdAt: 'desc' },
-      take: 10,
     })
+
+    if (!campaign) throw notFound('ไม่พบแคมเปญนี้')
 
     const tierOrder: Record<string, number> = { SILVER: 0, GOLD: 1, VIP: 2 }
     const memberTierRank = memberTier ? (tierOrder[memberTier] ?? 0) : -1
 
-    const result = campaigns.map((c) => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      imageUrl: c.imageUrl,
-      imageOrientation: c.imageOrientation,
-      displayMode: c.displayMode,
-      bannerColor: c.bannerColor,
-      startAt: c.startAt,
-      expiredAt: c.expiredAt,
-      memberOnly: c.memberOnly,
-      minTier: c.minTier,
-      coupons: c.coupons
+    const result = {
+      id: campaign.id,
+      name: campaign.name,
+      description: campaign.description,
+      imageUrl: campaign.imageUrl,
+      imageOrientation: campaign.imageOrientation,
+      displayMode: campaign.displayMode,
+      bannerColor: campaign.bannerColor,
+      startAt: campaign.startAt,
+      expiredAt: campaign.expiredAt,
+      memberOnly: campaign.memberOnly,
+      minTier: campaign.minTier,
+      coupons: campaign.coupons
         .map((cc) => cc.coupon)
         .filter((coupon) => {
           if (!coupon.isActive) return false
           if (coupon.minTier && memberTierRank < (tierOrder[coupon.minTier] ?? 0)) return false
           return true
         }),
-    }))
+    }
 
     return okResponse(result)
   } catch (e) {
