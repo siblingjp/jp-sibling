@@ -155,6 +155,10 @@ async function updateStatus(status: string) {
               <span>แลกแต้ม ({{ order.pointsRedeemed }} pts)</span>
               <span>-฿{{ formatPrice(order.pointsRedeemed) }}</span>
             </div>
+            <div v-if="order.freeItemName" class="flex justify-between text-purple-600">
+              <span>แลกฟรีด้วยแสตมป์ ({{ order.freeItemName }})</span>
+              <span>-฿{{ formatPrice(order.freeItemDiscount) }}</span>
+            </div>
             <div class="flex justify-between font-bold text-gray-900 text-base pt-1 border-t border-gray-100">
               <span>ยอดรวม</span><span>฿{{ formatPrice(order.total) }}</span>
             </div>

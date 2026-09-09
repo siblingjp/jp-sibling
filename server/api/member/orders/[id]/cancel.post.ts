@@ -15,6 +15,8 @@ export default defineEventHandler(async (event) => {
     const updated = await prisma.$transaction(async (tx) => {
       // คืนแต้มที่เคยหักไปตอนแลก
       await reverseRedeemedPoints(tx, order.id, session.member!.id, order.pointsRedeemed)
+      // ปลดล็อกสิทธิ์แลกแสตมป์ (ถ้ามี) กลับไปแลกใหม่ได้
+      await releaseStampRedemption(tx, order.id)
 
       return tx.order.update({
         where: { id },

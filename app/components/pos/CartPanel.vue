@@ -36,7 +36,6 @@ const emit = defineEmits<{
   applyCoupon: [code: string]
   clearCoupon: []
   updatePointsRedeem: [v: number]
-  redeemStamp: []
   checkout: []
   checkoutUnpaid: []
   changePayment: []
@@ -221,16 +220,13 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
         </div>
       </div>
 
-      <!-- Stamp Redeem -->
-      <div v-else-if="loyaltyMode === 'STAMPS' && member">
-        <button
-          class="w-full py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium hover:bg-amber-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-          :disabled="member.stampCount < 10"
-          @click="emit('redeemStamp')"
-        >
+      <!-- Stamp balance (redeem after order is created, on order detail page) -->
+      <div v-else-if="loyaltyMode === 'STAMPS' && member" class="flex items-center justify-between px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium">
+        <span class="flex items-center gap-1.5">
           <Icon name="mdi:coffee" class="text-base" />
-          แลกฟรี 1 แก้ว ({{ member.stampCount }}/10)
-        </button>
+          แสตมป์สะสม
+        </span>
+        <span>{{ member.stampCount }}/10</span>
       </div>
 
       <!-- Discount / Coupon -->
@@ -419,7 +415,7 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
           v-if="!editMode"
           type="button"
           class="flex-1 py-3.5 rounded-xl font-semibold text-white transition-colors"
-          :class="cart.length > 0 && !isSubmitting ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-300 cursor-not-allowed'"
+          :class="cart.length > 0 && !isSubmitting ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'"
           :disabled="cart.length === 0 || isSubmitting"
           @click="emit('checkoutUnpaid')"
         >
@@ -435,13 +431,14 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
           💳 ชำระ
         </button>
         <button
+          v-if="editMode"
           type="button"
           class="flex-1 py-3.5 rounded-xl font-semibold text-white transition-colors"
           :class="cart.length > 0 && !isSubmitting ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed'"
           :disabled="cart.length === 0 || isSubmitting"
           @click="emit('checkout')"
         >
-          {{ editMode ? '💾 บันทึก' : 'ชำระเงิน →' }}
+          💾 บันทึก
         </button>
       </div>
     </div>

@@ -4,12 +4,16 @@ import { API_ENDPOINTS } from '~/composables/constants/api'
 definePageMeta({ layout: 'pos', middleware: 'auth' })
 
 const route = useRoute()
-const { showError, showConfirm } = useAlert()
+const { showError, showSuccess, showConfirm } = useAlert()
+const { mode: loyaltyMode, fetchMode: fetchLoyaltyMode } = useLoyaltyMode()
 
 const id = route.params.id as string
 const isLoading = ref(true)
 const isUpdating = ref(false)
 const order = ref<any>(null)
+
+const MAX_STAMPS = 10
+const FREE_ITEM_MAX_PRICE = 40
 
 const nextStatus: Record<string, string> = {
   PENDING: 'PREPARING',
@@ -42,12 +46,67 @@ const statusLabel: Record<string, string> = {
 async function load() {
   isLoading.value = true
   try {
-    const res = await useHttpClient().get<{ data: any }>(API_ENDPOINTS.POS.ORDERS.SHOW(id))
+    const [res] = await Promise.all([
+      useHttpClient().get<{ data: any }>(API_ENDPOINTS.POS.ORDERS.SHOW(id)),
+      fetchLoyaltyMode(),
+    ])
     order.value = res.data
   } catch (e: any) {
     showError(e?.message ?? 'โหลดข้อมูลไม่สำเร็จ')
   } finally {
     isLoading.value = false
+  }
+}
+
+// ─── Stamp redemption (แลกแสตมป์ครบ 10 ดวง เป็นแก้วฟรี 1 แก้ว ราคาไม่เกิน 40 บาท) ──
+const showFreeItemPicker = ref(false)
+const isRedeeming = ref(false)
+
+const canRedeemStamp = computed(() =>
+  loyaltyMode.value === 'STAMPS' &&
+  order.value?.member &&
+  !order.value.payment &&
+  !order.value.freeItemName &&
+  (order.value.member.stampCount ?? 0) >= MAX_STAMPS
+)
+
+const freeItemCandidates = computed(() =>
+  (order.value?.items ?? [])
+    .map((item: any, idx: number) => ({ item, idx }))
+    .filter(({ item }: any) => Number(item.unitPrice) <= FREE_ITEM_MAX_PRICE)
+)
+
+async function handleRedeemStampClick() {
+  const ok = await showConfirm({
+    title: `แสตมป์ครบ ${MAX_STAMPS} ดวงแล้ว!`,
+    message: `สมาชิกต้องการใช้สิทธิ์แลกแก้วฟรี 1 แก้วในออเดอร์นี้เลยไหม?`,
+    confirmText: 'ใช้สิทธิ์',
+    cancelText: 'ไม่ใช้สิทธิ์',
+  })
+  if (!ok) return
+
+  if (freeItemCandidates.value.length === 0) {
+    showError(`ไม่มีสินค้าในออเดอร์นี้ที่ราคาไม่เกิน ${FREE_ITEM_MAX_PRICE} บาท`)
+    return
+  }
+  if (freeItemCandidates.value.length === 1) {
+    await redeemStampForItem(freeItemCandidates.value[0].idx)
+    return
+  }
+  showFreeItemPicker.value = true
+}
+
+async function redeemStampForItem(itemIndex: number) {
+  showFreeItemPicker.value = false
+  isRedeeming.value = true
+  try {
+    await useHttpClient().post(API_ENDPOINTS.POS.ORDERS.STAMP_REDEEM(id), { itemIndex })
+    showSuccess('ใช้สิทธิ์แลกแก้วฟรีสำเร็จ')
+    await load()
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'ใช้สิทธิ์ไม่สำเร็จ')
+  } finally {
+    isRedeeming.value = false
   }
 }
 
@@ -251,12 +310,26 @@ onMounted(load)
       </div>
 
       <!-- Member -->
-      <div v-if="order.member" class="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-3">
-        <Icon name="flat-color-icons:businessman" class="text-2xl flex-shrink-0" />
-        <div>
-          <p class="text-sm font-semibold text-gray-900">{{ order.member.name }}</p>
-          <p v-if="order.member.phone" class="text-xs text-gray-400">{{ order.member.phone }}</p>
+      <div v-if="order.member" class="bg-white rounded-2xl shadow-sm p-4 space-y-3">
+        <div class="flex items-center gap-3">
+          <Icon name="flat-color-icons:businessman" class="text-2xl flex-shrink-0" />
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-gray-900">{{ order.member.name }}</p>
+            <p v-if="order.member.phone" class="text-xs text-gray-400">{{ order.member.phone }}</p>
+          </div>
+          <span v-if="loyaltyMode === 'STAMPS'" class="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded-full flex-shrink-0">
+            {{ order.member.stampCount ?? 0 }}/{{ MAX_STAMPS }} แสตมป์
+          </span>
         </div>
+        <button
+          v-if="canRedeemStamp"
+          :disabled="isRedeeming"
+          class="w-full py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium hover:bg-amber-100 disabled:opacity-40 transition-colors flex items-center justify-center gap-2"
+          @click="handleRedeemStampClick"
+        >
+          <Icon name="mdi:coffee" class="text-base" />
+          {{ isRedeeming ? 'กำลังใช้สิทธิ์...' : 'รับสิทธิ์แลกฟรี 1 แก้ว' }}
+        </button>
       </div>
 
       <!-- Items -->
@@ -288,6 +361,9 @@ onMounted(load)
           </div>
           <div v-if="Number(order.pointsRedeemed) > 0" class="flex justify-between text-sm text-purple-600">
             <span>แลกแต้ม {{ order.pointsRedeemed }} pts</span><span>-฿{{ formatPrice(order.pointsRedeemed) }}</span>
+          </div>
+          <div v-if="order.freeItemName" class="flex justify-between text-sm text-purple-600">
+            <span>แลกฟรีด้วยแสตมป์ ({{ order.freeItemName }})</span><span>-฿{{ formatPrice(order.freeItemDiscount) }}</span>
           </div>
           <div class="flex justify-between font-bold text-gray-900">
             <span>รวมทั้งหมด</span><span>฿{{ formatPrice(order.total) }}</span>
@@ -375,6 +451,38 @@ onMounted(load)
     <div v-else class="flex-1 flex items-center justify-center text-gray-400 text-sm">ไม่พบออเดอร์</div>
   </div>
 
+  <!-- Free item picker modal -->
+  <Teleport to="body">
+    <div v-if="showFreeItemPicker" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+      <div class="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl">
+        <div class="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+          <h3 class="text-lg font-bold text-gray-900">เลือกแก้วที่จะแลกฟรี</h3>
+          <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="showFreeItemPicker = false">×</button>
+        </div>
+        <div class="p-5 space-y-2">
+          <p class="text-xs text-gray-400 mb-2">เลือกได้เฉพาะสินค้าราคาไม่เกิน {{ FREE_ITEM_MAX_PRICE }} บาท</p>
+          <button
+            v-for="{ item, idx } in freeItemCandidates"
+            :key="idx"
+            type="button"
+            class="w-full flex items-center justify-between rounded-xl px-4 py-3 border border-gray-200 hover:border-amber-300 hover:bg-amber-50 transition-colors text-left"
+            @click="redeemStampForItem(idx)"
+          >
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-gray-800 truncate">{{ item.product.name }}</p>
+              <p v-if="item.options?.length" class="text-xs text-gray-400 truncate">
+                {{ item.options.map((o: any) => o.name).join(', ') }}
+              </p>
+            </div>
+            <span class="text-sm font-semibold text-amber-700 flex-shrink-0 ml-2">
+              ฿{{ Number(item.unitPrice).toFixed(0) }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
+
   <!-- Payment Modal -->
   <Teleport to="body">
     <div v-if="showPaymentModal" class="fixed inset-0 z-50 flex items-center justify-center">
@@ -401,6 +509,12 @@ onMounted(load)
             @click="payMethod = m"
           >{{ methodLabel[m] }}</button>
         </div>
+
+        <!-- คำเตือน: ถ้าชำระเงินแล้วจะใช้สิทธิ์แลกแก้วฟรีไม่ได้อีก -->
+        <p v-if="canRedeemStamp" class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <Icon name="mdi:alert-circle-outline" class="inline-block align-middle mr-1" />
+          หมายเหตุ: หากเลือกช่องทางชำระเงินแล้ว จะไม่สามารถใช้สิทธิ์แลกแก้วฟรีให้ออเดอร์นี้ได้อีก
+        </p>
 
         <!-- CASH -->
         <div v-if="payMethod === 'CASH'" class="space-y-3">

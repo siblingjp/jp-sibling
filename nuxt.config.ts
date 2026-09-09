@@ -32,7 +32,11 @@ export default defineNuxtConfig({
     },
     session: {
       password: process.env.NUXT_SESSION_PASSWORD || '',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
+      maxAge: 60 * 60 * 24 * 30, // 30 days (rolling — ต่ออายุทุกครั้งที่เรียก /api/member/auth/me)
+      cookie: {
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+      },
     },
     oauth: {
       line: {

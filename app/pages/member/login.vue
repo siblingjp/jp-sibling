@@ -4,7 +4,8 @@ definePageMeta({ layout: false })
 const { login, fetchMe, member } = useMemberAuth()
 const router = useRouter()
 
-const email = ref('')
+const route = useRoute()
+const identifier = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
@@ -12,21 +13,23 @@ const loading = ref(false)
 onMounted(async () => {
   if (!member.value) await fetchMe()
   if (member.value) router.replace('/member')
+  if (route.query.email) identifier.value = String(route.query.email)
+  if (route.query.expired) error.value = 'เซสชันหมดอายุ กรุณาเข้าสู่ระบบอีกครั้ง'
 })
 
 async function handleLogin() {
   error.value = ''
   loading.value = true
   try {
-    await login({ email: email.value, password: password.value })
+    await login({ identifier: identifier.value, password: password.value })
     await fetchMe()
     router.push('/member')
   } catch (e: any) {
     if (e?.statusCode === 404) {
-      router.push(`/member/register?email=${encodeURIComponent(email.value)}`)
+      router.push(`/member/register?email=${encodeURIComponent(identifier.value)}`)
       return
     }
-    error.value = 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
+    error.value = 'อีเมล/เบอร์โทร หรือรหัสผ่านไม่ถูกต้อง'
   } finally {
     loading.value = false
   }
@@ -75,13 +78,13 @@ async function handleLogin() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">อีเมล หรือ เบอร์โทร</label>
             <input
-              v-model="email"
-              type="email"
+              v-model="identifier"
+              type="text"
               required
               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8] focus:border-transparent"
-              placeholder="you@example.com"
+              placeholder="you@example.com หรือ 0812345678"
             />
           </div>
 

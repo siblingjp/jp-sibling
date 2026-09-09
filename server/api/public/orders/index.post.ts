@@ -18,6 +18,14 @@ const schema = z.object({
   pickupTime: z.string().optional(),
   paymentMethod: z.enum(['CASH', 'CARD', 'QR', 'THAI_HELP']).default('QR'),
   memberId: z.string().optional(),
+  freeItemIndex: z.number().int().nonnegative().optional(),
+}).superRefine((data, ctx) => {
+  if (data.freeItemIndex !== undefined && data.freeItemIndex >= data.items.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['freeItemIndex'], message: 'ไม่พบสินค้าที่เลือกแลกฟรี' })
+  }
+  if (data.freeItemIndex !== undefined && !data.memberId) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['freeItemIndex'], message: 'ต้องระบุสมาชิกก่อนแลกสิทธิ์' })
+  }
 })
 
 export default defineEventHandler(async (event) => {
@@ -47,17 +55,35 @@ export default defineEventHandler(async (event) => {
       return { ...item, unitPrice, subtotal: itemSubtotal }
     })
 
-    const total = subtotal
-
     // สมาชิกที่ผูกจากเบอร์โทร (ถ้ามี) — ต้อง active จริงเท่านั้น
     const member = body.memberId
       ? await prisma.member.findUnique({ where: { id: body.memberId, isActive: true } })
       : null
 
     const loyaltyMode = await getLoyaltyMode()
+
+    // Validate free-item stamp redemption (แลกแสตมป์ครบ 10 ดวง แลกฟรี 1 แก้ว ราคาไม่เกิน 40 บาท)
+    let freeItemDiscount = 0
+    let freeItemName: string | undefined
+    if (body.freeItemIndex !== undefined) {
+      if (!member) throw badRequest('ต้องระบุสมาชิกก่อนแลกสิทธิ์')
+      if (loyaltyMode !== 'STAMPS') throw badRequest('ระบบไม่ได้เปิดใช้งานแสตมป์')
+      const freeItem = itemsData[body.freeItemIndex]
+      const freeProduct = productMap.get(freeItem.productId)!
+      await validateFreeItemRedemption(member.id, member.stampCount, freeProduct)
+      // แลกฟรีได้ 1 หน่วยของรายการนั้น (unitPrice รวม option) ไม่ใช่ทั้งจำนวนที่สั่ง
+      freeItemDiscount = freeItem.unitPrice
+      freeItemName = freeProduct.name
+    }
+
+    const total = Math.max(subtotal - freeItemDiscount, 0)
     const pointsEarned = member && loyaltyMode === 'POINTS' ? calcPointsEarned(total, member.tier) : 0
     const stampsEligible = member && loyaltyMode === 'STAMPS'
-      ? calcEligibleCupCount(itemsData.map(item => ({ quantity: item.quantity, product: productMap.get(item.productId)! })))
+      ? calcEligibleCupCount(itemsData.map((item, idx) => ({
+          // แก้วที่แลกฟรีด้วยแสตมป์ไม่นับสะสมแสตมป์เพิ่มอีก 1 หน่วย
+          quantity: idx === body.freeItemIndex ? item.quantity - 1 : item.quantity,
+          product: productMap.get(item.productId)!,
+        })))
       : 0
 
     // Queue number for today
@@ -69,46 +95,56 @@ export default defineEventHandler(async (event) => {
     })
     const queueNo = (lastOrder?.queueNo ?? 0) + 1
 
-    const order = await prisma.order.create({
-      data: {
-        queueNo,
-        source: 'WEBAPP',
-        guestName: body.guestName.trim(),
-        member: member ? { connect: { id: member.id } } : undefined,
-        note: body.note,
-        pickupTime: body.pickupTime,
-        subtotal,
-        discount: 0,
-        total,
-        pointsEarned,
-        pointsRedeemed: 0,
-        stampsEligible,
-        status: 'PENDING',
-        items: {
-          create: itemsData.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subtotal: item.subtotal,
-            note: item.note,
-            options: {
-              create: item.options.map(o => ({
-                optionId: o.optionId,
-                name: o.name,
-                extraPrice: o.extraPrice,
-              })),
+    const order = await prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          queueNo,
+          source: 'WEBAPP',
+          guestName: body.guestName.trim(),
+          member: member ? { connect: { id: member.id } } : undefined,
+          note: body.note,
+          pickupTime: body.pickupTime,
+          subtotal,
+          discount: 0,
+          freeItemName,
+          freeItemDiscount: freeItemName ? freeItemDiscount : undefined,
+          total,
+          pointsEarned,
+          pointsRedeemed: 0,
+          stampsEligible,
+          status: 'PENDING',
+          items: {
+            create: itemsData.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              subtotal: item.subtotal,
+              note: item.note,
+              options: {
+                create: item.options.map(o => ({
+                  optionId: o.optionId,
+                  name: o.name,
+                  extraPrice: o.extraPrice,
+                })),
+              },
+            })),
+          },
+          payment: {
+            create: {
+              method: body.paymentMethod,
+              amount: total,
+              change: 0,
             },
-          })),
-        },
-        payment: {
-          create: {
-            method: body.paymentMethod,
-            amount: total,
-            change: 0,
           },
         },
-      },
-    })
+      })
+
+      if (body.freeItemIndex !== undefined && member) {
+        await lockStampRedemption(tx, member.id, created.id)
+      }
+
+      return created
+    }, { timeout: 15000, maxWait: 5000 })
 
     // หมายเหตุ: แต้ม/แสตมป์ (pointsEarned/stampsEligible) จะถูกให้จริงตอนออเดอร์ COMPLETED
     // + มี payment เท่านั้น (ดู pos/orders/[id].patch.ts, admin/orders/[id]/status.patch.ts)

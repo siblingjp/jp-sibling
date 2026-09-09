@@ -6,20 +6,7 @@ const http = useHttpClient()
 const { canInstall, platform, hasNativePrompt, install, dismiss } = usePwaInstall()
 const { mode, fetchMode } = useLoyaltyMode()
 
-interface PendingRedemption { id: string; requestedAt: string }
-const pendingRedemption = ref<PendingRedemption | null>(null)
-
-onMounted(async () => {
-  await fetchMode()
-  if (mode.value === 'STAMPS') {
-    try {
-      const res = await http.get<{ data: { pendingRedemption: PendingRedemption | null } }>(API_ENDPOINTS.MEMBER.STAMPS.SHOW)
-      pendingRedemption.value = res.data?.pendingRedemption ?? null
-    } catch {
-      // silent
-    }
-  }
-})
+onMounted(fetchMode)
 
 async function copyUrlAndDismiss() {
   await navigator.clipboard.writeText(window.location.href)
@@ -312,20 +299,6 @@ function formatCouponValue(c: CampaignCoupon) {
         <p class="text-white/70 text-sm mb-1">แต้มสะสม</p>
         <p class="text-4xl font-bold">{{ (member?.points ?? 0).toLocaleString() }}</p>
       </div>
-    </div>
-
-    <!-- Pending stamp redemption -->
-    <div v-if="mode === 'STAMPS' && pendingRedemption" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3">
-      <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-        <Icon name="mdi:clock-outline" class="text-xl text-amber-600" />
-      </div>
-      <div class="flex-1 min-w-0">
-        <p class="font-semibold text-sm text-gray-800">รอพนักงานยืนยันการแลกแก้วฟรี</p>
-        <p class="text-xs text-gray-400">แสดงหน้านี้หรือหน้าประวัติแสตมป์ให้พนักงานที่ร้านเพื่อยืนยัน</p>
-      </div>
-      <NuxtLink to="/member/points" class="text-xs text-[#1B2B4B] font-medium hover:underline flex-shrink-0">
-        ดู QR
-      </NuxtLink>
     </div>
 
     <!-- Tier progress -->

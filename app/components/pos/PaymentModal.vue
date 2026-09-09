@@ -2,6 +2,7 @@
 const props = defineProps<{
   total: number
   isSubmitting: boolean
+  showStampWarning?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -74,6 +75,12 @@ function handleConfirm(startPreparing = false) {
             @click="method = m"
           >{{ methodLabel[m] }}</button>
         </div>
+
+        <!-- คำเตือน: ถ้าชำระเงินแล้วจะใช้สิทธิ์แลกแก้วฟรีไม่ได้อีก -->
+        <p v-if="showStampWarning && !isUnpaid" class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          <Icon name="mdi:alert-circle-outline" class="inline-block align-middle mr-1" />
+          หมายเหตุ: หากเลือกช่องทางชำระเงินแล้ว จะไม่สามารถใช้สิทธิ์แลกแก้วฟรีให้ออเดอร์นี้ได้อีก
+        </p>
 
         <!-- CASH -->
         <div v-if="method === 'CASH'" class="space-y-3">

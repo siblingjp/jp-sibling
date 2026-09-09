@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
         name: true,
         phone: true,
         tier: true,
+        stampCount: true,
       },
     })
 

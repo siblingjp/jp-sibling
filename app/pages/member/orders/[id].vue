@@ -20,6 +20,8 @@ interface OrderDetail {
   note: string | null
   pickupTime: string | null
   couponCode: string | null
+  freeItemName: string | null
+  freeItemDiscount: string | number | null
   slipUrls: string[]
   createdAt: string
   items: {
@@ -207,6 +209,10 @@ const paymentLabel: Record<string, string> = {
             </template>
           </span>
           <span>-฿{{ Number(order.discount).toFixed(2) }}</span>
+        </div>
+        <div v-if="order.freeItemName" class="flex justify-between text-sm text-green-600">
+          <span>แลกฟรีด้วยแสตมป์ ({{ order.freeItemName }})</span>
+          <span>-฿{{ Number(order.freeItemDiscount ?? 0).toFixed(2) }}</span>
         </div>
         <div class="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100">
           <span>รวมทั้งหมด</span><span>฿{{ Number(order.total).toFixed(2) }}</span>

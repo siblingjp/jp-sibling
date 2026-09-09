@@ -419,7 +419,7 @@ function formatPickupTime(pt: string | null | undefined): string {
                 {{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร', UNSPECIFIED: 'ไม่ระบุ' } as Record<string,string>)[order.payment.method] ?? order.payment.method }}
               </span>
               <span v-else-if="order.status !== 'CANCELLED' && order.source === 'POS'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-600 font-medium">ค้างชำระ</span>
-              <span v-else-if="order.source === 'ONLINE'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">QR</span>
+              <span v-else-if="order.source === 'ONLINE'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">รอชำระ</span>
               <span v-else-if="order.source === 'WEBAPP'" class="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">{{ ({ CASH: 'เงินสด', QR: 'QR', THAI_HELP: 'โครงการรัฐ', CARD: 'บัตร', UNSPECIFIED: 'ไม่ระบุ' } as Record<string,string>)[order.payment?.method] ?? 'รอชำระ' }}</span>
             </div>
           </div>
@@ -429,6 +429,9 @@ function formatPickupTime(pt: string | null | undefined): string {
             <div class="flex items-center justify-between">
               <span v-if="order.acknowledgedAt" class="text-green-600 font-medium flex items-center gap-1">
                 <Icon name="mdi:check-circle" class="w-3.5 h-3.5" />รับทราบแล้ว
+              </span>
+              <span v-if="order.payment?.method === 'CASH'" class="text-orange-600 font-medium flex items-center gap-1">
+                <Icon name="mdi:storefront-outline" class="w-3.5 h-3.5" />ชำระหน้าร้าน
               </span>
             </div>
             <div v-if="order.slipUrls?.length" class="flex gap-1.5 flex-wrap">

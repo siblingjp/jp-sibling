@@ -93,9 +93,6 @@ export const API_ENDPOINTS = {
     SETTINGS: {
       LOYALTY: '/api/admin/settings/loyalty',
     },
-    STAMP_REDEMPTIONS: {
-      LIST: '/api/admin/stamp-redemptions',
-    },
   },
 
   POS: {
@@ -112,14 +109,13 @@ export const API_ENDPOINTS = {
       FILL: (id: string) => `/api/pos/orders/${id}/fill`,
       EDIT_ITEMS: (id: string) => `/api/pos/orders/${id}/edit-items`,
       ACKNOWLEDGE: (id: string) => `/api/pos/orders/${id}/acknowledge`,
+      STAMP_REDEEM: (id: string) => `/api/pos/orders/${id}/stamp-redeem`,
     },
     PAYMENTS: {
       CREATE: '/api/pos/payments',
       UPDATE: (id: string) => `/api/pos/payments/${id}`,
     },
     QUEUE_RESERVE: '/api/pos/queue-reserve',
-    STAMP_REDEEM: '/api/pos/stamp-redeem',
-    STAMP_REDEMPTION_CONFIRM: (id: string) => `/api/pos/stamp-redemptions/${id}`,
   },
 
   MEMBER: {

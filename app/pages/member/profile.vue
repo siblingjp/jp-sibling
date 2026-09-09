@@ -26,7 +26,7 @@ function startEdit() {
 async function handleSave() {
   loading.value = true
   try {
-    await store.updateProfile({ name: form.name, phone: form.phone || undefined })
+    await store.updateProfile({ name: form.name, phone: form.phone })
     editing.value = false
     showSuccess('Profile updated')
   } catch (e: unknown) {
@@ -117,7 +117,7 @@ function formatDate(d: string) {
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทร</label>
-          <input v-model="form.phone" type="tel"
+          <input v-model="form.phone" type="tel" required pattern="[0-9]{9,10}"
             class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
             placeholder="0812345678" />
         </div>

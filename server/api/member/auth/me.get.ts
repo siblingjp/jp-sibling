@@ -14,13 +14,12 @@ export default defineEventHandler(async (event) => {
     })
     if (!member) throw unauthorized()
 
-    // sync session ถ้า points เปลี่ยน (stampCount ไม่ได้เก็บใน session)
-    if (member.points !== session.member.points) {
-      await setUserSession(event, {
-        ...session,
-        member: { ...session.member, points: member.points, tier: member.tier },
-      })
-    }
+    // ต่ออายุ session ทุกครั้งที่เปิดแอป (rolling session) — ป้องกันการหลุด login
+    // ก่อนครบ 30 วันจริง โดยเฉพาะบน iOS ที่ระบบอาจเคลียร์ storage ถ้าไม่ได้เปิดแอปนาน ๆ
+    await replaceUserSession(event, {
+      ...session,
+      member: { ...session.member, points: member.points, tier: member.tier },
+    })
 
     return okResponse(member)
   } catch (e) {

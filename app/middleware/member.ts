@@ -1,4 +1,4 @@
-export default defineNuxtRouteMiddleware(async () => {
+export default defineNuxtRouteMiddleware(async (to) => {
   // SSR — ข้ามไป ให้ client-side จัดการ
   if (import.meta.server) return
 
@@ -9,6 +9,12 @@ export default defineNuxtRouteMiddleware(async () => {
   }
 
   if (!store.member) {
-    return navigateTo('/member/login')
+    let everLoggedIn = false
+    try { everLoggedIn = !!localStorage.getItem('member_ever_logged_in') } catch { /* private mode */ }
+    return navigateTo(everLoggedIn ? '/member/login?expired=1' : '/member/login')
+  }
+
+  if (!store.member.phone && to.path !== '/member/complete-profile') {
+    return navigateTo('/member/complete-profile')
   }
 })

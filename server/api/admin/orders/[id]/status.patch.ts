@@ -34,9 +34,10 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // ยกเลิกออเดอร์ → คืนแต้มที่เคยหักไปตอนแลก
+      // ยกเลิกออเดอร์ → คืนแต้มที่เคยหักไปตอนแลก + ปลดล็อกสิทธิ์แลกแสตมป์
       if (status === 'CANCELLED' && order.memberId) {
         await reverseRedeemedPoints(tx, order.id, order.memberId, order.pointsRedeemed)
+        await releaseStampRedemption(tx, order.id)
       }
 
       const result = await tx.order.update({
@@ -79,6 +80,11 @@ export default defineEventHandler(async (event) => {
       // ให้แสตมป์เมื่อ COMPLETED และมี member และมี payment (ทุก source)
       if (status === 'COMPLETED' && result.memberId && result.stampsEligible > 0 && result.payment) {
         await awardOrderLoyaltyOnComplete(tx, id, result.memberId, result.stampsEligible, `ได้จากหน้าร้าน #${result.queueNo}`)
+      }
+
+      // ยืนยันการแลกแสตมป์ (ถ้ามี) → หัก stampCount เป็น 0 จริงตอนออเดอร์สำเร็จ
+      if (status === 'COMPLETED' && result.memberId) {
+        await confirmStampRedemptionOnComplete(tx, id, result.memberId)
       }
 
       return result

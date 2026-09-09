@@ -2,17 +2,18 @@ import { z } from 'zod'
 import { verify } from 'argon2'
 
 const schema = z.object({
-  email: z.string().email(),
+  identifier: z.string().min(1),
   password: z.string().min(1),
 })
 
 export default defineEventHandler(async (event) => {
   try {
     const data = validate(schema, await readBody(event))
+    const isEmail = data.identifier.includes('@')
 
-    const member = await prisma.member.findUnique({
-      where: { email: data.email, isActive: true },
-    })
+    const member = isEmail
+      ? await prisma.member.findUnique({ where: { email: data.identifier, isActive: true } })
+      : await prisma.member.findFirst({ where: { phone: data.identifier, isActive: true } })
     if (!member || !member.passwordHash) throw notFound('EMAIL_NOT_FOUND')
 
     const valid = await verify(member.passwordHash, data.password)

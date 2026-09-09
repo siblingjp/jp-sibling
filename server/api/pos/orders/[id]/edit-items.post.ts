@@ -39,6 +39,9 @@ export default defineEventHandler(async (event) => {
     if (!['PENDING', 'PREPARING'].includes(existing.status)) {
       throw badRequest('สามารถแก้ไขออเดอร์ได้เฉพาะสถานะ PENDING หรือ PREPARING เท่านั้น')
     }
+    if (existing.freeItemName) {
+      throw badRequest('ออเดอร์นี้ใช้สิทธิ์แลกแสตมป์ไปแล้ว ไม่สามารถแก้ไขรายการสินค้าได้')
+    }
 
     const productIds = [...new Set(data.items.map((i) => i.productId))]
     const optionIds = [...new Set(data.items.flatMap((i) => i.options.map((o) => o.optionId)))]

@@ -15,8 +15,17 @@ const schema = z.object({
   items: z.array(itemSchema).min(1),
   note: z.string().optional(),
   pickupTime: z.string().optional(),
-  slipUrls: z.array(z.string()).min(1, 'กรุณาแนบสลิปอย่างน้อย 1 รูป'),
+  paymentMethod: z.enum(['STORE', 'QR']).default('STORE'),
+  slipUrls: z.array(z.string()).optional().default([]),
   couponCode: z.string().optional(),
+  freeItemIndex: z.number().int().nonnegative().optional(),
+}).superRefine((data, ctx) => {
+  if (data.paymentMethod === 'QR' && data.slipUrls.length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['slipUrls'], message: 'กรุณาแนบสลิปอย่างน้อย 1 รูป' })
+  }
+  if (data.freeItemIndex !== undefined && data.freeItemIndex >= data.items.length) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['freeItemIndex'], message: 'ไม่พบสินค้าที่เลือกแลกฟรี' })
+  }
 })
 
 export default defineEventHandler(async (event) => {
@@ -86,11 +95,29 @@ export default defineEventHandler(async (event) => {
         : Math.min(couponDiscountValue, subtotal)
     }
 
-    const total = Math.max(subtotal - couponDiscount, 0)
     const loyaltyMode = await getLoyaltyMode()
+
+    // Validate free-item stamp redemption (แลกแสตมป์ครบ 10 ดวง แลกฟรี 1 แก้ว ราคาไม่เกิน 40 บาท)
+    let freeItemDiscount = 0
+    let freeItemName: string | undefined
+    if (body.freeItemIndex !== undefined) {
+      if (loyaltyMode !== 'STAMPS') throw badRequest('ระบบไม่ได้เปิดใช้งานแสตมป์')
+      const freeItem = itemsData[body.freeItemIndex]
+      const freeProduct = productMap.get(freeItem.productId)!
+      await validateFreeItemRedemption(member.id, member.stampCount, freeProduct)
+      // แลกฟรีได้ 1 หน่วยของรายการนั้น (unitPrice รวม option) ไม่ใช่ทั้งจำนวนที่สั่ง
+      freeItemDiscount = freeItem.unitPrice
+      freeItemName = freeProduct.name
+    }
+
+    const total = Math.max(subtotal - couponDiscount - freeItemDiscount, 0)
     const pointsEarned = loyaltyMode === 'POINTS' ? calcPointsEarned(total, member.tier) : 0
     const stampsEligible = loyaltyMode === 'STAMPS'
-      ? calcEligibleCupCount(itemsData.map(item => ({ quantity: item.quantity, product: productMap.get(item.productId)! })))
+      ? calcEligibleCupCount(itemsData.map((item, idx) => ({
+          // แก้วที่แลกฟรีด้วยแสตมป์ไม่นับสะสมแสตมป์เพิ่มอีก 1 หน่วย
+          quantity: idx === body.freeItemIndex ? item.quantity - 1 : item.quantity,
+          product: productMap.get(item.productId)!,
+        })))
       : 0
 
     // Queue number for today
@@ -102,52 +129,68 @@ export default defineEventHandler(async (event) => {
     })
     const queueNo = (lastOrder?.queueNo ?? 0) + 1
 
-    // Create order (no long-running ops inside transaction)
-    const order = await prisma.order.create({
-      data: {
-        queueNo,
-        source: 'ONLINE',
-        member: { connect: { id: member.id } },
-        note: body.note,
-        pickupTime: body.pickupTime,
-        slipUrl: body.slipUrls[0],
-        slipUrls: body.slipUrls,
-        couponCode: couponCode ?? undefined,
-        subtotal,
-        discountKind: couponDiscountKind,
-        discountValue: couponDiscountValue,
-        discount: couponDiscount,
-        total,
-        pointsEarned,
-        pointsRedeemed: 0,
-        stampsEligible,
-        status: 'PENDING',
-        items: {
-          create: itemsData.map(item => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            subtotal: item.subtotal,
-            note: item.note,
-            options: {
-              create: item.options.map(o => ({
-                optionId: o.optionId,
-                name: o.name,
-                extraPrice: o.extraPrice,
-              })),
-            },
-          })),
-        },
-        payment: {
-          create: {
-            method: 'QR',
-            amount: total,
-            change: 0,
-            transactionRef: null,
+    // Create order + lock stamp redemption (if any) ในทรานแซกชันเดียวกัน
+    // เพื่อกันแข่งกันสร้าง 2 คำขอแลกพร้อมกัน (re-check pending ซ้ำในทรานแซกชัน)
+    const order = await prisma.$transaction(async (tx) => {
+      const created = await tx.order.create({
+        data: {
+          queueNo,
+          source: 'ONLINE',
+          member: { connect: { id: member.id } },
+          note: body.note,
+          pickupTime: body.pickupTime,
+          slipUrl: body.slipUrls[0] ?? null,
+          slipUrls: body.slipUrls,
+          couponCode: couponCode ?? undefined,
+          subtotal,
+          discountKind: couponDiscountKind,
+          discountValue: couponDiscountValue,
+          discount: couponDiscount,
+          freeItemName,
+          freeItemDiscount: freeItemName ? freeItemDiscount : undefined,
+          total,
+          pointsEarned,
+          pointsRedeemed: 0,
+          stampsEligible,
+          status: 'PENDING',
+          items: {
+            create: itemsData.map(item => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              unitPrice: item.unitPrice,
+              subtotal: item.subtotal,
+              note: item.note,
+              options: {
+                create: item.options.map(o => ({
+                  optionId: o.optionId,
+                  name: o.name,
+                  extraPrice: o.extraPrice,
+                })),
+              },
+            })),
           },
+          // STORE = ยังไม่ได้จ่ายจริง ไม่สร้าง payment ตอนนี้ รอ staff กดรับเงินที่ POS
+          // (ถ้าปิดออเดอร์โดยไม่มีการจ่าย ระบบจะสร้าง payment แบบ UNSPECIFIED ให้อัตโนมัติ
+          // เหมือนออเดอร์ POS — ดู pos/orders/[id].patch.ts, admin/orders/[id]/status.patch.ts)
+          payment: body.paymentMethod === 'QR'
+            ? {
+                create: {
+                  method: 'QR',
+                  amount: total,
+                  change: 0,
+                  transactionRef: null,
+                },
+              }
+            : undefined,
         },
-      },
-    })
+      })
+
+      if (body.freeItemIndex !== undefined) {
+        await lockStampRedemption(tx, member.id, created.id)
+      }
+
+      return created
+    }, { timeout: 15000, maxWait: 5000 })
 
     // Post-order updates (fire-and-forget style, outside transaction)
     // หมายเหตุ: แต้ม/แสตมป์ (pointsEarned/stampsEligible) จะถูกให้จริงตอนออเดอร์ COMPLETED

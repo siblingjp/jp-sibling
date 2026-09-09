@@ -27,9 +27,9 @@ async function handleRegister() {
   try {
     await store.register({
       name: form.name,
-      email: form.email,
+      email: form.email || undefined,
       password: form.password,
-      phone: form.phone || undefined,
+      phone: form.phone,
     })
     await fetchMe()
     router.push('/member')
@@ -37,12 +37,12 @@ async function handleRegister() {
     const msg: string = e?.data?.message ?? e?.message ?? ''
     if (msg.includes('PHONE_EXISTS')) {
       try {
-        await login({ email: form.email, password: form.password })
+        await login({ identifier: form.phone, password: form.password })
         await fetchMe()
         router.push('/member')
       } catch {
         error.value = 'เบอร์โทรนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบ'
-        router.push(`/member/login?email=${encodeURIComponent(form.email)}`)
+        router.push(`/member/login?email=${encodeURIComponent(form.phone)}`)
       }
       return
     }
@@ -83,11 +83,22 @@ async function handleRegister() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">อีเมล</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทร</label>
+            <input
+              v-model="form.phone"
+              type="tel"
+              required
+              pattern="[0-9]{9,10}"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
+              placeholder="0812345678"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">อีเมล <span class="text-gray-400">(ไม่บังคับ)</span></label>
             <input
               v-model="form.email"
               type="email"
-              required
               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
               placeholder="you@example.com"
             />
@@ -102,16 +113,6 @@ async function handleRegister() {
               minlength="8"
               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
               placeholder="อย่างน้อย 8 ตัวอักษร"
-            />
-          </div>
-
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">เบอร์โทร <span class="text-gray-400">(ไม่บังคับ)</span></label>
-            <input
-              v-model="form.phone"
-              type="tel"
-              class="w-full border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
-              placeholder="0812345678"
             />
           </div>
 

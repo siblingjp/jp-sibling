@@ -1,6 +1,7 @@
 import type { Prisma } from '@prisma/client'
 
 export const MAX_STAMPS = 10
+export const FREE_ITEM_MAX_PRICE = 40
 
 const LOYALTY_MODE_CACHE_KEY = 'settings:loyaltyMode'
 export const SETTINGS_SINGLETON_ID = 'singleton'
@@ -68,5 +69,74 @@ export async function reverseRedeemedPoints(
   await tx.member.update({ where: { id: memberId }, data: { points: { increment: pointsRedeemed } } })
   await tx.pointLog.create({
     data: { memberId, action: 'ADJUST', amount: pointsRedeemed, note: 'คืนแต้มจากออเดอร์ที่ยกเลิก', orderId },
+  })
+}
+
+// เมื่อออเดอร์ถูกยกเลิก: ปลดล็อก StampRedemption ที่ PENDING ผูกกับออเดอร์นี้ทิ้ง
+// (ยังไม่เคยหัก stampCount จริง เพราะจะหักตอน COMPLETED เท่านั้น — แค่ลบ lock ให้กลับไปแลกใหม่ได้)
+export async function releaseStampRedemption(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+) {
+  await tx.stampRedemption.deleteMany({
+    where: { orderId, status: 'PENDING' },
+  })
+}
+
+// เมื่อออเดอร์ที่มีการแลกแสตมป์ COMPLETED: หัก stampCount เป็น 0 จริง + ยืนยัน StampRedemption
+export async function confirmStampRedemptionOnComplete(
+  tx: Prisma.TransactionClient,
+  orderId: string,
+  memberId: string,
+) {
+  const redemption = await tx.stampRedemption.findFirst({
+    where: { orderId, memberId, status: 'PENDING' },
+  })
+  if (!redemption) return
+
+  await tx.member.update({ where: { id: memberId }, data: { stampCount: 0 } })
+  await tx.stampLog.create({
+    data: { memberId, action: 'REDEEM', amount: -MAX_STAMPS, note: 'แลกฟรี 1 แก้วจากออเดอร์', orderId },
+  })
+  await tx.stampRedemption.update({
+    where: { id: redemption.id },
+    data: { status: 'CONFIRMED', confirmedAt: new Date() },
+  })
+}
+
+// ตรวจสอบสิทธิ์แลกแสตมป์เป็นแก้วฟรี (ครบ 10 ดวง + ไม่มี lock ค้าง + สินค้าราคาไม่เกิน FREE_ITEM_MAX_PRICE)
+// ใช้ร่วมกันทั้ง 3 ช่องทางสร้างออเดอร์ (member/orders, public/orders, pos/orders)
+export async function validateFreeItemRedemption(
+  memberId: string,
+  memberStampCount: number,
+  freeProduct: { price: Prisma.Decimal | number | string },
+): Promise<void> {
+  if (memberStampCount < MAX_STAMPS) throw badRequest('สะสมแสตมป์ยังไม่ครบ 10 ดวง')
+  if (Number(freeProduct.price) > FREE_ITEM_MAX_PRICE) {
+    throw badRequest(`สินค้าที่แลกฟรีต้องราคาไม่เกิน ${FREE_ITEM_MAX_PRICE} บาท`)
+  }
+  const existingPending = await prisma.stampRedemption.findFirst({
+    where: { memberId, status: 'PENDING' },
+  })
+  if (existingPending) throw badRequest('มีคำขอแลกที่รอดำเนินการอยู่แล้ว')
+}
+
+// ล็อกสิทธิ์แลกแสตมป์ไว้กับออเดอร์ (re-check ซ้ำในทรานแซกชันกันแข่งกัน) — ไม่หัก stampCount จริง
+// จะหักตอนออเดอร์ COMPLETED เท่านั้น (ดู confirmStampRedemptionOnComplete)
+export async function lockStampRedemption(
+  tx: Prisma.TransactionClient,
+  memberId: string,
+  orderId: string,
+) {
+  const stillPending = await tx.stampRedemption.findFirst({
+    where: { memberId, status: 'PENDING' },
+  })
+  if (stillPending) throw badRequest('มีคำขอแลกที่รอดำเนินการอยู่แล้ว')
+
+  const current = await tx.member.findUnique({ where: { id: memberId }, select: { stampCount: true } })
+  if (!current || current.stampCount < MAX_STAMPS) throw badRequest('สะสมแสตมป์ยังไม่ครบ 10 ดวง')
+
+  await tx.stampRedemption.create({
+    data: { memberId, status: 'PENDING', orderId },
   })
 }

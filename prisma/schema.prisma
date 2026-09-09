@@ -210,21 +210,21 @@ model CouponUse {
 // ─── Campaigns ────────────────────────────────────────────────────────────────
 
 model Campaign {
-  id          String    @id @default(cuid())
-  name        String
-  description String?
-  imageUrl    String?
-  imageOrientation String? @default("landscape")
-  displayMode String?   @default("image")
-  bannerColor String?
-  startAt     DateTime?
-  expiredAt   DateTime?
-  isActive    Boolean   @default(true)
-  memberOnly  Boolean   @default(false)
-  showOnPublic Boolean  @default(false)
-  minTier     Tier?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  name             String
+  description      String?
+  imageUrl         String?
+  imageOrientation String?   @default("landscape")
+  displayMode      String?   @default("image")
+  bannerColor      String?
+  startAt          DateTime?
+  expiredAt        DateTime?
+  isActive         Boolean   @default(true)
+  memberOnly       Boolean   @default(false)
+  showOnPublic     Boolean   @default(false)
+  minTier          Tier?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   coupons CampaignCoupon[]
 
@@ -267,26 +267,28 @@ enum PaymentMethod {
 }
 
 model Order {
-  id             String        @id @default(cuid())
-  queueNo        Int
-  source         OrderSource   @default(POS)
-  status         OrderStatus   @default(PENDING)
-  note           String?
-  subtotal       Decimal       @db.Decimal(10, 2)
-  discountKind   DiscountKind?
-  discountValue  Decimal?      @db.Decimal(10, 2)
-  discount       Decimal       @default(0) @db.Decimal(10, 2)
-  total          Decimal       @db.Decimal(10, 2)
-  pointsEarned   Int           @default(0)
-  pointsRedeemed Int           @default(0)
-  stampsEligible Int           @default(0)
-  couponCode     String?
-  pickupTime     String?
-  slipUrl        String?
-  slipUrls       String[]
-  acknowledgedAt DateTime?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id               String        @id @default(cuid())
+  queueNo          Int
+  source           OrderSource   @default(POS)
+  status           OrderStatus   @default(PENDING)
+  note             String?
+  subtotal         Decimal       @db.Decimal(10, 2)
+  discountKind     DiscountKind?
+  discountValue    Decimal?      @db.Decimal(10, 2)
+  discount         Decimal       @default(0) @db.Decimal(10, 2)
+  total            Decimal       @db.Decimal(10, 2)
+  pointsEarned     Int           @default(0)
+  pointsRedeemed   Int           @default(0)
+  stampsEligible   Int           @default(0)
+  couponCode       String?
+  freeItemName     String?
+  freeItemDiscount Decimal?      @db.Decimal(10, 2)
+  pickupTime       String?
+  slipUrl          String?
+  slipUrls         String[]
+  acknowledgedAt   DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
 
   guestName String?
 

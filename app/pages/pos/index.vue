@@ -168,19 +168,6 @@ async function handleCouponUseScan(id: string) {
   }
 }
 
-// ─── Stamp Redeem ────────────────────────────────────────────────────────────
-async function handleRedeemStamp() {
-  if (!store.member) return
-  try {
-    const http = useHttpClient()
-    await http.post(API_ENDPOINTS.POS.STAMP_REDEEM, { memberId: store.member.id })
-    store.setMemberStampCount(0)
-    showSuccess('แลกฟรี 1 แก้วสำเร็จ')
-  } catch (e: any) {
-    showError(e?.data?.message ?? e?.message ?? 'แลกแสตมป์ไม่สำเร็จ')
-  }
-}
-
 // ─── Queue Reserve ───────────────────────────────────────────────────────────
 async function handleReserveQueue() {
   try {
@@ -493,8 +480,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID' | '
         @clear-coupon="store.clearCoupon()"
         @scan-coupon="showCouponScanner = true"
         @update-points-redeem="store.pointsToRedeem = $event"
-        @redeem-stamp="handleRedeemStamp"
-        @checkout="store.editingOrderId ? handleEditOrderSave() : (showPayment = true)"
+        @checkout="handleEditOrderSave"
         @checkout-unpaid="handleCheckout('UNPAID', 0, undefined, true)"
         @change-payment="showPayment = true"
         @badge-created="store.fetchDiscounts()"
@@ -517,6 +503,7 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID' | '
     v-if="showPayment"
     :total="store.total"
     :is-submitting="store.isSubmitting"
+    :show-stamp-warning="loyaltyModeValue === 'STAMPS' && !!store.member && store.member.stampCount >= 10"
     @confirm="handleCheckout"
     @cancel="showPayment = false"
   />

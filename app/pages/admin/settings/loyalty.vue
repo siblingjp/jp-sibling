@@ -8,27 +8,15 @@ const { showSuccess, showError } = useAlert()
 
 type LoyaltyMode = 'POINTS' | 'STAMPS'
 
-interface PendingRedemption {
-  id: string
-  requestedAt: string
-  member: { id: string; name: string; phone: string | null }
-}
-
 const mode = ref<LoyaltyMode>('POINTS')
 const loading = ref(true)
 const saving = ref(false)
-const pending = ref<PendingRedemption[]>([])
-const confirming = ref<string | null>(null)
 
 async function load() {
   loading.value = true
   try {
-    const [modeRes, pendingRes] = await Promise.all([
-      http.get<{ data: { loyaltyMode: LoyaltyMode } }>(API_ENDPOINTS.PUBLIC.LOYALTY_MODE),
-      http.get<{ data: PendingRedemption[] }>(API_ENDPOINTS.ADMIN.STAMP_REDEMPTIONS.LIST),
-    ])
-    mode.value = modeRes.data?.loyaltyMode ?? 'POINTS'
-    pending.value = pendingRes.data ?? []
+    const res = await http.get<{ data: { loyaltyMode: LoyaltyMode } }>(API_ENDPOINTS.PUBLIC.LOYALTY_MODE)
+    mode.value = res.data?.loyaltyMode ?? 'POINTS'
   } catch (e: any) {
     showError(e?.data?.message ?? e?.message ?? 'โหลดข้อมูลไม่สำเร็จ')
   } finally {
@@ -50,23 +38,6 @@ async function setMode(newMode: LoyaltyMode) {
   } finally {
     saving.value = false
   }
-}
-
-async function confirmRedemption(id: string) {
-  confirming.value = id
-  try {
-    await http.post(API_ENDPOINTS.POS.STAMP_REDEMPTION_CONFIRM(id))
-    pending.value = pending.value.filter(p => p.id !== id)
-    showSuccess('ยืนยันการแลกแสตมป์เรียบร้อย')
-  } catch (e: any) {
-    showError(e?.data?.message ?? e?.message ?? 'ยืนยันไม่สำเร็จ')
-  } finally {
-    confirming.value = null
-  }
-}
-
-function formatDateTime(d: string) {
-  return new Date(d).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 </script>
 
@@ -104,30 +75,6 @@ function formatDateTime(d: string) {
             </div>
             <p class="text-xs text-gray-500">ซื้อ 1 แก้ว = 1 แสตมป์ ครบ 10 แลกฟรี 1 แก้ว</p>
           </button>
-        </div>
-      </div>
-
-      <div v-if="mode === 'STAMPS'" class="bg-white rounded-2xl shadow p-6">
-        <h2 class="font-semibold text-gray-800 mb-3">คำขอแลกแสตมป์ที่รอยืนยัน</h2>
-        <div v-if="pending.length === 0" class="text-center py-6 text-gray-400 text-sm">ไม่มีคำขอที่รอดำเนินการ</div>
-        <div v-else class="space-y-2">
-          <div
-            v-for="req in pending"
-            :key="req.id"
-            class="flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 border border-gray-200"
-          >
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium text-gray-900">{{ req.member.name }}</p>
-              <p class="text-xs text-gray-400">{{ req.member.phone ?? '-' }} · ขอเมื่อ {{ formatDateTime(req.requestedAt) }}</p>
-            </div>
-            <button
-              class="px-3 py-1.5 bg-[#1B2B4B] text-white text-xs font-semibold rounded-lg hover:bg-[#2a3f6b] disabled:opacity-40 transition-colors flex-shrink-0"
-              :disabled="confirming === req.id"
-              @click="confirmRedemption(req.id)"
-            >
-              {{ confirming === req.id ? '...' : 'ยืนยันแลก' }}
-            </button>
-          </div>
         </div>
       </div>
     </template>

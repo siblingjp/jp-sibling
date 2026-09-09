@@ -4,9 +4,10 @@ import { API_ENDPOINTS } from '~/composables/constants/api'
 definePageMeta({ layout: 'public' })
 
 const http = useHttpClient()
-const { showSuccess, showError } = useAlert()
+const { showSuccess, showError, showConfirm } = useAlert()
 const router = useRouter()
 const { member: authedMember, fetchMe } = useMemberAuth()
+const { mode: loyaltyMode, fetchMode: fetchLoyaltyMode } = useLoyaltyMode()
 
 const checkingSession = ref(true)
 
@@ -59,7 +60,7 @@ const orderNote = ref('')
 const pickupTime = ref('')
 
 // ─── Phone lookup (ผูกสมาชิกถ้าเจอ) ────────────────────────────────────────────
-interface FoundMember { id: string; name: string; phone: string; tier: string }
+interface FoundMember { id: string; name: string; phone: string; tier: string; stampCount: number }
 const phoneInput = ref('')
 const foundMember = ref<FoundMember | null>(null)
 const lookingUpMember = ref(false)
@@ -85,6 +86,60 @@ function clearFoundMember() {
   foundMember.value = null
   phoneInput.value = ''
   memberLookupError.value = ''
+  freeItemIndex.value = null
+}
+
+// ─── Stamp redemption (แลกแสตมป์ครบ 10 ดวง เป็นแก้วฟรี 1 แก้ว ราคาไม่เกิน 40 บาท) ──
+const MAX_STAMPS = 10
+const FREE_ITEM_MAX_PRICE = 40
+const freeItemIndex = ref<number | null>(null)
+const showFreeItemPicker = ref(false)
+
+const freeItemDiscount = computed(() => {
+  if (freeItemIndex.value === null) return 0
+  const item = cart.value[freeItemIndex.value]
+  if (!item) return 0
+  const extra = item.selectedOptions.reduce((s, o) => s + o.extraPrice, 0)
+  return Number(item.product.price) + extra
+})
+
+const freeItemCandidates = computed(() =>
+  cart.value
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => Number(item.product.price) <= FREE_ITEM_MAX_PRICE)
+)
+
+function removeFreeItemSelection() {
+  freeItemIndex.value = null
+}
+
+async function maybeOfferStampRedeem(): Promise<void> {
+  if (freeItemIndex.value !== null) return
+  if (loyaltyMode.value !== 'STAMPS') return
+  if (!foundMember.value || foundMember.value.stampCount < MAX_STAMPS) return
+
+  const ok = await showConfirm({
+    title: `แสตมป์ครบ ${MAX_STAMPS} ดวงแล้ว!`,
+    message: 'คุณต้องการใช้สิทธิ์แลกแก้วฟรี 1 แก้วในออเดอร์นี้เลยไหม?',
+    confirmText: 'ใช้สิทธิ์',
+    cancelText: 'ไม่ใช้สิทธิ์',
+  })
+  if (!ok) return
+
+  if (freeItemCandidates.value.length === 0) {
+    showError(`ไม่มีสินค้าในตะกร้าที่ราคาไม่เกิน ${FREE_ITEM_MAX_PRICE} บาท`)
+    return
+  }
+  if (freeItemCandidates.value.length === 1) {
+    freeItemIndex.value = freeItemCandidates.value[0].idx
+    return
+  }
+  showFreeItemPicker.value = true
+}
+
+function selectFreeItem(idx: number) {
+  freeItemIndex.value = idx
+  showFreeItemPicker.value = false
 }
 
 // ─── Pickup time options ──────────────────────────────────────────────────────
@@ -191,6 +246,8 @@ function confirmModal() {
 
   if (editingIndex.value !== null) {
     cart.value[editingIndex.value] = { ...cart.value[editingIndex.value], selectedOptions, quantity: qty }
+    // แก้ไขรายการอาจทำให้ตัวที่เลือกแลกฟรีไม่เข้าเงื่อนไขเดิม (ราคา/จำนวนเปลี่ยน) ให้ยกเลิกไว้ก่อน
+    if (editingIndex.value === freeItemIndex.value) freeItemIndex.value = null
   } else {
     const existing = cart.value.find(
       c => c.product.id === product.id &&
@@ -204,7 +261,11 @@ function confirmModal() {
   editingIndex.value = null
 }
 
-function removeItem(index: number) { cart.value.splice(index, 1) }
+function removeItem(index: number) {
+  cart.value.splice(index, 1)
+  // ดัชนีสินค้าที่แลกฟรีอาจเปลี่ยนหรือหายไปหลังลบ/แก้รายการ ให้ยกเลิกการเลือกไว้ก่อน กันเลือกผิดชิ้น
+  freeItemIndex.value = null
+}
 
 // ─── Totals ───────────────────────────────────────────────────────────────────
 const subtotal = computed(() =>
@@ -214,6 +275,8 @@ const subtotal = computed(() =>
     return sum + (base + extra) * item.quantity
   }, 0)
 )
+
+const total = computed(() => Math.max(subtotal.value - freeItemDiscount.value, 0))
 
 const cartCount = computed(() => cart.value.reduce((s, i) => s + i.quantity, 0))
 
@@ -252,6 +315,7 @@ onMounted(async () => {
     const [productsRes, homeRes] = await Promise.all([
       http.get<{ data: Product[] }>(API_ENDPOINTS.PUBLIC.PRODUCTS),
       http.get<{ data: { campaigns: Campaign[] } }>('/api/public/home'),
+      fetchLoyaltyMode(),
     ])
     products.value = productsRes.data ?? []
     campaigns.value = homeRes.data?.campaigns ?? []
@@ -285,6 +349,7 @@ async function proceedToPayment() {
   if (!pickupTime.value && pickupOptions.value.length > 0) {
     pickupTime.value = pickupOptions.value[0].value
   }
+  await maybeOfferStampRedeem()
   step.value = 2
 }
 
@@ -308,6 +373,7 @@ async function placeOrder() {
         pickupTime: pickupTime.value || undefined,
         paymentMethod: paymentMethod.value,
         memberId: foundMember.value?.id,
+        freeItemIndex: freeItemIndex.value ?? undefined,
       }
     )
     if (res.data) {
@@ -422,7 +488,10 @@ const steps = [
             <Icon name="mdi:check-decagram" class="text-green-600 text-lg flex-shrink-0" />
             <div class="flex-1 min-w-0">
               <p class="text-sm font-medium text-gray-900 truncate">{{ foundMember.name }}</p>
-              <p class="text-xs text-green-600">เป็นสมาชิก · จะได้รับแต้ม/แสตมป์จากออเดอร์นี้</p>
+              <p class="text-xs text-green-600">
+                เป็นสมาชิก ·
+                {{ loyaltyMode === 'STAMPS' ? `แสตมป์สะสม ${foundMember.stampCount}/${MAX_STAMPS}` : 'จะได้รับแต้มจากออเดอร์นี้' }}
+              </p>
             </div>
             <button class="text-gray-400 hover:text-red-500 text-lg flex-shrink-0" @click="clearFoundMember">×</button>
           </div>
@@ -508,8 +577,9 @@ const steps = [
             </div>
             <div class="flex items-center gap-2 flex-shrink-0">
               <span class="text-xs text-gray-500">x{{ item.quantity }}</span>
+              <span v-if="index === freeItemIndex" class="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">แลกฟรี</span>
               <span class="text-sm font-semibold text-gray-800">
-                ฿{{ ((Number(item.product.price) + item.selectedOptions.reduce((s, o) => s + o.extraPrice, 0)) * item.quantity).toFixed(0) }}
+                ฿{{ ((Number(item.product.price) + item.selectedOptions.reduce((s, o) => s + o.extraPrice, 0)) * item.quantity - (index === freeItemIndex ? freeItemDiscount : 0)).toFixed(0) }}
               </span>
               <button type="button" class="text-gray-300 hover:text-[#1B2B4B] p-0.5" @click="openModal(item.product, index)">
                 <Icon name="mdi:pencil-outline" class="w-4 h-4" />
@@ -571,10 +641,20 @@ const steps = [
         </div>
 
         <!-- ยอดรวม -->
-        <div class="bg-white rounded-2xl shadow p-4">
-          <div class="flex justify-between font-bold text-gray-900 text-base">
+        <div class="bg-white rounded-2xl shadow p-4 space-y-2">
+          <div class="flex justify-between text-sm text-gray-500">
+            <span>ยอดรวม</span><span>฿{{ subtotal.toFixed(0) }}</span>
+          </div>
+          <div v-if="freeItemIndex !== null" class="flex items-center justify-between text-sm text-green-600">
+            <span>แลกฟรีด้วยแสตมป์ ({{ cart[freeItemIndex]?.product.name }})</span>
+            <span class="flex items-center gap-1.5">
+              -฿{{ freeItemDiscount.toFixed(0) }}
+              <button type="button" class="text-gray-400 hover:text-red-500 text-base leading-none" @click="removeFreeItemSelection">×</button>
+            </span>
+          </div>
+          <div class="flex justify-between font-bold text-gray-900 text-base pt-2 border-t border-gray-100">
             <span>รวมทั้งหมด</span>
-            <span>฿{{ subtotal.toFixed(0) }}</span>
+            <span>฿{{ total.toFixed(0) }}</span>
           </div>
         </div>
 
@@ -674,6 +754,38 @@ const steps = [
           <div class="p-6 pt-0 flex gap-3 sticky bottom-0 bg-white border-t border-gray-100 sm:border-none sm:static">
             <button @click="modalProduct = null; editingIndex = null" class="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">ยกเลิก</button>
             <button @click="confirmModal" class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b]">{{ editingIndex !== null ? 'บันทึก' : 'เพิ่มลงออเดอร์' }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ── Free item picker modal ── -->
+    <Teleport to="body">
+      <div v-if="showFreeItemPicker" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl">
+          <div class="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+            <h3 class="text-lg font-bold text-gray-900">เลือกแก้วที่จะแลกฟรี</h3>
+            <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="showFreeItemPicker = false">×</button>
+          </div>
+          <div class="p-5 space-y-2">
+            <p class="text-xs text-gray-400 mb-2">เลือกได้เฉพาะสินค้าราคาไม่เกิน {{ FREE_ITEM_MAX_PRICE }} บาท</p>
+            <button
+              v-for="{ item, idx } in freeItemCandidates"
+              :key="idx"
+              type="button"
+              class="w-full flex items-center justify-between rounded-xl px-4 py-3 border border-gray-200 hover:border-[#C8D8E8] hover:bg-[#F0F4F8] transition-colors text-left"
+              @click="selectFreeItem(idx)"
+            >
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-800 truncate">{{ item.product.name }}</p>
+                <p class="text-xs text-gray-400 truncate">
+                  {{ item.selectedOptions.map(o => o.name).join(', ') || 'ไม่มีตัวเลือก' }}
+                </p>
+              </div>
+              <span class="text-sm font-semibold text-[#1B2B4B] flex-shrink-0 ml-2">
+                ฿{{ Number(item.product.price).toFixed(0) }}
+              </span>
+            </button>
           </div>
         </div>
       </div>

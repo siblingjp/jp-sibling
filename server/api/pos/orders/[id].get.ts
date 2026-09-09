@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
             product: { select: { id: true, name: true } },
           },
         },
-        member: { select: { id: true, name: true, phone: true } },
+        member: { select: { id: true, name: true, phone: true, stampCount: true } },
         payment: true,
       },
     })

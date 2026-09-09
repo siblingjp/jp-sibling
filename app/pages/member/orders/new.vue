@@ -7,7 +7,7 @@ definePageMeta({ layout: 'member', middleware: 'member' })
 const { member } = useMemberAuth()
 const http = useHttpClient()
 const { uploadViaPresign } = useUpload()
-const { showSuccess, showError } = useAlert()
+const { showSuccess, showError, showConfirm } = useAlert()
 const { mode: loyaltyMode, fetchMode: fetchLoyaltyMode } = useLoyaltyMode()
 
 onMounted(fetchLoyaltyMode)
@@ -18,6 +18,7 @@ interface Product {
   name: string
   price: string | number
   imageUrl: string | null
+  isStampEligible: boolean
   category: { id: string; name: string }
   optionGroups: {
     optionGroup: {
@@ -131,6 +132,15 @@ const orderNote = ref('')
 const slipFiles = ref<{ file: File; preview: string }[]>([])
 const uploadingSlip = ref(false)
 const MAX_SLIPS = 5
+
+// payment method (STORE = ชำระหน้าร้าน, QR = โอนพร้อม QR + แนบสลิป)
+const paymentMethod = ref<'STORE' | 'QR'>('STORE')
+
+// ─── Stamp redemption (แลกแสตมป์ครบ 10 ดวง เป็นแก้วฟรี 1 แก้ว ราคาไม่เกิน 40 บาท) ──
+const MAX_STAMPS = 10
+const FREE_ITEM_MAX_PRICE = 40
+const showFreeItemPicker = ref(false)
+const freeItemIndex = ref<number | null>(null)
 
 // ─── localStorage cart persist ────────────────────────────────────────────────
 const CART_KEY = 'member_order_cart'
@@ -257,11 +267,13 @@ function confirmModal() {
 
   if (editingIndex.value !== null) {
     cart.value[editingIndex.value] = { ...cart.value[editingIndex.value], selectedOptions, quantity: qty }
+    // แก้ไขรายการอาจทำให้ตัวที่เลือกแลกฟรีไม่เข้าเงื่อนไขเดิม (ราคา/จำนวนเปลี่ยน) ให้ยกเลิกไว้ก่อน
+    if (editingIndex.value === freeItemIndex.value) freeItemIndex.value = null
   } else {
     const existing = cart.value.find(
       c => c.product.id === product.id &&
-      JSON.stringify(c.selectedOptions.map(o => o.optionId).sort()) ===
-      JSON.stringify(selectedOptions.map(o => o.optionId).sort())
+        JSON.stringify(c.selectedOptions.map(o => o.optionId).sort()) ===
+        JSON.stringify(selectedOptions.map(o => o.optionId).sort())
     )
     if (existing) { existing.quantity += qty }
     else { cart.value.push({ product, quantity: qty, selectedOptions, note: '' }) }
@@ -270,7 +282,11 @@ function confirmModal() {
   editingIndex.value = null
 }
 
-function removeItem(index: number) { cart.value.splice(index, 1) }
+function removeItem(index: number) {
+  cart.value.splice(index, 1)
+  // ดัชนีสินค้าที่แลกฟรีอาจเปลี่ยนหรือหายไปหลังลบ/แก้รายการ ให้ยกเลิกการเลือกไว้ก่อน กันเลือกผิดชิ้น
+  freeItemIndex.value = null
+}
 
 // ─── Totals ───────────────────────────────────────────────────────────────────
 const subtotal = computed(() =>
@@ -281,9 +297,34 @@ const subtotal = computed(() =>
   }, 0)
 )
 
-const total = computed(() => Math.max(subtotal.value - appliedCouponDiscount.value, 0))
+// ราคาของแก้วที่เลือกแลกฟรี (unit price รวม option ของ 1 หน่วยในรายการนั้น)
+const freeItemDiscount = computed(() => {
+  if (freeItemIndex.value === null) return 0
+  const item = cart.value[freeItemIndex.value]
+  if (!item) return 0
+  const extra = item.selectedOptions.reduce((s, o) => s + o.extraPrice, 0)
+  return Number(item.product.price) + extra
+})
+
+const total = computed(() => Math.max(subtotal.value - appliedCouponDiscount.value - freeItemDiscount.value, 0))
 
 const pointsEarned = computed(() => calcPointsEarned(total.value, member.value?.tier ?? 'SILVER'))
+
+// จำนวนแสตมป์ที่จะได้จากออเดอร์นี้ (นับเฉพาะสินค้าที่ isStampEligible และหักแก้วที่แลกฟรีออก 1 หน่วย)
+const stampsEarned = computed(() => {
+  return cart.value.reduce((sum, item, idx) => {
+    if (!item.product.isStampEligible) return sum
+    const qty = idx === freeItemIndex.value ? item.quantity - 1 : item.quantity
+    return sum + Math.max(qty, 0)
+  }, 0)
+})
+
+// สินค้าใน cart ที่ราคา ≤ 40 บาท (เลือกเป็นแก้วฟรีได้)
+const freeItemCandidates = computed(() =>
+  cart.value
+    .map((item, idx) => ({ item, idx }))
+    .filter(({ item }) => Number(item.product.price) <= FREE_ITEM_MAX_PRICE)
+)
 
 // re-validate ส่วนลดเมื่อ subtotal เปลี่ยน (รวม auto-apply จาก query param)
 watch(subtotal, async (newSubtotal) => {
@@ -368,7 +409,7 @@ function onSlipChange(e: Event) {
     if (slipFiles.value.length >= MAX_SLIPS) break
     slipFiles.value.push({ file, preview: URL.createObjectURL(file) })
   }
-  ;(e.target as HTMLInputElement).value = ''
+  ; (e.target as HTMLInputElement).value = ''
 }
 
 function removeSlip(index: number) {
@@ -379,16 +420,20 @@ function removeSlip(index: number) {
 // ─── Place order ──────────────────────────────────────────────────────────────
 async function placeOrder() {
   if (cart.value.length === 0) return
-  if (slipFiles.value.length === 0) { showError('กรุณาแนบสลิปการโอนเงิน'); return }
+  if (paymentMethod.value === 'QR' && slipFiles.value.length === 0) { showError('กรุณาแนบสลิปการโอนเงิน'); return }
   if (!pickupTime.value) { showError('กรุณาระบุเวลารับสินค้า'); return }
 
   placing.value = true
   try {
-    uploadingSlip.value = true
-    const uploaded = await Promise.all(
-      slipFiles.value.map(s => uploadViaPresign(s.file, { folder: 'slips' }))
-    )
-    uploadingSlip.value = false
+    let slipUrls: string[] = []
+    if (paymentMethod.value === 'QR') {
+      uploadingSlip.value = true
+      const uploaded = await Promise.all(
+        slipFiles.value.map(s => uploadViaPresign(s.file, { folder: 'slips' }))
+      )
+      uploadingSlip.value = false
+      slipUrls = uploaded.map(u => u.publicUrl)
+    }
 
     const res = await http.post<{ data: { id: string; pointsEarned: number; loyaltyMode: 'POINTS' | 'STAMPS'; stampsEligible: number } }>(
       API_ENDPOINTS.MEMBER.ORDERS.CREATE,
@@ -402,12 +447,16 @@ async function placeOrder() {
         note: orderNote.value || undefined,
         couponCode: appliedCouponCode.value || undefined,
         pickupTime: pickupTime.value,
-        slipUrls: uploaded.map(u => u.publicUrl),
+        paymentMethod: paymentMethod.value,
+        slipUrls,
+        freeItemIndex: freeItemIndex.value ?? undefined,
       }
     )
     if (res.data) {
       clearCartStorage()
-      if (res.data.loyaltyMode === 'STAMPS') {
+      if (freeItemIndex.value !== null) {
+        showSuccess('สั่งสำเร็จ! ใช้สิทธิ์แลกแก้วฟรีเรียบร้อย')
+      } else if (res.data.loyaltyMode === 'STAMPS') {
         showSuccess(`สั่งสำเร็จ! จะได้รับ ${res.data.stampsEligible} แสตมป์เมื่อร้านยืนยันออเดอร์`)
       } else {
         showSuccess(`สั่งสำเร็จ! จะได้รับ ${res.data.pointsEarned} แต้มเมื่อร้านยืนยันออเดอร์`)
@@ -457,7 +506,7 @@ function getDefaultPickupTime(): string {
 }
 
 // ─── Proceed to payment ───────────────────────────────────────────────────────
-async function proceedToPayment() {
+async function goToNext() {
   if (cartCount.value === 0) return
   try {
     const res = await http.get<{ data: ShopStatus }>(API_ENDPOINTS.PUBLIC.LOCATION_STATUS, undefined, { loading: true })
@@ -468,7 +517,43 @@ async function proceedToPayment() {
     showClosedAlert.value = true
     return
   }
+
+  // แสตมป์ครบ 10 ดวงแล้ว (ไม่รวมที่กำลังจะได้จากออเดอร์นี้) และยังไม่เคยเลือกแลก → ถามก่อนเข้าสู่หน้าชำระเงิน
+  if (loyaltyMode.value === 'STAMPS' && (member.value?.stampCount ?? 0) >= MAX_STAMPS && freeItemIndex.value === null) {
+    const ok = await showConfirm({
+      title: `แสตมป์ครบ ${MAX_STAMPS} ดวงแล้ว!`,
+      message: 'คุณต้องการใช้สิทธิ์แลกแก้วฟรี 1 แก้วในออเดอร์นี้เลยไหม?',
+      confirmText: 'ใช้สิทธิ์',
+      cancelText: 'ไม่ใช้สิทธิ์',
+    })
+    if (ok) {
+      if (freeItemCandidates.value.length === 0) {
+        showError(`ไม่มีสินค้าในตะกร้าที่ราคาไม่เกิน ${FREE_ITEM_MAX_PRICE} บาท`)
+      } else if (freeItemCandidates.value.length === 1) {
+        freeItemIndex.value = freeItemCandidates.value[0].idx
+      } else {
+        showFreeItemPicker.value = true
+        return
+      }
+    }
+  }
+
   step.value = 2
+}
+
+function selectFreeItem(idx: number) {
+  freeItemIndex.value = idx
+  showFreeItemPicker.value = false
+  step.value = 2
+}
+
+function cancelFreeItemPicker() {
+  showFreeItemPicker.value = false
+  step.value = 2
+}
+
+function removeFreeItemSelection() {
+  freeItemIndex.value = null
 }
 
 // ─── Cart total ───────────────────────────────────────────────────────────────
@@ -496,12 +581,16 @@ async function generateQR(amount: number) {
 }
 
 watch(total, (val) => {
-  if (step.value === 2) generateQR(val)
+  if (step.value === 2 && paymentMethod.value === 'QR') generateQR(val)
 }, { immediate: false })
+
+watch(paymentMethod, (val) => {
+  if (step.value === 2 && val === 'QR') generateQR(total.value)
+})
 
 watch(step, (val) => {
   if (val === 2) {
-    generateQR(total.value)
+    if (paymentMethod.value === 'QR') generateQR(total.value)
     // set default pickup time เมื่อไปหน้าชำระเงิน
     if (!pickupTime.value) pickupTime.value = getDefaultPickupTime()
   }
@@ -553,33 +642,36 @@ async function downloadStaticQR() {
     <div class="flex items-center justify-center mb-6 select-none">
       <template v-for="(s, idx) in steps" :key="s.num">
         <div class="flex flex-col items-center gap-1">
-          <div
-            class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors"
-            :class="step === s.num
-              ? 'bg-[#1B2B4B] text-white shadow-md'
-              : step > s.num
-                ? 'bg-[#C8D8E8] text-[#1B2B4B]'
-                : 'bg-gray-100 text-gray-400'"
-          >{{ s.num }}</div>
-          <span
-            class="text-xs font-medium transition-colors"
-            :class="step === s.num ? 'text-[#1B2B4B]' : step > s.num ? 'text-[#2a3f6b]' : 'text-gray-400'"
-          >{{ s.label }}</span>
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors" :class="step === s.num
+            ? 'bg-[#1B2B4B] text-white shadow-md'
+            : step > s.num
+              ? 'bg-[#C8D8E8] text-[#1B2B4B]'
+              : 'bg-gray-100 text-gray-400'">{{ s.num }}</div>
+          <span class="text-xs font-medium transition-colors"
+            :class="step === s.num ? 'text-[#1B2B4B]' : step > s.num ? 'text-[#2a3f6b]' : 'text-gray-400'">{{ s.label
+            }}</span>
         </div>
-        <div
-          v-if="idx < steps.length - 1"
-          class="h-0.5 w-10 mx-1 mb-5 rounded transition-colors"
-          :class="step > s.num ? 'bg-[#C8D8E8]' : 'bg-gray-200'"
-        />
+        <div v-if="idx < steps.length - 1" class="h-0.5 w-10 mx-1 mb-5 rounded transition-colors"
+          :class="step > s.num ? 'bg-[#C8D8E8]' : 'bg-gray-200'" />
       </template>
     </div>
+
+    <!-- Current stamp balance (STAMPS mode) -->
+    <!-- <div v-if="loyaltyMode === 'STAMPS'" class="flex items-center justify-between bg-[#F0F4F8] border border-[#C8D8E8] rounded-xl px-4 py-2.5 mb-3 text-sm">
+      <span class="flex items-center gap-1.5 text-[#1B2B4B] font-medium">
+        <Icon name="mdi:coffee-outline" class="text-base" />
+        แสตมป์สะสม
+      </span>
+      <span class="font-bold text-[#1B2B4B]">{{ member?.stampCount ?? 0 }}/{{ MAX_STAMPS }}</span>
+    </div> -->
 
     <!-- ════════════════════════════════════════════════════════════
          STEP 1 — เลือกสินค้า
     ════════════════════════════════════════════════════════════════ -->
     <div v-if="step === 1" class="space-y-3">
       <!-- Manual close warning banner -->
-      <div v-if="shopStatus?.manualClose && shopStatus?.canOrder" class="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm">
+      <div v-if="shopStatus?.manualClose && shopStatus?.canOrder"
+        class="flex items-start gap-3 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 text-sm">
         <Icon name="mdi:store-clock" class="text-orange-500 text-xl flex-shrink-0 mt-0.5" />
         <div>
           <p class="font-medium text-orange-700">ร้านปิดอยู่ในขณะนี้</p>
@@ -592,13 +684,15 @@ async function downloadStaticQR() {
       </div>
 
       <!-- Cart restored banner -->
-      <div v-if="cart.length > 0 && !loading" class="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm">
+      <div v-if="cart.length > 0 && !loading"
+        class="flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm">
         <Icon name="mdi:cart-check" class="text-blue-500 text-xl flex-shrink-0" />
         <div class="flex-1 min-w-0">
           <p class="font-medium text-blue-700">มีรายการค้างอยู่ {{ cartCount }} รายการ</p>
           <p class="text-blue-500 text-xs">ระบบบันทึกรายการไว้ให้อัตโนมัติ</p>
         </div>
-        <button class="text-blue-400 hover:text-blue-600 text-xs underline flex-shrink-0" @click="cart = []">ล้าง</button>
+        <button class="text-blue-400 hover:text-blue-600 text-xs underline flex-shrink-0"
+          @click="cart = []">ล้าง</button>
       </div>
 
       <!-- สั่งบ่อย -->
@@ -608,13 +702,9 @@ async function downloadStaticQR() {
           <p class="text-sm font-semibold text-gray-700">สั่งบ่อย</p>
         </div>
         <div class="flex gap-2 overflow-x-auto pb-1">
-          <button
-            v-for="product in frequentProducts"
-            :key="product.id"
-            type="button"
+          <button v-for="product in frequentProducts" :key="product.id" type="button"
             class="flex-shrink-0 flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2 hover:border-[#C8D8E8] hover:bg-[#F0F4F8] active:scale-95 transition-all shadow-sm"
-            @click="openModal(product)"
-          >
+            @click="openModal(product)">
             <div class="w-9 h-9 rounded-lg overflow-hidden bg-[#F0F4F8] flex-shrink-0">
               <img v-if="product.imageUrl" :src="product.imageUrl" class="w-full h-full object-cover" />
               <div v-else class="w-full h-full flex items-center justify-center">
@@ -622,7 +712,8 @@ async function downloadStaticQR() {
               </div>
             </div>
             <div class="text-left min-w-0">
-              <p class="text-xs font-semibold text-gray-800 leading-tight line-clamp-1 max-w-[80px]">{{ product.name }}</p>
+              <p class="text-xs font-semibold text-gray-800 leading-tight line-clamp-1 max-w-[80px]">{{ product.name }}
+              </p>
               <p class="text-[10px] text-[#2a3f6b] font-medium">฿{{ Number(product.price).toFixed(0) }}</p>
             </div>
           </button>
@@ -631,38 +722,25 @@ async function downloadStaticQR() {
 
       <!-- Search + category -->
       <div class="space-y-2">
-        <input
-          v-model="search"
-          type="text"
-          placeholder="ค้นหาเมนู..."
-          class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
-        />
+        <input v-model="search" type="text" placeholder="ค้นหาเมนู..."
+          class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]" />
         <div class="flex gap-2 overflow-x-auto pb-1">
-          <button
-            class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors"
+          <button class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors"
             :class="!selectedCategory ? 'bg-[#1B2B4B] text-white' : 'bg-gray-100 text-gray-600'"
-            @click="selectedCategory = null"
-          >ทั้งหมด</button>
-          <button
-            v-for="cat in categories"
-            :key="cat.id"
+            @click="selectedCategory = null">ทั้งหมด</button>
+          <button v-for="cat in categories" :key="cat.id"
             class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-colors"
             :class="selectedCategory === cat.id ? 'bg-[#1B2B4B] text-white' : 'bg-gray-100 text-gray-600'"
-            @click="selectedCategory = cat.id"
-          >{{ cat.name }}</button>
+            @click="selectedCategory = cat.id">{{ cat.name }}</button>
         </div>
       </div>
 
       <div v-if="loading" class="text-center py-12 text-gray-400">กำลังโหลดเมนู...</div>
       <div v-else-if="filteredProducts.length === 0" class="text-center py-12 text-gray-400 text-sm">ไม่พบสินค้า</div>
       <div v-else class="grid grid-cols-2 gap-3">
-        <button
-          v-for="product in filteredProducts"
-          :key="product.id"
-          type="button"
+        <button v-for="product in filteredProducts" :key="product.id" type="button"
           class="bg-white rounded-xl shadow p-3 text-left hover:shadow-md hover:ring-2 hover:ring-[#C8D8E8] transition-all active:scale-95"
-          @click="openModal(product)"
-        >
+          @click="openModal(product)">
           <div class="w-full h-24 bg-[#F0F4F8] rounded-lg mb-2 overflow-hidden">
             <img v-if="product.imageUrl" :src="product.imageUrl" class="w-full h-full object-cover" />
             <div v-else class="w-full h-full flex items-center justify-center">
@@ -683,34 +761,26 @@ async function downloadStaticQR() {
       <!-- Cart summary -->
       <div class="bg-white rounded-2xl shadow p-4 space-y-3">
         <h2 class="font-semibold text-gray-700 text-sm">รายการที่สั่ง</h2>
-        <div
-          v-for="(item, index) in cart"
-          :key="index"
-          class="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0"
-        >
+        <div v-for="(item, index) in cart" :key="index"
+          class="flex items-start justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
           <div class="flex-1 min-w-0">
             <p class="text-sm font-medium text-gray-800">{{ item.product.name }}</p>
             <p class="text-xs text-gray-400 mt-0.5 truncate">
-              {{ item.selectedOptions.map(o => o.name).join(', ') || 'ไม่มีตัวเลือก' }}
+              {{item.selectedOptions.map(o => o.name).join(', ') || 'ไม่มีตัวเลือก'}}
             </p>
           </div>
           <div class="flex items-center gap-2 flex-shrink-0">
             <span class="text-xs text-gray-500">x{{ item.quantity }}</span>
             <span class="text-sm font-semibold text-gray-800">
-              ฿{{ ((Number(item.product.price) + item.selectedOptions.reduce((s, o) => s + o.extraPrice, 0)) * item.quantity).toFixed(0) }}
+              ฿{{((Number(item.product.price) + item.selectedOptions.reduce((s, o) => s + o.extraPrice, 0)) *
+                item.quantity).toFixed(0) }}
             </span>
-            <button
-              type="button"
-              class="text-gray-300 hover:text-[#1B2B4B] transition-colors p-0.5"
-              @click="openModal(item.product, index)"
-            >
+            <button type="button" class="text-gray-300 hover:text-[#1B2B4B] transition-colors p-0.5"
+              @click="openModal(item.product, index)">
               <Icon name="mdi:pencil-outline" class="w-4 h-4" />
             </button>
-            <button
-              type="button"
-              class="text-gray-300 hover:text-red-500 transition-colors p-0.5"
-              @click="removeItem(index)"
-            >
+            <button type="button" class="text-gray-300 hover:text-red-500 transition-colors p-0.5"
+              @click="removeItem(index)">
               <Icon name="mdi:close" class="w-4 h-4" />
             </button>
           </div>
@@ -720,21 +790,17 @@ async function downloadStaticQR() {
       <!-- Coupon section -->
       <div class="bg-white rounded-2xl shadow p-4">
         <p class="text-sm font-semibold text-gray-700 mb-2">ส่วนลด / คูปอง</p>
-        <div v-if="appliedCouponCode"
-          class="flex items-center justify-between rounded-xl p-3 border"
-          :class="couponErrors[appliedCouponCode]
-            ? 'bg-red-50 border-red-200'
-            : appliedCouponDiscount === 0
-              ? 'bg-yellow-50 border-yellow-200'
-              : 'bg-green-50 border-green-200'"
-        >
+        <div v-if="appliedCouponCode" class="flex items-center justify-between rounded-xl p-3 border" :class="couponErrors[appliedCouponCode]
+          ? 'bg-red-50 border-red-200'
+          : appliedCouponDiscount === 0
+            ? 'bg-yellow-50 border-yellow-200'
+            : 'bg-green-50 border-green-200'">
           <div>
             <p class="text-xs font-bold font-mono"
               :class="couponErrors[appliedCouponCode] ? 'text-red-700' : 'text-green-700'">
               {{ appliedCouponCode }}
             </p>
-            <p class="text-xs mt-0.5"
-              :class="couponErrors[appliedCouponCode] ? 'text-red-600' : 'text-green-600'">
+            <p class="text-xs mt-0.5" :class="couponErrors[appliedCouponCode] ? 'text-red-600' : 'text-green-600'">
               {{ couponErrors[appliedCouponCode] || appliedCouponName }}
             </p>
             <p v-if="!couponErrors[appliedCouponCode]" class="text-xs"
@@ -744,11 +810,9 @@ async function downloadStaticQR() {
           </div>
           <button class="text-gray-400 hover:text-red-500 text-xl leading-none p-1" @click="clearCoupon">×</button>
         </div>
-        <button
-          v-else
+        <button v-else
           class="w-full py-2.5 rounded-xl border border-dashed border-gray-300 text-sm text-gray-400 hover:text-gray-600 hover:border-gray-400 transition-colors"
-          @click="showCouponPicker = true"
-        >
+          @click="showCouponPicker = true">
           + ใช้โค้ด / คูปอง / แคมเปญ
         </button>
       </div>
@@ -757,10 +821,8 @@ async function downloadStaticQR() {
       <div class="bg-white rounded-2xl shadow p-4 space-y-4">
         <div>
           <p class="text-sm font-semibold text-gray-700 mb-2">เวลารับสินค้า <span class="text-red-500">*</span></p>
-          <select
-            v-model="pickupTime"
-            class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
-          >
+          <select v-model="pickupTime"
+            class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]">
             <option value="" disabled>เลือกเวลารับ...</option>
             <option v-for="t in pickupOptions" :key="t.value" :value="t.value">{{ t.label }}</option>
           </select>
@@ -768,12 +830,8 @@ async function downloadStaticQR() {
         </div>
         <div>
           <p class="text-sm font-semibold text-gray-700 mb-2">หมายเหตุ (ไม่บังคับ)</p>
-          <textarea
-            v-model="orderNote"
-            rows="2"
-            placeholder="เช่น ไม่เอาน้ำแข็ง, หวานน้อย..."
-            class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8] resize-none"
-          />
+          <textarea v-model="orderNote" rows="2" placeholder="เช่น ไม่เอาน้ำแข็ง, หวานน้อย..."
+            class="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C8D8E8] resize-none" />
         </div>
       </div>
 
@@ -786,26 +844,61 @@ async function downloadStaticQR() {
           <span>ส่วนลด ({{ appliedCouponName || appliedCouponCode }})</span>
           <span>-฿{{ appliedCouponDiscount.toFixed(2) }}</span>
         </div>
+        <div v-if="freeItemIndex !== null" class="flex items-center justify-between text-sm text-green-600">
+          <span>แลกฟรีด้วยแสตมป์ ({{ cart[freeItemIndex]?.product.name }})</span>
+          <span class="flex items-center gap-1.5">
+            -฿{{ freeItemDiscount.toFixed(2) }}
+            <button type="button" class="text-gray-400 hover:text-red-500 text-base leading-none"
+              @click="removeFreeItemSelection">×</button>
+          </span>
+        </div>
         <div class="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-100 text-base">
           <span>รวมทั้งหมด</span><span>฿{{ total.toFixed(2) }}</span>
         </div>
-        <p v-if="loyaltyMode === 'STAMPS'" class="text-xs text-[#1B2B4B] text-right">+{{ cartCount }} แสตมป์ที่จะได้รับ</p>
-        <p v-else class="text-xs text-[#1B2B4B] text-right">+{{ pointsEarned }} แต้มที่จะได้รับ</p>
+        <template v-if="loyaltyMode === 'STAMPS'">
+          <div>
+            <p class="text-xs text-[#1B2B4B] text-right pt-1">แสตมป์ที่จะได้รับ +{{ stampsEarned }}</p>
+            <p class="text-xs text-[#1B2B4B] text-right pt-1">แสตมป์สะสมปัจจุบัน {{ member?.stampCount ?? 0 }}/{{ MAX_STAMPS }}</p>
+            <p class="text-xs text-gray-400 text-right pt-1">(สะสมครบ {{ MAX_STAMPS }} แลกฟรี 1 แก้ว)</p>
+          </div>
+        </template>
+        <p v-else class="text-xs text-[#1B2B4B] text-right">แต้มที่จะได้รับ +{{ pointsEarned }}</p>
       </div>
 
-      <!-- ── Payment section ── -->
+      <!-- ── Payment method tabs ── -->
       <div class="bg-white rounded-2xl shadow p-4 space-y-4">
         <p class="text-sm font-semibold text-gray-700">ชำระเงิน ฿{{ total.toFixed(2) }}</p>
 
-        <!-- QR Code dynamic พร้อมยอด -->
-        <div class="flex flex-col items-center gap-2">
+        <div class="grid grid-cols-2 gap-2 bg-gray-100 rounded-xl p-1">
+          <button type="button" class="py-2 rounded-lg text-sm font-semibold transition-colors"
+            :class="paymentMethod === 'STORE' ? 'bg-white text-[#1B2B4B] shadow' : 'text-gray-500'"
+            @click="paymentMethod = 'STORE'">
+            ชำระหน้าร้าน
+          </button>
+          <button type="button" class="py-2 rounded-lg text-sm font-semibold transition-colors"
+            :class="paymentMethod === 'QR' ? 'bg-white text-[#1B2B4B] shadow' : 'text-gray-500'"
+            @click="paymentMethod = 'QR'">
+            โอน / สแกน QR
+          </button>
+        </div>
+
+        <!-- STORE mode -->
+        <div v-if="paymentMethod === 'STORE'"
+          class="flex items-start gap-3 bg-[#F0F4F8] border border-[#C8D8E8] rounded-xl px-4 py-3 text-sm">
+          <Icon name="mdi:storefront-outline" class="text-[#1B2B4B] text-xl flex-shrink-0 mt-0.5" />
+          <div>
+            <p class="font-medium text-[#1B2B4B]">ชำระเงินที่หน้าร้านเมื่อมารับสินค้า</p>
+            <p class="text-xs text-gray-500 mt-0.5">ไม่ต้องโอนเงินหรือแนบสลิปล่วงหน้า</p>
+          </div>
+        </div>
+
+        <!-- QR mode -->
+        <div v-else class="flex flex-col items-center gap-2">
           <div v-if="qrDataUrl" class="relative">
-            <img
-              :src="qrDataUrl"
-              alt="QR Code ชำระเงิน"
-              class="w-52 h-52 object-contain rounded-xl border border-gray-200"
-            />
-            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#1B2B4B] text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow">
+            <img :src="qrDataUrl" alt="QR Code ชำระเงิน"
+              class="w-52 h-52 object-contain rounded-xl border border-gray-200" />
+            <div
+              class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#1B2B4B] text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap shadow">
               ฿{{ total.toFixed(2) }}
             </div>
           </div>
@@ -813,20 +906,15 @@ async function downloadStaticQR() {
             <Icon name="mdi:loading" class="text-3xl text-gray-400 animate-spin" />
           </div>
           <div v-if="qrDataUrl" class="flex flex-col items-center gap-1.5 mt-1">
-            <button
-              type="button"
-              class="flex items-center gap-1.5 text-xs text-[#1B2B4B] font-medium hover:underline"
-              @click="downloadQR"
-            >
+            <button type="button" class="flex items-center gap-1.5 text-xs text-[#1B2B4B] font-medium hover:underline"
+              @click="downloadQR">
               <Icon name="mdi:download" class="w-4 h-4" />
               บันทึก / แชร์ QR Code (฿{{ total.toFixed(2) }})
             </button>
             <p class="text-[10px] text-gray-400">บันทึกลงเครื่องแล้วนำไปสแกนในแอปธนาคาร</p>
-            <button
-              type="button"
+            <button type="button"
               class="flex items-center gap-1 text-[10px] text-gray-400 hover:text-gray-600 hover:underline mt-0.5"
-              @click="downloadStaticQR"
-            >
+              @click="downloadStaticQR">
               <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
               หากไม่ได้ กดรับ QR ปกติ (ไม่มียอด)
             </button>
@@ -835,8 +923,8 @@ async function downloadStaticQR() {
 
       </div>
 
-      <!-- Slip upload -->
-      <div class="bg-white rounded-2xl shadow p-4 space-y-3">
+      <!-- Slip upload (QR mode only) -->
+      <div v-if="paymentMethod === 'QR'" class="bg-white rounded-2xl shadow p-4 space-y-3">
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-semibold text-gray-700">สลิปการโอนเงิน <span class="text-red-500">*</span></p>
@@ -848,22 +936,21 @@ async function downloadStaticQR() {
         <div v-if="slipFiles.length" class="grid grid-cols-3 gap-2">
           <div v-for="(s, i) in slipFiles" :key="i" class="relative aspect-square">
             <img :src="s.preview" class="w-full h-full object-cover rounded-xl border border-gray-200" />
-            <button
-              type="button"
-              class="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 text-red-500 shadow"
-              @click="removeSlip(i)"
-            >
+            <button type="button" class="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 text-red-500 shadow"
+              @click="removeSlip(i)">
               <Icon name="mdi:close" class="w-3.5 h-3.5" />
             </button>
           </div>
-          <label v-if="slipFiles.length < MAX_SLIPS" class="aspect-square flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#C8D8E8] transition-colors">
+          <label v-if="slipFiles.length < MAX_SLIPS"
+            class="aspect-square flex items-center justify-center border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-[#C8D8E8] transition-colors">
             <Icon name="mdi:plus" class="text-2xl text-gray-400" />
             <input type="file" accept="image/*" multiple class="hidden" @change="onSlipChange" />
           </label>
         </div>
 
         <label v-else class="block cursor-pointer">
-          <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#C8D8E8] transition-colors">
+          <div
+            class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:border-[#C8D8E8] transition-colors">
             <Icon name="mdi:upload" class="text-4xl text-gray-400 mb-2" />
             <p class="text-sm text-gray-500 font-medium">แตะเพื่อแนบสลิป</p>
             <p class="text-xs text-gray-400 mt-1">JPG, PNG, HEIC · สูงสุด {{ MAX_SLIPS }} รูป</p>
@@ -873,11 +960,9 @@ async function downloadStaticQR() {
       </div>
 
       <!-- Confirm button -->
-      <button
-        :disabled="placing"
+      <button :disabled="placing"
         class="w-full py-3.5 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] disabled:opacity-50 transition-colors text-base shadow"
-        @click="placeOrder"
-      >
+        @click="placeOrder">
         {{ uploadingSlip ? 'กำลังอัปโหลดสลิป...' : placing ? 'กำลังสั่ง...' : 'ยืนยันการสั่ง' }}
       </button>
     </div>
@@ -890,27 +975,23 @@ async function downloadStaticQR() {
         <div class="max-w-lg mx-auto px-4 pb-20 pt-2">
           <div
             class="bg-[#1B2B4B] rounded-2xl shadow-2xl px-5 py-3.5 flex items-center justify-between gap-4 transition-all"
-            :class="cartCount === 0 ? 'opacity-60' : 'opacity-100'"
-          >
+            :class="cartCount === 0 ? 'opacity-60' : 'opacity-100'">
             <div class="flex items-center gap-2.5">
               <div class="relative">
                 <Icon name="mdi:cart-outline" class="text-white w-6 h-6" />
-                <span
-                  v-if="cartCount > 0"
-                  class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none"
-                >{{ cartCount }}</span>
+                <span v-if="cartCount > 0"
+                  class="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center leading-none">{{
+                  cartCount }}</span>
               </div>
               <div>
                 <p class="text-[10px] text-[#C8D8E8] leading-tight">{{ cartCount }} รายการ</p>
                 <p class="text-white font-bold text-sm leading-tight">฿{{ subtotal.toFixed(0) }}</p>
               </div>
             </div>
-            <button
-              :disabled="cartCount === 0"
+            <button :disabled="cartCount === 0"
               class="bg-white text-[#1B2B4B] font-bold text-sm px-5 py-2 rounded-xl hover:bg-[#C8D8E8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-              @click="proceedToPayment"
-            >
-              ชำระเงิน →
+              @click="goToNext">
+              ถัดไป →
             </button>
           </div>
         </div>
@@ -919,30 +1000,33 @@ async function downloadStaticQR() {
 
     <!-- ── Option modal ── -->
     <Teleport to="body">
-      <div v-if="modalProduct" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:bg-black/40 sm:p-4">
-        <div class="bg-white sm:rounded-2xl w-full sm:max-w-md h-full sm:h-auto sm:max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col">
+      <div v-if="modalProduct"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:bg-black/40 sm:p-4">
+        <div
+          class="bg-white sm:rounded-2xl w-full sm:max-w-md h-full sm:h-auto sm:max-h-[85vh] overflow-y-auto shadow-2xl flex flex-col">
           <div class="p-6 border-b border-gray-100">
             <h3 class="text-lg font-bold text-gray-900">{{ modalProduct.name }}</h3>
             <p class="text-[#2a3f6b] font-semibold mt-1">฿{{ Number(modalProduct.price).toFixed(0) }}</p>
           </div>
           <div class="p-6 space-y-5">
-            <div v-for="pg in [...modalProduct.optionGroups].sort((a, b) => Number(b.optionGroup.required) - Number(a.optionGroup.required))" :key="pg.optionGroup.id">
+            <div
+              v-for="pg in [...modalProduct.optionGroups].sort((a, b) => Number(b.optionGroup.required) - Number(a.optionGroup.required))"
+              :key="pg.optionGroup.id">
               <div class="flex items-center gap-2 mb-3">
                 <span class="font-semibold text-gray-800">{{ pg.optionGroup.name }}</span>
-                <span v-if="pg.optionGroup.required" class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">จำเป็น</span>
-                <span v-if="pg.optionGroup.multiSelect" class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">เลือกได้หลายอย่าง</span>
+                <span v-if="pg.optionGroup.required"
+                  class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full">จำเป็น</span>
+                <span v-if="pg.optionGroup.multiSelect"
+                  class="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">เลือกได้หลายอย่าง</span>
               </div>
               <div class="space-y-2">
-                <button
-                  v-for="opt in pg.optionGroup.options.filter(o => o.isActive)"
-                  :key="opt.id"
-                  type="button"
+                <button v-for="opt in pg.optionGroup.options.filter(o => o.isActive)" :key="opt.id" type="button"
                   @click="toggleOption(pg.optionGroup.id, opt.id, pg.optionGroup.multiSelect)"
                   class="w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-colors text-left"
-                  :class="modalOptions[pg.optionGroup.id]?.includes(opt.id) ? 'border-[#C8D8E8] bg-[#F0F4F8]' : 'border-gray-100 bg-white hover:border-gray-200'"
-                >
+                  :class="modalOptions[pg.optionGroup.id]?.includes(opt.id) ? 'border-[#C8D8E8] bg-[#F0F4F8]' : 'border-gray-100 bg-white hover:border-gray-200'">
                   <span class="text-sm font-medium text-gray-800">{{ opt.name }}</span>
-                  <span class="text-sm text-gray-500">{{ Number(opt.extraPrice) > 0 ? `+฿${Number(opt.extraPrice).toFixed(0)}` : 'ฟรี' }}</span>
+                  <span class="text-sm text-gray-500">{{ Number(opt.extraPrice) > 0 ?
+                    `+฿${Number(opt.extraPrice).toFixed(0)}` : 'ฟรี' }}</span>
                 </button>
               </div>
             </div>
@@ -950,23 +1034,24 @@ async function downloadStaticQR() {
             <div class="flex items-center justify-between pt-2 border-t border-gray-100">
               <span class="text-sm font-semibold text-gray-700">จำนวน</span>
               <div class="flex items-center gap-3">
-                <button
-                  type="button"
+                <button type="button"
                   class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 text-lg font-bold transition-colors"
-                  @click="modalQty > 1 && modalQty--"
-                >−</button>
+                  @click="modalQty > 1 && modalQty--">−</button>
                 <span class="text-base font-bold text-gray-900 w-6 text-center">{{ modalQty }}</span>
-                <button
-                  type="button"
+                <button type="button"
                   class="w-8 h-8 rounded-full bg-[#C8D8E8] flex items-center justify-center text-[#2a3f6b] hover:bg-[#b0c8e0] text-lg font-bold transition-colors"
-                  @click="modalQty++"
-                >+</button>
+                  @click="modalQty++">+</button>
               </div>
             </div>
           </div>
-          <div class="p-6 pt-0 flex gap-3 sm:mt-0 mt-auto sticky bottom-0 bg-white border-t border-gray-100 sm:border-none sm:static">
-            <button @click="modalProduct = null; editingIndex = null" class="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">ยกเลิก</button>
-            <button @click="confirmModal" class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b]">{{ editingIndex !== null ? 'บันทึก' : 'เพิ่มลงออเดอร์' }}</button>
+          <div
+            class="p-6 pt-0 flex gap-3 sm:mt-0 mt-auto sticky bottom-0 bg-white border-t border-gray-100 sm:border-none sm:static">
+            <button @click="modalProduct = null; editingIndex = null"
+              class="flex-1 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50">ยกเลิก</button>
+            <button @click="confirmModal"
+              class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b]">{{ editingIndex
+                !==
+                null ? 'บันทึก' : 'เพิ่มลงออเดอร์' }}</button>
           </div>
         </div>
       </div>
@@ -992,8 +1077,40 @@ async function downloadStaticQR() {
           <div class="px-6 pb-5">
             <button
               class="w-full py-3 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-colors"
-              @click="showClosedAlert = false"
-            >รับทราบ</button>
+              @click="showClosedAlert = false">รับทราบ</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ── Free item picker modal ── -->
+    <Teleport to="body">
+      <div v-if="showFreeItemPicker"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+        <div class="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl">
+          <div class="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+            <h3 class="text-lg font-bold text-gray-900">เลือกแก้วที่จะแลกฟรี</h3>
+            <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              @click="cancelFreeItemPicker">×</button>
+          </div>
+          <div class="p-5 space-y-2">
+            <p class="text-xs text-gray-400 mb-2">เลือกได้เฉพาะสินค้าราคาไม่เกิน {{ FREE_ITEM_MAX_PRICE }} บาท</p>
+            <button v-for="{ item, idx } in freeItemCandidates" :key="idx" type="button"
+              class="w-full flex items-center justify-between rounded-xl px-4 py-3 border border-gray-200 hover:border-[#C8D8E8] hover:bg-[#F0F4F8] transition-colors text-left"
+              @click="selectFreeItem(idx)">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-800 truncate">{{ item.product.name }}</p>
+                <p class="text-xs text-gray-400 truncate">
+                  {{item.selectedOptions.map(o => o.name).join(', ') || 'ไม่มีตัวเลือก'}}
+                </p>
+              </div>
+              <span class="text-sm font-semibold text-[#1B2B4B] flex-shrink-0 ml-2">
+                ฿{{ Number(item.product.price).toFixed(0) }}
+              </span>
+            </button>
+            <p v-if="freeItemCandidates.length === 0" class="text-center text-sm text-gray-400 py-6">
+              ไม่มีสินค้าในตะกร้าที่ราคาไม่เกิน {{ FREE_ITEM_MAX_PRICE }} บาท
+            </p>
           </div>
         </div>
       </div>
@@ -1001,50 +1118,45 @@ async function downloadStaticQR() {
 
     <!-- ── Coupon / Campaign picker modal ── -->
     <Teleport to="body">
-      <div v-if="showCouponPicker" class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
+      <div v-if="showCouponPicker"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4">
         <div class="bg-white rounded-2xl w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl">
           <div class="p-5 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
             <h3 class="text-lg font-bold text-gray-900">ใช้โค้ด / คูปอง / แคมเปญ</h3>
-            <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none" @click="showCouponPicker = false">×</button>
+            <button class="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              @click="showCouponPicker = false">×</button>
           </div>
           <div class="p-5 space-y-5">
             <div>
               <p class="text-sm font-semibold text-gray-700 mb-2">ใส่รหัสโค้ด</p>
               <div class="flex gap-2">
-                <input
-                  v-model="couponInput"
-                  type="text"
-                  placeholder="รหัสคูปอง..."
-                  @keyup.enter="applyManualCoupon"
-                  class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]"
-                />
-                <button
-                  @click="applyManualCoupon"
-                  class="px-4 py-2 bg-[#1B2B4B] text-white rounded-lg text-sm font-medium hover:bg-[#2a3f6b]"
-                >ใช้</button>
+                <input v-model="couponInput" type="text" placeholder="รหัสคูปอง..." @keyup.enter="applyManualCoupon"
+                  class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[#C8D8E8]" />
+                <button @click="applyManualCoupon"
+                  class="px-4 py-2 bg-[#1B2B4B] text-white rounded-lg text-sm font-medium hover:bg-[#2a3f6b]">ใช้</button>
               </div>
             </div>
 
             <div v-if="myUses.length > 0">
               <p class="text-sm font-semibold text-gray-700 mb-2">คูปองที่แลกแต้มไว้</p>
               <div class="space-y-2">
-                <button
-                  v-for="u in myUses"
-                  :key="u.id"
-                  type="button"
+                <button v-for="u in myUses" :key="u.id" type="button"
                   :disabled="!!couponErrors[u.coupon.code] || couponLoading[u.coupon.code]"
                   class="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors text-left border"
                   :class="couponErrors[u.coupon.code]
                     ? 'bg-red-50 border-red-200 opacity-70 cursor-not-allowed'
                     : 'bg-green-50 border-green-200 hover:bg-green-100'"
-                  @click="applyCouponFromPicker(u.coupon.code, u.coupon.name, u.coupon.discountKind, u.coupon.discountValue)"
-                >
+                  @click="applyCouponFromPicker(u.coupon.code, u.coupon.name, u.coupon.discountKind, u.coupon.discountValue)">
                   <div class="min-w-0">
-                    <p class="text-sm font-bold font-mono" :class="couponErrors[u.coupon.code] ? 'text-red-600' : 'text-green-700'">{{ u.coupon.code }}</p>
+                    <p class="text-sm font-bold font-mono"
+                      :class="couponErrors[u.coupon.code] ? 'text-red-600' : 'text-green-700'">{{ u.coupon.code }}</p>
                     <p class="text-xs text-gray-600">{{ u.coupon.name }}</p>
-                    <p v-if="couponErrors[u.coupon.code]" class="text-xs text-red-500 mt-0.5">{{ couponErrors[u.coupon.code] }}</p>
+                    <p v-if="couponErrors[u.coupon.code]" class="text-xs text-red-500 mt-0.5">{{
+                      couponErrors[u.coupon.code]
+                      }}</p>
                   </div>
-                  <span class="text-sm font-semibold flex-shrink-0 ml-2" :class="couponErrors[u.coupon.code] ? 'text-red-400' : 'text-green-700'">
+                  <span class="text-sm font-semibold flex-shrink-0 ml-2"
+                    :class="couponErrors[u.coupon.code] ? 'text-red-400' : 'text-green-700'">
                     {{ formatCouponLabel(u.coupon.discountKind, u.coupon.discountValue) }}
                   </span>
                 </button>
@@ -1057,23 +1169,22 @@ async function downloadStaticQR() {
                 <div v-for="camp in campaigns" :key="camp.id">
                   <p class="text-xs font-semibold text-gray-500 mb-1.5">{{ camp.name }}</p>
                   <div class="space-y-1.5">
-                    <button
-                      v-for="c in camp.coupons"
-                      :key="c.id"
-                      type="button"
+                    <button v-for="c in camp.coupons" :key="c.id" type="button"
                       :disabled="!!couponErrors[c.code] || couponLoading[c.code]"
                       class="w-full flex items-center justify-between rounded-xl px-4 py-3 transition-colors text-left border"
                       :class="couponErrors[c.code]
                         ? 'bg-red-50 border-red-200 opacity-70 cursor-not-allowed'
                         : 'bg-[#F0F4F8] border-[#C8D8E8] hover:bg-[#e0ecf5]'"
-                      @click="applyCouponFromPicker(c.code, c.name, c.discountKind, c.discountValue)"
-                    >
+                      @click="applyCouponFromPicker(c.code, c.name, c.discountKind, c.discountValue)">
                       <div class="min-w-0">
-                        <p class="text-sm font-bold font-mono" :class="couponErrors[c.code] ? 'text-red-600' : 'text-[#1B2B4B]'">{{ c.code }}</p>
+                        <p class="text-sm font-bold font-mono"
+                          :class="couponErrors[c.code] ? 'text-red-600' : 'text-[#1B2B4B]'">{{ c.code }}</p>
                         <p class="text-xs text-gray-600">{{ c.name }}</p>
-                        <p v-if="couponErrors[c.code]" class="text-xs text-red-500 mt-0.5">{{ couponErrors[c.code] }}</p>
+                        <p v-if="couponErrors[c.code]" class="text-xs text-red-500 mt-0.5">{{ couponErrors[c.code] }}
+                        </p>
                       </div>
-                      <span class="text-sm font-semibold flex-shrink-0 ml-2" :class="couponErrors[c.code] ? 'text-red-400' : 'text-[#2a3f6b]'">
+                      <span class="text-sm font-semibold flex-shrink-0 ml-2"
+                        :class="couponErrors[c.code] ? 'text-red-400' : 'text-[#2a3f6b]'">
                         {{ formatCouponLabel(c.discountKind, c.discountValue) }}
                       </span>
                     </button>

@@ -151,10 +151,6 @@ export const usePosStore = defineStore('pos', () => {
     pointsToRedeem.value = 0
   }
 
-  function setMemberStampCount(n: number) {
-    if (member.value) member.value.stampCount = n
-  }
-
   // ─── Discount ───────────────────────────────────────────────────────────────
   const discountMode = ref<'badge' | 'percent' | 'amount' | null>(null)
   const discountBadge = ref<PosDiscount | null>(null)
@@ -438,7 +434,6 @@ export const usePosStore = defineStore('pos', () => {
     clearCart,
     lookupMember,
     clearMember,
-    setMemberStampCount,
     applyDiscountBadge,
     applyDiscountPercent,
     applyDiscountAmount,

@@ -5,9 +5,7 @@ definePageMeta({ layout: 'member', middleware: 'member' })
 
 const { member } = useMemberAuth()
 const http = useHttpClient()
-const { showSuccess, showError } = useAlert()
 const { mode, fetchMode } = useLoyaltyMode()
-const memberStore = useMemberStore()
 
 interface PointLogItem {
   id: string
@@ -28,31 +26,23 @@ interface StampLogItem {
   order: { queueNo: number | null } | null
 }
 
-interface PendingRedemption {
-  id: string
-  requestedAt: string
-}
-
 const logs = ref<PointLogItem[]>([])
 const stampLogs = ref<StampLogItem[]>([])
 const stampCount = ref(0)
 const maxStamps = ref(10)
-const pendingRedemption = ref<PendingRedemption | null>(null)
 const loading = ref(true)
 const error = ref('')
-const requesting = ref(false)
 
 onMounted(async () => {
   await fetchMode()
   try {
     if (mode.value === 'STAMPS') {
-      const res = await http.get<{ success: boolean; data: { stampCount: number; maxStamps: number; logs: StampLogItem[]; pendingRedemption: PendingRedemption | null } }>(
+      const res = await http.get<{ success: boolean; data: { stampCount: number; maxStamps: number; logs: StampLogItem[] } }>(
         API_ENDPOINTS.MEMBER.STAMPS.SHOW
       )
       stampCount.value = res.data?.stampCount ?? 0
       maxStamps.value = res.data?.maxStamps ?? 10
       stampLogs.value = res.data?.logs ?? []
-      pendingRedemption.value = res.data?.pendingRedemption ?? null
     } else {
       const res = await http.get<{ success: boolean; data: { points: number; tier: string; logs: PointLogItem[] } }>(
         API_ENDPOINTS.MEMBER.POINTS
@@ -65,21 +55,6 @@ onMounted(async () => {
     loading.value = false
   }
 })
-
-async function requestRedeem() {
-  requesting.value = true
-  try {
-    const res = await http.post<{ data: PendingRedemption }>(API_ENDPOINTS.MEMBER.STAMPS.REDEEM)
-    pendingRedemption.value = res.data ?? null
-    stampCount.value = 0
-    memberStore.setStampCount(0)
-    showSuccess('ส่งคำขอแลกฟรีคัพแล้ว รอพนักงานยืนยันที่ร้าน')
-  } catch (e: any) {
-    showError(e?.data?.message ?? e?.message ?? 'ขอแลกไม่สำเร็จ')
-  } finally {
-    requesting.value = false
-  }
-}
 
 const actionLabel: Record<string, string> = {
   EARN: 'ได้รับ',
@@ -131,28 +106,13 @@ function formatDate(d: string) {
         </div>
       </div>
 
-      <div v-if="pendingRedemption" class="bg-white rounded-2xl shadow p-5 text-center space-y-3">
-        <Icon name="mdi:clock-outline" class="text-4xl text-amber-500 mx-auto" />
-        <p class="font-semibold text-gray-800">รอพนักงานยืนยันการแลก</p>
-        <p class="text-xs text-gray-400">แสดงหน้านี้ให้พนักงานที่ร้านเพื่อยืนยันรับแก้วฟรี</p>
-        <div class="flex justify-center">
-          <div class="bg-white p-3 rounded-xl border-2 border-[#C8D8E8] shadow-sm">
-            <img
-              :src="`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pendingRedemption.id)}&margin=4`"
-              alt="QR แลกแสตมป์"
-              class="w-48 h-48"
-            />
-          </div>
+      <div v-if="stampCount >= maxStamps" class="flex items-start gap-3 bg-[#F0F4F8] border border-[#C8D8E8] rounded-2xl px-4 py-3 text-sm">
+        <Icon name="mdi:coffee" class="text-[#1B2B4B] text-xl flex-shrink-0 mt-0.5" />
+        <div>
+          <p class="font-medium text-[#1B2B4B]">สะสมครบแล้ว! ใช้สิทธิ์แลกฟรี 1 แก้วได้ตอนสั่งซื้อ</p>
+          <p class="text-xs text-gray-500 mt-0.5">เลือก "ใช้สิทธิ์" ได้ตอนสั่งออนไลน์ หรือแจ้งพนักงานที่ร้าน</p>
         </div>
       </div>
-      <button
-        v-else-if="stampCount >= maxStamps"
-        class="w-full py-3 rounded-xl bg-[#1B2B4B] text-white font-semibold hover:bg-[#2a3f6b] disabled:opacity-40 transition-colors"
-        :disabled="requesting"
-        @click="requestRedeem"
-      >
-        {{ requesting ? 'กำลังส่งคำขอ...' : 'ขอแลกฟรี 1 แก้ว' }}
-      </button>
 
       <div class="bg-white rounded-2xl shadow overflow-hidden">
         <div v-if="loading" class="p-8 text-center text-gray-400">กำลังโหลด...</div>

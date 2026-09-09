@@ -19,15 +19,15 @@ export interface MemberUser {
 }
 
 interface LoginBody {
-  email: string
+  identifier: string
   password: string
 }
 
 interface RegisterBody {
   name: string
-  email: string
+  email?: string
   password: string
-  phone?: string
+  phone: string
 }
 
 export const useMemberStore = defineStore('member', () => {
@@ -70,6 +70,7 @@ export const useMemberStore = defineStore('member', () => {
     await http.post(API_ENDPOINTS.MEMBER.AUTH.LOGOUT).catch(() => {})
     member.value = null
     state.value = initState()
+    try { localStorage.removeItem('member_ever_logged_in') } catch { /* private mode */ }
     await navigateTo('/member/login')
   }
 
@@ -78,6 +79,9 @@ export const useMemberStore = defineStore('member', () => {
     try {
       const res = await http.get<BaseResponse<MemberUser>>(API_ENDPOINTS.MEMBER.AUTH.ME)
       member.value = res.data ?? null
+      if (member.value) {
+        try { localStorage.setItem('member_ever_logged_in', '1') } catch { /* private mode */ }
+      }
     } catch {
       member.value = null
     } finally {
@@ -85,7 +89,7 @@ export const useMemberStore = defineStore('member', () => {
     }
   }
 
-  async function updateProfile(body: { name: string; phone?: string }) {
+  async function updateProfile(body: { name: string; phone: string }) {
     const http = useHttpClient()
     state.value = loadingState()
     try {
