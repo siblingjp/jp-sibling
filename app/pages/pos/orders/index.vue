@@ -410,6 +410,12 @@ function formatPickupTime(pt: string | null | undefined): string {
           <!-- Note -->
           <p v-if="order.note" class="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">{{ order.note }}</p>
 
+          <!-- Free item redeemed with stamps -->
+          <div v-if="order.freeItemName" class="flex items-center gap-1 text-xs text-amber-700 font-medium">
+            <Icon name="mdi:coffee" class="text-sm flex-shrink-0" />
+            แลกฟรีด้วยแสตมป์ ({{ order.freeItemName }})
+          </div>
+
           <!-- Total + Payment -->
           <div class="flex justify-between text-sm border-t border-gray-100 pt-2">
             <span class="text-gray-500">รวม</span>
