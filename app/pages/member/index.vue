@@ -405,17 +405,17 @@ function formatCouponValue(c: CampaignCoupon) {
         class="bg-[#1B2B4B] text-white rounded-2xl p-5 text-center shadow hover:bg-[#2a3f6b] transition-colors"
       >
         <img src="/logo-icon-white.png" alt="สั่งกาแฟ" class="w-10 h-10 object-contain mx-auto mb-2" />
-        <p class="font-semibold">สั่งอาหาร</p>
+        <p class="font-semibold">สั่งกาแฟ</p>
         <p class="text-xs text-[#C8D8E8] mt-0.5">สั่งออนไลน์</p>
       </NuxtLink>
 
       <NuxtLink
-        to="/member/redeem"
+        to="/member/qr"
         class="bg-white rounded-2xl p-5 text-center shadow hover:shadow-md transition-shadow border border-gray-100"
       >
-        <Icon name="mdi:gift" class="text-4xl mb-2" />
-        <p class="font-semibold text-gray-800">แลกแต้ม</p>
-        <p class="text-xs text-gray-500 mt-0.5">ใช้แต้มของคุณ</p>
+        <Icon name="mdi:qrcode" class="text-4xl mb-2" />
+        <p class="font-semibold text-gray-800">QR ของฉัน</p>
+        <p class="text-xs text-gray-500 mt-0.5">แสดงที่เคาน์เตอร์</p>
       </NuxtLink>
 
       <NuxtLink
@@ -428,27 +428,14 @@ function formatCouponValue(c: CampaignCoupon) {
       </NuxtLink>
 
       <NuxtLink
-        to="/member/qr"
+        to="/member/orders"
         class="bg-white rounded-2xl p-5 text-center shadow hover:shadow-md transition-shadow border border-gray-100"
       >
-        <Icon name="mdi:qrcode" class="text-4xl mb-2" />
-        <!-- <Icon name="flat-color-icons:qrcode" class="text-4xl mb-2" /> -->
-        <p class="font-semibold text-gray-800">QR ของฉัน</p>
-        <p class="text-xs text-gray-500 mt-0.5">แสดงที่เคาน์เตอร์</p>
+        <Icon name="mdi:clipboard-list" class="text-4xl mb-2" />
+        <p class="font-semibold text-gray-800">ออเดอร์</p>
+        <p class="text-xs text-gray-500 mt-0.5">ดูประวัติการสั่ง</p>
       </NuxtLink>
     </div>
-
-    <!-- Recent orders shortcut -->
-    <NuxtLink
-      to="/member/orders"
-      class="flex items-center justify-between bg-white rounded-2xl shadow p-5 hover:shadow-md transition-shadow"
-    >
-      <div>
-        <p class="font-semibold text-gray-800">ออเดอร์ของฉัน</p>
-        <p class="text-sm text-gray-500">ดูประวัติการสั่ง</p>
-      </div>
-      <Icon name="mdi:chevron-right" class="w-5 h-5 text-gray-400" />
-    </NuxtLink>
   </div>
 
   <!-- Campaign Popup -->

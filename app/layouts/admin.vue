@@ -112,6 +112,7 @@ watch(() => route.path, () => { sidebarOpen.value = false })
           >
             ออกจากระบบ
           </button>
+          <p class="text-[10px] text-gray-300">v{{ $config.public.appVersion }}</p>
         </div>
       </aside>
     </Transition>
@@ -156,6 +157,7 @@ watch(() => route.path, () => { sidebarOpen.value = false })
         >
           ออกจากระบบ
         </button>
+        <p class="text-[10px] text-gray-300">v{{ $config.public.appVersion }}</p>
       </div>
     </aside>
 

@@ -173,41 +173,36 @@ const marqueeProducts = computed(() => {
     <div class="md:block">
 
       <!-- Hero section: 50vh on mobile, 90vh on desktop -->
-      <section class="relative overflow-hidden bg-gradient-to-br from-[#F8FAFC] via-[#DDEAF6] to-[#C8D8E8] h-[50vh] md:min-h-[90vh] flex items-center">
-        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+      <section class="relative overflow-hidden h-[50vh] md:min-h-[90vh] flex flex-col">
+        <div class="absolute inset-0 pointer-events-none">
+          <img src="/hero-cover-2.jpg" alt="" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 bg-gradient-to-b from-[#0F1C30]/70 via-[#0F1C30]/55 to-[#0F1C30]/80" />
           <svg class="absolute -bottom-1 left-0 w-full hidden md:block" viewBox="0 0 1440 120" fill="none">
             <path d="M0,60 C360,120 1080,0 1440,60 L1440,120 L0,120 Z" fill="white"/>
           </svg>
-          <svg class="absolute top-10 right-[-2rem] opacity-10 w-96 h-96" viewBox="0 0 200 200">
-            <circle cx="100" cy="80" r="60" fill="#1B2B4B"/>
-            <ellipse cx="100" cy="145" rx="70" ry="15" fill="#1B2B4B"/>
-            <path d="M90,20 Q100,0 110,20 Q120,0 130,20" stroke="#1B2B4B" stroke-width="4" fill="none"/>
-          </svg>
         </div>
-        <div class="relative max-w-4xl mx-auto px-6 py-10 md:py-24 text-center w-full">
-          <img src="/logo.jpg" alt="JP Sibling" class="w-20 h-20 md:w-32 md:h-32 mx-auto rounded-full shadow-xl mb-4 md:mb-8 object-cover" />
-          <h1 class="text-3xl md:text-6xl font-bold text-[#1B2B4B] leading-tight mb-2 md:mb-4">JP Sibling</h1>
-          <p class="text-base md:text-xl text-[#1B2B4B]/70 mb-6 md:mb-10">พบกันทุกเช้า ที่ไหนก็ได้</p>
-          <div class="flex flex-col sm:flex-row items-center gap-3 md:gap-4 justify-center">
-            <NuxtLink
-              to="/member/orders/new"
-              class="inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-[#1B2B4B] text-white font-bold rounded-2xl hover:bg-[#2a3f6b] transition-all shadow-lg hover:-translate-y-0.5 text-sm md:text-base"
-            >
-              สั่งออนไลน์ (สมาชิก)
-              <span v-if="member" class="w-3.5 h-3.5 rounded-full bg-white/40 animate-ping inline-block" />
-            </NuxtLink>
+
+        <!-- Logo + name: top-left -->
+        <div class="relative flex flex-col items-center justify-center gap-3 px-6 pt-6 md:pt-8">
+          <img src="/logo.jpg" alt="JP Sibling" class="w-16 h-16 md:w-14 md:h-14 rounded-full shadow-lg object-cover ring-2 ring-white/30" />
+          <h1 class="text-xl md:text-3xl font-bold text-white drop-shadow-lg">JP Sibling</h1>
+        </div>
+
+        <!-- Buttons: bottom -->
+        <div class="relative max-w-4xl mx-auto px-6 pb-6 md:pb-12 text-center w-full mt-auto">
+          <p class="text-sm md:text-lg text-white/85 drop-shadow mb-3 md:mb-4">พบกันทุกเช้า ที่ไหนก็ได้</p>
+          <div class="flex flex-row items-stretch gap-3 md:gap-4 justify-center">
             <NuxtLink
               to="/order"
-              class="inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-teal-600 text-white font-bold rounded-2xl hover:bg-teal-700 transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
+              class="flex-1 max-w-[220px] inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-teal-600 text-white font-bold rounded-2xl hover:bg-teal-700 transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
             >
-              สั่งด่วน (ไม่ต้องสมัคร)
+              สั่งออนไลน์
             </NuxtLink>
             <NuxtLink
               to="/member/register"
-              class="inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl border-2 border-[#C8D8E8] hover:bg-[#F0F4F8] transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
+              class="flex-1 max-w-[220px] inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl border-2 border-white hover:bg-[#F0F4F8] transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
             >
               สมัครสมาชิกฟรี
-              <span v-if="!member" class="w-3.5 h-3.5 rounded-full bg-gray-400/60 animate-ping inline-block" />
             </NuxtLink>
           </div>
         </div>
@@ -470,6 +465,7 @@ const marqueeProducts = computed(() => {
           </a>
         </div>
         <p class="text-xs text-[#C8D8E8]/50">© {{ new Date().getFullYear() }} <NuxtLink to="/admin" class="hover:text-white transition-colors">JP Sibling</NuxtLink> · Coffee Truck · Chiang Mai</p>
+        <p class="text-[10px] text-[#C8D8E8]/30">v{{ $config.public.appVersion }}</p>
       </div>
     </footer>
   </div>

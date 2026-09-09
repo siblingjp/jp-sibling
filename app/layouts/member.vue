@@ -55,8 +55,15 @@
           class="flex-1 flex flex-col items-center py-3 gap-1 text-xs transition-colors"
           :class="isActive(item) ? 'text-[#1B2B4B]' : 'text-gray-400 hover:text-gray-600'"
         >
-          <Icon :name="isActive(item) ? item.activeIcon : item.icon" class="text-2xl" />
-          <span class="font-medium">{{ item.label }}</span>
+          <span
+            v-if="item.image"
+            class="rounded-full bg-white flex items-center justify-center transition-transform"
+            :class="item.raised ? '-mt-7 w-14 h-14 shadow-lg ring-4 ring-white border border-gray-100' : 'w-6 h-6'"
+          >
+            <img :src="item.image" alt="" class="object-contain" :class="item.raised ? 'w-9 h-9' : 'w-6 h-6'" />
+          </span>
+          <Icon v-else :name="isActive(item) ? item.activeIcon : item.icon" class="text-2xl" />
+          <span class="font-medium" :class="item.raised ? '-mt-0.5' : ''">{{ item.label }}</span>
         </NuxtLink>
         <span class="absolute bottom-1 left-1/2 -translate-x-1/2 text-[6px] text-gray-300 pointer-events-none">v{{ $config.public.appVersion }}</span>
       </div>
@@ -102,18 +109,19 @@ async function handleLogout() {
 }
 
 const navItems = computed(() => [
-  { to: '/member', icon: 'mdi:home', activeIcon: 'flat-color-icons:home', label: 'หน้าแรก', exact: true },
+  { to: '/member', icon: 'mdi:home', activeIcon: 'flat-color-icons:home', label: 'หน้าหลัก', exact: true },
   { to: '/member/orders', icon: 'mdi:clipboard-list', activeIcon: 'flat-color-icons:list', label: 'ออเดอร์', exact: false },
+  { to: '/member/orders/new', icon: 'mdi:coffee', activeIcon: 'mdi:coffee', label: 'สั่งกาแฟ', exact: false, image: '/icon-circle.png', raised: true },
   mode.value === 'STAMPS'
-    ? { to: '/member/points', icon: 'mdi:coffee', activeIcon: 'mdi:coffee', label: 'แสตมป์', exact: false }
+    ? { to: '/member/points', icon: 'mdi:stamper', activeIcon: 'mdi:stamper', label: 'แสตมป์', exact: false }
     : { to: '/member/redeem', icon: 'mdi:gift', activeIcon: 'mdi:gift', label: 'แลกแต้ม', exact: false },
-  { to: '/member/coupons', icon: 'mdi:ticket-percent', activeIcon: 'mdi:ticket-percent', label: 'คูปอง', exact: false },
   { to: '/member/profile', icon: 'mdi:account', activeIcon: 'flat-color-icons:businessman', label: 'โปรไฟล์', exact: false },
 ])
 
 function isActive(item: { to: string; exact: boolean }) {
   const path = useRoute().path
   if (item.exact) return path === item.to
+  if (item.to === '/member/orders' && path.startsWith('/member/orders/new')) return false
   return path === item.to || path.startsWith(item.to + '/')
 }
 </script>
