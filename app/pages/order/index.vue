@@ -60,7 +60,7 @@ const orderNote = ref('')
 const pickupTime = ref('')
 
 // ─── Phone lookup (ผูกสมาชิกถ้าเจอ) ────────────────────────────────────────────
-interface FoundMember { id: string; name: string; phone: string; tier: string; stampCount: number }
+interface FoundMember { id: string; name: string; phone: string; tier: string; stampCount: number; hasPendingStampRedemption: boolean }
 const phoneInput = ref('')
 const foundMember = ref<FoundMember | null>(null)
 const lookingUpMember = ref(false)
@@ -117,6 +117,14 @@ async function maybeOfferStampRedeem(): Promise<void> {
   if (freeItemIndex.value !== null) return
   if (loyaltyMode.value !== 'STAMPS') return
   if (!foundMember.value || foundMember.value.stampCount < MAX_STAMPS) return
+
+  // ดึงข้อมูลสมาชิกใหม่ก่อนถาม กันกรณีมีการใช้สิทธิ์ไปแล้วกับออเดอร์ก่อนหน้า (ล็อกไว้ รอ COMPLETED) แต่ค่าที่ lookup ไว้ยังไม่อัปเดต
+  try {
+    const res = await http.get<{ data: FoundMember }>(API_ENDPOINTS.PUBLIC.MEMBER_LOOKUP, { phone: foundMember.value.phone })
+    foundMember.value = res.data
+  } catch { /* ถ้า lookup ซ้ำไม่ได้ ใช้ค่าเดิมไปก่อน */ }
+
+  if (!foundMember.value || foundMember.value.stampCount < MAX_STAMPS || foundMember.value.hasPendingStampRedemption) return
 
   const ok = await showConfirm({
     title: `แสตมป์ครบ ${MAX_STAMPS} ดวงแล้ว!`,

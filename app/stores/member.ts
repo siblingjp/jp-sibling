@@ -12,6 +12,7 @@ export interface MemberUser {
   tier: 'SILVER' | 'GOLD' | 'VIP'
   points: number
   stampCount: number
+  hasPendingStampRedemption: boolean
   totalSpent: number
   lineUserId: string | null
   googleId: string | null

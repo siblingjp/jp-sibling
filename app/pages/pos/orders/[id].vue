@@ -77,6 +77,13 @@ const freeItemCandidates = computed(() =>
 )
 
 async function handleRedeemStampClick() {
+  // โหลดออเดอร์ใหม่ก่อนถาม กันกรณีสมาชิกใช้สิทธิ์ไปแล้วกับออเดอร์อื่นระหว่างที่เปิดหน้านี้ค้างไว้
+  await load()
+  if (!canRedeemStamp.value) {
+    showError('สมาชิกไม่มีสิทธิ์แลกแก้วฟรีแล้ว (อาจใช้ไปแล้วกับออเดอร์อื่น หรือแสตมป์ไม่ครบ)')
+    return
+  }
+
   const ok = await showConfirm({
     title: `แสตมป์ครบ ${MAX_STAMPS} ดวงแล้ว!`,
     message: `สมาชิกต้องการใช้สิทธิ์แลกแก้วฟรี 1 แก้วในออเดอร์นี้เลยไหม?`,

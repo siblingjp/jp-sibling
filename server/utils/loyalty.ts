@@ -104,6 +104,16 @@ export async function confirmStampRedemptionOnComplete(
   })
 }
 
+// มีคำขอแลกแสตมป์ที่ล็อกไว้กับออเดอร์ก่อนหน้าอยู่หรือไม่ (ยังไม่ COMPLETED/CANCELLED)
+// ใช้แสดงผลฝั่ง client กันหน้า checkout เด้ง modal ถามใช้สิทธิ์ซ้ำทั้งที่ใช้ไปแล้วกับออเดอร์อื่น
+export async function checkHasPendingStampRedemption(memberId: string): Promise<boolean> {
+  const pending = await prisma.stampRedemption.findFirst({
+    where: { memberId, status: 'PENDING' },
+    select: { id: true },
+  })
+  return !!pending
+}
+
 // ตรวจสอบสิทธิ์แลกแสตมป์เป็นแก้วฟรี (ครบ 10 ดวง + ไม่มี lock ค้าง + สินค้าราคาไม่เกิน FREE_ITEM_MAX_PRICE)
 // ใช้ร่วมกันทั้ง 3 ช่องทางสร้างออเดอร์ (member/orders, public/orders, pos/orders)
 export async function validateFreeItemRedemption(

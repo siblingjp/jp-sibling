@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
       member: { ...session.member, points: member.points, tier: member.tier },
     })
 
-    return okResponse(member)
+    return okResponse({ ...member, hasPendingStampRedemption: await checkHasPendingStampRedemption(member.id) })
   } catch (e) {
     handleError(e)
   }

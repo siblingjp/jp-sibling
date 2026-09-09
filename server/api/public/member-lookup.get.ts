@@ -16,7 +16,8 @@ export default defineEventHandler(async (event) => {
     })
 
     if (!member) throw notFound('ไม่พบสมาชิก')
-    return okResponse(member)
+
+    return okResponse({ ...member, hasPendingStampRedemption: await checkHasPendingStampRedemption(member.id) })
   } catch (e) {
     handleError(e)
   }

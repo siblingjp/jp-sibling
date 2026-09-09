@@ -4,7 +4,7 @@ import generatePayload from 'promptpay-qr'
 
 definePageMeta({ layout: 'member', middleware: 'member' })
 
-const { member } = useMemberAuth()
+const { member, fetchMe } = useMemberAuth()
 const http = useHttpClient()
 const { uploadViaPresign } = useUpload()
 const { showSuccess, showError, showConfirm } = useAlert()
@@ -519,7 +519,11 @@ async function goToNext() {
   }
 
   // แสตมป์ครบ 10 ดวงแล้ว (ไม่รวมที่กำลังจะได้จากออเดอร์นี้) และยังไม่เคยเลือกแลก → ถามก่อนเข้าสู่หน้าชำระเงิน
-  if (loyaltyMode.value === 'STAMPS' && (member.value?.stampCount ?? 0) >= MAX_STAMPS && freeItemIndex.value === null) {
+  const looksEligible = loyaltyMode.value === 'STAMPS' && (member.value?.stampCount ?? 0) >= MAX_STAMPS && freeItemIndex.value === null
+  // ดึงข้อมูลสมาชิกใหม่ก่อนถาม กันกรณีมีการใช้สิทธิ์ไปแล้วกับออเดอร์ก่อนหน้า (ล็อกไว้ รอ COMPLETED) แต่ค่าที่ cache ไว้ยังไม่อัปเดต
+  if (looksEligible) await fetchMe()
+
+  if (looksEligible && !member.value?.hasPendingStampRedemption) {
     const ok = await showConfirm({
       title: `แสตมป์ครบ ${MAX_STAMPS} ดวงแล้ว!`,
       message: 'คุณต้องการใช้สิทธิ์แลกแก้วฟรี 1 แก้วในออเดอร์นี้เลยไหม?',

@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
       data: { name: data.name, phone: data.phone },
       select: {
         id: true, name: true, email: true, phone: true,
-        tier: true, points: true, totalSpent: true,
+        tier: true, points: true, stampCount: true, totalSpent: true,
         profileImage: true, lineUserId: true, googleId: true,
         createdAt: true,
       },
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
       member: { ...session.member, name: member.name },
     })
 
-    return okResponse(member)
+    return okResponse({ ...member, hasPendingStampRedemption: await checkHasPendingStampRedemption(member.id) })
   } catch (e) {
     handleError(e)
   }
