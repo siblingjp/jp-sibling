@@ -7,9 +7,9 @@ const route = useRoute()
 const id = route.params.id as string
 
 const store = useMembersStore()
-const { showError } = useAlert()
+const { showError, showSuccess } = useAlert()
 
-const { data, error } = await useAsyncData(`member-detail-${id}`, () =>
+const { data, error, refresh } = await useAsyncData(`member-detail-${id}`, () =>
   useHttpClient().get<{ data: AdminMemberDetail }>(API_ENDPOINTS.ADMIN.MEMBERS.SHOW(id)),
 )
 
@@ -19,6 +19,36 @@ if (error.value) {
 }
 
 const member = computed(() => data.value?.data ?? null)
+
+// ─── Manual stamp adjustment ──────────────────────────────────────────────────
+const MAX_STAMPS = 10
+const editingStamps = ref(false)
+const stampInput = ref(0)
+const stampNote = ref('')
+const savingStamps = ref(false)
+
+function startEditStamps() {
+  stampInput.value = member.value?.stampCount ?? 0
+  stampNote.value = ''
+  editingStamps.value = true
+}
+
+async function saveStamps() {
+  savingStamps.value = true
+  try {
+    await useHttpClient().patch(API_ENDPOINTS.ADMIN.MEMBERS.ADJUST_STAMPS(id), {
+      stampCount: stampInput.value,
+      note: stampNote.value || undefined,
+    })
+    editingStamps.value = false
+    showSuccess('ปรับแสตมป์เรียบร้อย')
+    await refresh()
+  } catch (e: any) {
+    showError(e?.data?.message ?? e?.message ?? 'ปรับแสตมป์ไม่สำเร็จ')
+  } finally {
+    savingStamps.value = false
+  }
+}
 
 const actionBadge: Record<string, string> = {
   EARN: 'bg-green-100 text-green-700',
@@ -87,7 +117,15 @@ function formatPrice(n: number) {
             <p class="text-xs text-blue-500 mb-1">แต้มสะสม</p>
             <p class="text-3xl font-bold text-blue-600">{{ member.points.toLocaleString() }}</p>
           </div>
-          <div class="bg-amber-50 rounded-lg p-4 text-center">
+          <div class="bg-amber-50 rounded-lg p-4 text-center relative">
+            <button
+              type="button"
+              class="absolute top-2 right-2 text-amber-400 hover:text-amber-700 transition-colors"
+              title="แก้ไขแสตมป์"
+              @click="startEditStamps"
+            >
+              <Icon name="mdi:pencil-outline" class="text-base" />
+            </button>
             <p class="text-xs text-amber-600 mb-1">แสตมป์</p>
             <p class="text-3xl font-bold text-amber-700">{{ member.stampCount }}<span class="text-base text-amber-500">/10</span></p>
           </div>
@@ -200,5 +238,64 @@ function formatPrice(n: number) {
         </table>
       </div>
     </div>
+
+    <!-- Edit stamps modal -->
+    <Teleport to="body">
+      <div v-if="editingStamps" class="fixed inset-0 z-50 flex items-center justify-center">
+        <div class="absolute inset-0 bg-black/40" @click="editingStamps = false" />
+        <div class="relative bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 space-y-4">
+          <h2 class="text-lg font-semibold text-gray-900">แก้ไขแสตมป์</h2>
+          <p class="text-sm text-gray-500">{{ member?.name }}</p>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1.5">จำนวนแสตมป์ (0-{{ MAX_STAMPS }})</label>
+            <div class="flex items-center gap-3">
+              <button
+                type="button"
+                class="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold"
+                @click="stampInput = Math.max(0, stampInput - 1)"
+              >−</button>
+              <input
+                v-model.number="stampInput"
+                type="number"
+                min="0"
+                :max="MAX_STAMPS"
+                class="flex-1 text-center text-2xl font-bold border border-gray-300 rounded-lg py-2 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+              <button
+                type="button"
+                class="w-9 h-9 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 font-bold"
+                @click="stampInput = Math.min(MAX_STAMPS, stampInput + 1)"
+              >+</button>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs text-gray-500 mb-1.5">หมายเหตุ (ไม่บังคับ)</label>
+            <input
+              v-model="stampNote"
+              type="text"
+              placeholder="เช่น แก้ไขข้อผิดพลาด, ให้เป็นกรณีพิเศษ..."
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+            />
+          </div>
+
+          <div class="flex gap-3 pt-1">
+            <button
+              type="button"
+              class="flex-1 py-2.5 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50"
+              @click="editingStamps = false"
+            >ยกเลิก</button>
+            <button
+              type="button"
+              class="flex-1 py-2.5 rounded-xl font-semibold text-white transition-colors"
+              :class="!savingStamps ? 'bg-amber-600 hover:bg-amber-700' : 'bg-gray-300 cursor-not-allowed'"
+              :disabled="savingStamps || stampInput < 0 || stampInput > MAX_STAMPS"
+              @click="saveStamps"
+            >{{ savingStamps ? 'กำลังบันทึก...' : 'บันทึก' }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

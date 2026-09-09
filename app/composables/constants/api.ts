@@ -38,6 +38,7 @@ export const API_ENDPOINTS = {
       LIST: '/api/admin/members',
       SHOW: (id: string) => `/api/admin/members/${id}`,
       TOGGLE_ACTIVE: (id: string) => `/api/admin/members/${id}`,
+      ADJUST_STAMPS: (id: string) => `/api/admin/members/${id}/stamps`,
     },
     DISCOUNTS: {
       LIST: '/api/admin/discounts',
