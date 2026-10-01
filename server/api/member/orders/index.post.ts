@@ -214,6 +214,10 @@ export default defineEventHandler(async (event) => {
       data: { url: '/pos/orders' },
     }).catch(() => {})
 
+    sendLineMessageToAdmin(
+      `🛒 ออเดอร์ออนไลน์ใหม่ #${queueNo}\nลูกค้า: ${member.name ?? member.phone}\nยอดรวม: ฿${total.toFixed(0)}`
+    ).catch(() => {})
+
     return okResponse({
       id: order.id,
       queueStatus: order.status,

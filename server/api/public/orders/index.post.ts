@@ -156,6 +156,10 @@ export default defineEventHandler(async (event) => {
       data: { url: '/pos/orders' },
     }).catch(() => {})
 
+    sendLineMessageToAdmin(
+      `🌐 ออเดอร์ WEBAPP ใหม่ #${queueNo}\nลูกค้า: ${body.guestName}\nยอดรวม: ฿${total.toFixed(0)}`
+    ).catch(() => {})
+
     return okResponse({ id: order.id, queueNo, total })
   } catch (e: any) {
     console.error('[public/orders POST]', e)

@@ -48,6 +48,10 @@ export default defineNuxtConfig({
         clientSecret: process.env.GG_CLIENT_SECRET || '',
       },
     },
+    lineMessaging: {
+      channelAccessToken: process.env.LINE_MESSAGING_CHANNEL_ACCESS_TOKEN || '',
+      adminUserId: process.env.LINE_ADMIN_USER_ID || '',
+    },
     firebase: {
       projectId: process.env.FIREBASE_PROJECT_ID || '',
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL || '',
