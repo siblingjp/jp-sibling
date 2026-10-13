@@ -99,6 +99,41 @@ interface Campaign {
 const campaigns = ref<Campaign[]>([])
 const qrCoupon = ref<CampaignCoupon | null>(null)
 
+// ─── Campaign carousel ──────────────────────────────────────────────────────
+const carouselEl = ref<HTMLElement | null>(null)
+const activeSlide = ref(0)
+const carouselHeight = ref<number | null>(null)
+
+// ปรับความสูง carousel ให้พอดีกับ slide ที่กำลังแสดงอยู่ (แต่ละ campaign สูงไม่เท่ากัน)
+function updateCarouselHeight() {
+  const el = carouselEl.value
+  if (!el) return
+  nextTick(() => {
+    const active = el.children[activeSlide.value] as HTMLElement | undefined
+    if (active) carouselHeight.value = active.offsetHeight
+  })
+}
+
+function onCarouselScroll() {
+  const el = carouselEl.value
+  if (!el) return
+  activeSlide.value = Math.round(el.scrollLeft / el.clientWidth)
+  updateCarouselHeight()
+}
+
+function goToSlide(i: number) {
+  const el = carouselEl.value
+  if (!el) return
+  activeSlide.value = i
+  el.scrollTo({ left: i * el.clientWidth, behavior: 'smooth' })
+  updateCarouselHeight()
+}
+
+watch(campaigns, () => {
+  activeSlide.value = 0
+  updateCarouselHeight()
+})
+
 // ─── Campaign Popup ───────────────────────────────────────────────────────────
 const showCampaignPopup = ref(false)
 const popupDismissToday = ref(false)
@@ -128,6 +163,7 @@ onMounted(async () => {
       const dismissed = localStorage.getItem(POPUP_KEY)
       if (dismissed !== getTodayStr()) {
         showCampaignPopup.value = true
+        nextTick(updateCarouselHeight)
       }
     }
   } catch {
@@ -471,83 +507,102 @@ function formatCouponValue(c: CampaignCoupon) {
           </button>
         </div>
 
-        <!-- Campaign list -->
-        <div class="overflow-y-auto flex-1">
+        <!-- Campaign carousel -->
+        <div class="overflow-y-auto">
           <div
-            v-for="camp in campaigns"
-            :key="camp.id"
-            class="border-b border-gray-100 last:border-0"
+            ref="carouselEl"
+            class="flex items-start overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar transition-[height] duration-200"
+            :style="carouselHeight ? `height: ${carouselHeight}px` : ''"
+            @scroll="onCarouselScroll"
           >
-            <!-- Image (image mode) -->
-            <button
-              v-if="camp.imageUrl && camp.displayMode !== 'banner'"
-              type="button"
-              class="relative w-full overflow-hidden text-left"
-              :class="camp.imageOrientation === 'portrait' ? 'aspect-[3/4]' : 'aspect-video'"
-              @click="goToCampaign(camp.id)"
+            <div
+              v-for="camp in campaigns"
+              :key="camp.id"
+              class="w-full flex-shrink-0 snap-center"
             >
-              <img :src="camp.imageUrl" class="w-full h-full object-cover object-top" alt="" />
-              <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-              <div class="absolute bottom-0 left-0 right-0 p-4">
-                <p class="font-bold text-white text-base leading-tight">{{ camp.name }}</p>
-                <p v-if="camp.expiredAt" class="text-xs text-white/50 mt-1">
-                  ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) }}
-                </p>
-              </div>
-            </button>
-
-            <!-- Banner color mode -->
-            <button
-              v-else
-              type="button"
-              class="w-full px-4 py-4 text-left"
-              :style="camp.displayMode === 'banner' ? `background: ${camp.bannerColor || '#1B2B4B'}` : ''"
-              @click="goToCampaign(camp.id)"
-            >
-              <div class="flex items-start gap-3">
-                <img v-if="camp.imageUrl" :src="camp.imageUrl" class="w-12 h-12 rounded-xl object-cover flex-shrink-0" alt="" />
-                <div class="flex-1 min-w-0">
-                  <p class="font-bold text-base leading-tight" :class="camp.displayMode === 'banner' ? 'text-white' : 'text-gray-900'">{{ camp.name }}</p>
-                  <p v-if="camp.description" class="text-sm mt-1 leading-relaxed" :class="camp.displayMode === 'banner' ? 'text-white/80' : 'text-gray-600'">{{ camp.description }}</p>
-                  <p v-if="camp.expiredAt" class="text-xs mt-1.5" :class="camp.displayMode === 'banner' ? 'text-white/50' : 'text-gray-400'">
+              <!-- Image (image mode) -->
+              <button
+                v-if="camp.imageUrl && camp.displayMode !== 'banner'"
+                type="button"
+                class="relative w-full overflow-hidden text-left"
+                :class="camp.imageOrientation === 'portrait' ? 'aspect-[3/4]' : 'aspect-video'"
+                @click="goToCampaign(camp.id)"
+              >
+                <img :src="camp.imageUrl" class="w-full h-full object-cover object-top" alt="" />
+                <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                <div class="absolute bottom-0 left-0 right-0 p-4">
+                  <p class="font-bold text-white text-base leading-tight">{{ camp.name }}</p>
+                  <p v-if="camp.expiredAt" class="text-xs text-white/50 mt-1">
                     ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) }}
                   </p>
                 </div>
-              </div>
-            </button>
+              </button>
 
-            <!-- Coupons -->
-            <div v-if="camp.coupons.length" class="px-2 pt-3 pb-4 space-y-2">
-              <div
-                v-for="coupon in camp.coupons"
-                :key="coupon.id"
-                class="flex items-center justify-between bg-[#F0F4F8] rounded-xl px-4 py-3 gap-3"
+              <!-- Banner color mode -->
+              <button
+                v-else
+                type="button"
+                class="w-full px-4 py-4 text-left"
+                :style="camp.displayMode === 'banner' ? `background: ${camp.bannerColor || '#1B2B4B'}` : ''"
+                @click="goToCampaign(camp.id)"
               >
-                <div class="flex-1 min-w-0">
-                  <p v-if="!coupon.autoApply" class="text-sm font-black text-[#1B2B4B] font-mono tracking-wider">{{ coupon.code }}</p>
-                  <p class="text-xs text-gray-500 mt-0.5">{{ coupon.name }}</p>
-                  <p class="text-base font-black text-[#2a3f6b] mt-0.5">{{ formatCouponValue(coupon) }}</p>
-                  <p v-if="coupon.autoApply" class="text-xs text-gray-400 mt-0.5">ลดให้อัตโนมัติเมื่อสั่งครบเงื่อนไข ไม่ต้องกดใช้</p>
+                <div class="flex items-start gap-3">
+                  <img v-if="camp.imageUrl" :src="camp.imageUrl" class="w-12 h-12 rounded-xl object-cover flex-shrink-0" alt="" />
+                  <div class="flex-1 min-w-0">
+                    <p class="font-bold text-base leading-tight" :class="camp.displayMode === 'banner' ? 'text-white' : 'text-gray-900'">{{ camp.name }}</p>
+                    <p v-if="camp.description" class="text-sm mt-1 leading-relaxed" :class="camp.displayMode === 'banner' ? 'text-white/80' : 'text-gray-600'">{{ camp.description }}</p>
+                    <p v-if="camp.expiredAt" class="text-xs mt-1.5" :class="camp.displayMode === 'banner' ? 'text-white/50' : 'text-gray-400'">
+                      ถึง {{ new Date(camp.expiredAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' }) }}
+                    </p>
+                  </div>
                 </div>
-                <div v-if="!coupon.autoApply" class="flex-shrink-0 flex flex-col gap-2">
-                  <button
-                    class="flex items-center gap-1 text-xs text-[#1B2B4B] font-semibold border border-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#F0F4F8] transition-colors"
-                    @click="qrCoupon = coupon"
-                  >
-                    <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
-                    แสดง QR
-                  </button>
-                  <NuxtLink
-                    :to="`/member/orders/new?coupon=${coupon.code}`"
-                    class="flex items-center gap-1 text-xs text-white font-semibold bg-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#2a3f6b] transition-colors"
-                    @click="closeCampaignPopup"
-                  >
-                    <Icon name="mdi:cart-arrow-right" class="w-3.5 h-3.5" />
-                    กดใช้
-                  </NuxtLink>
+              </button>
+
+              <!-- Coupons (ซ่อนถ้าเป็นโปรคำนวณอัตโนมัติล้วน ไม่มีอะไรให้กดใช้) -->
+              <div v-if="camp.coupons.some((c) => !c.autoApply)" class="px-2 pt-3 pb-4 space-y-2">
+                <div
+                  v-for="coupon in camp.coupons.filter((c) => !c.autoApply)"
+                  :key="coupon.id"
+                  class="flex items-center justify-between bg-[#F0F4F8] rounded-xl px-4 py-3 gap-3"
+                >
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-black text-[#1B2B4B] font-mono tracking-wider">{{ coupon.code }}</p>
+                    <p class="text-xs text-gray-500 mt-0.5">{{ coupon.name }}</p>
+                    <p class="text-base font-black text-[#2a3f6b] mt-0.5">{{ formatCouponValue(coupon) }}</p>
+                  </div>
+                  <div class="flex-shrink-0 flex flex-col gap-2">
+                    <button
+                      class="flex items-center gap-1 text-xs text-[#1B2B4B] font-semibold border border-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#F0F4F8] transition-colors"
+                      @click="qrCoupon = coupon"
+                    >
+                      <Icon name="mdi:qrcode" class="w-3.5 h-3.5" />
+                      แสดง QR
+                    </button>
+                    <NuxtLink
+                      :to="`/member/orders/new?coupon=${coupon.code}`"
+                      class="flex items-center gap-1 text-xs text-white font-semibold bg-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#2a3f6b] transition-colors"
+                      @click="closeCampaignPopup"
+                    >
+                      <Icon name="mdi:cart-arrow-right" class="w-3.5 h-3.5" />
+                      กดใช้
+                    </NuxtLink>
+                  </div>
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Dot indicators -->
+          <div v-if="campaigns.length > 1" class="flex items-center justify-center gap-1.5 py-3">
+            <button
+              v-for="(camp, i) in campaigns"
+              :key="camp.id"
+              type="button"
+              class="rounded-full transition-all"
+              :class="i === activeSlide ? 'w-5 h-1.5 bg-[#1B2B4B]' : 'w-1.5 h-1.5 bg-gray-300'"
+              :aria-label="`ไปที่โปรโมชัน ${i + 1}`"
+              @click="goToSlide(i)"
+            />
           </div>
 
           <!-- How to use -->
@@ -558,7 +613,7 @@ function formatCouponValue(c: CampaignCoupon) {
             <span class="text-xs text-blue-600">สั่งออเดอร์</span>
             <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
             <span class="text-xs text-blue-600">เลือกสินค้า</span>
-            <template v-if="campaigns.some(c => c.coupons.length > 0)">
+            <template v-if="campaigns.some(c => c.coupons.some((cp) => !cp.autoApply))">
               <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
               <span class="text-xs text-blue-600">กดใช้คูปอง</span>
             </template>
@@ -633,4 +688,7 @@ function formatCouponValue(c: CampaignCoupon) {
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-12px); }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 </style>
