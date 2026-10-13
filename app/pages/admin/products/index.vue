@@ -49,8 +49,17 @@ async function handleDelete(product: Product) {
 
 async function handleToggleFeatured(product: Product) {
   try {
-    await http.patch(API_ENDPOINTS.ADMIN.PRODUCTS.TOGGLE_FEATURED(product.id), {})
-    product.isFeatured = !product.isFeatured
+    const res = await http.patch<{ data: { isFeatured: boolean } }>(API_ENDPOINTS.ADMIN.PRODUCTS.TOGGLE_FEATURED(product.id), {})
+    store.patchLocalProduct(product.id, { isFeatured: res.data.isFeatured })
+  } catch (e: unknown) {
+    showError(e instanceof Error ? e.message : 'Failed to update')
+  }
+}
+
+async function handleToggleActive(product: Product) {
+  try {
+    const res = await http.patch<{ data: { isActive: boolean } }>(API_ENDPOINTS.ADMIN.PRODUCTS.TOGGLE_ACTIVE(product.id), {})
+    store.patchLocalProduct(product.id, { isActive: res.data.isActive })
   } catch (e: unknown) {
     showError(e instanceof Error ? e.message : 'Failed to update')
   }
@@ -101,33 +110,71 @@ async function saveOrder() {
   }
 }
 
-// ─── Drag handlers ───────────────────────────────────────────────────────────
+// ─── Drag handlers (Pointer Events — works for mouse + touch) ────────────────
 const dragIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
+const dragListEl = ref<HTMLElement | null>(null)
+let activePointerId: number | null = null
 
-function onDragStart(idx: number) {
-  dragIndex.value = idx
+function rowIndexAtPoint(x: number, y: number): number | null {
+  const list = dragListEl.value
+  if (!list) return null
+  const rows = Array.from(list.querySelectorAll<HTMLElement>('[data-row-idx]'))
+  for (const row of rows) {
+    const rect = row.getBoundingClientRect()
+    if (y >= rect.top && y <= rect.bottom) {
+      return Number(row.dataset.rowIdx)
+    }
+  }
+  // pointer moved above the first row or below the last row
+  if (rows.length === 0) return null
+  const firstRect = rows[0]!.getBoundingClientRect()
+  const lastRect = rows[rows.length - 1]!.getBoundingClientRect()
+  if (y < firstRect.top) return Number(rows[0]!.dataset.rowIdx)
+  if (y > lastRect.bottom) return Number(rows[rows.length - 1]!.dataset.rowIdx)
+  return null
 }
 
-function onDragOver(e: DragEvent, idx: number) {
+function onDragPointerDown(e: PointerEvent, idx: number) {
   e.preventDefault()
+  activePointerId = e.pointerId
+  dragIndex.value = idx
   dragOverIndex.value = idx
+  ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+  window.addEventListener('pointermove', onDragPointerMove)
+  window.addEventListener('pointerup', onDragPointerUp)
+  window.addEventListener('pointercancel', onDragPointerUp)
 }
 
-function onDrop(idx: number) {
-  if (dragIndex.value === null || dragIndex.value === idx) return
+function onDragPointerMove(e: PointerEvent) {
+  if (activePointerId === null || e.pointerId !== activePointerId) return
+  if (dragIndex.value === null) return
+  const overIdx = rowIndexAtPoint(e.clientX, e.clientY)
+  if (overIdx === null || overIdx === dragOverIndex.value) return
+  dragOverIndex.value = overIdx
+
   const items = [...dragItems.value]
   const [moved] = items.splice(dragIndex.value, 1)
-  items.splice(idx, 0, moved)
+  items.splice(overIdx, 0, moved)
   dragItems.value = items
-  dragIndex.value = null
-  dragOverIndex.value = null
+  dragIndex.value = overIdx
 }
 
-function onDragEnd() {
+function onDragPointerUp(e: PointerEvent) {
+  if (activePointerId !== null && e.pointerId !== activePointerId) return
+  activePointerId = null
   dragIndex.value = null
   dragOverIndex.value = null
+  window.removeEventListener('pointermove', onDragPointerMove)
+  window.removeEventListener('pointerup', onDragPointerUp)
+  window.removeEventListener('pointercancel', onDragPointerUp)
 }
+
+onUnmounted(() => {
+  window.removeEventListener('pointermove', onDragPointerMove)
+  window.removeEventListener('pointerup', onDragPointerUp)
+  window.removeEventListener('pointercancel', onDragPointerUp)
+})
 </script>
 
 <template>
@@ -172,23 +219,24 @@ function onDragEnd() {
         ลากเพื่อจัดลำดับ{{ filterCategory !== 'all' ? ' (เฉพาะหมวดหมู่ที่เลือก)' : '' }} กด "บันทึกลำดับ" เมื่อเสร็จ
       </div>
 
-      <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div ref="dragListEl" class="bg-white rounded-xl shadow-sm overflow-hidden">
         <div
           v-for="(product, idx) in dragItems"
           :key="product.id"
-          draggable="true"
-          class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 cursor-grab active:cursor-grabbing select-none transition-colors"
+          :data-row-idx="idx"
+          class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 last:border-0 select-none transition-colors"
           :class="{
             'bg-blue-50 border-blue-200': dragOverIndex === idx && dragIndex !== idx,
             'opacity-40': dragIndex === idx,
             'hover:bg-gray-50': dragOverIndex !== idx,
           }"
-          @dragstart="onDragStart(idx)"
-          @dragover="onDragOver($event, idx)"
-          @drop="onDrop(idx)"
-          @dragend="onDragEnd"
         >
-          <Icon name="mdi:drag-vertical" class="text-xl text-gray-400 flex-shrink-0" />
+          <Icon
+            name="mdi:drag-vertical"
+            class="text-xl text-gray-400 flex-shrink-0 cursor-grab active:cursor-grabbing"
+            style="touch-action: none;"
+            @pointerdown="onDragPointerDown($event, idx)"
+          />
           <div class="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500 flex-shrink-0">
             {{ idx + 1 }}
           </div>
@@ -268,12 +316,15 @@ function onDragEnd() {
           </div>
           <div class="flex items-center justify-between">
             <div class="flex items-center gap-2">
-              <span
-                class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
-                :class="product.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+              <button
+                type="button"
+                :title="product.isActive ? 'ปิดใช้งานสินค้า' : 'เปิดใช้งานสินค้า'"
+                class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
+                :class="product.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+                @click="handleToggleActive(product)"
               >
                 {{ product.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
-              </span>
+              </button>
               <button
                 type="button"
                 :title="product.isFeatured ? 'ยกเลิกแนะนำ' : 'ตั้งเป็นแนะนำ'"
@@ -332,12 +383,15 @@ function onDragEnd() {
               <td class="px-4 py-3 text-gray-500">{{ product.category.name }}</td>
               <td class="px-4 py-3 text-right font-medium text-gray-900">{{ formatPrice(product.price) }}</td>
               <td class="px-4 py-3 text-center">
-                <span
-                  class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium"
-                  :class="product.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                <button
+                  type="button"
+                  :title="product.isActive ? 'ปิดใช้งานสินค้า' : 'เปิดใช้งานสินค้า'"
+                  class="inline-flex px-2 py-0.5 rounded-full text-xs font-medium transition-colors"
+                  :class="product.isActive ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'"
+                  @click="handleToggleActive(product)"
                 >
                   {{ product.isActive ? 'ใช้งานอยู่' : 'ปิดใช้งาน' }}
-                </span>
+                </button>
               </td>
               <td class="px-4 py-3 text-center">
                 <button

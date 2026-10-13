@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
       UPDATE: (id: string) => `/api/admin/products/${id}`,
       DELETE: (id: string) => `/api/admin/products/${id}`,
       TOGGLE_FEATURED: (id: string) => `/api/admin/products/${id}/featured`,
+      TOGGLE_ACTIVE: (id: string) => `/api/admin/products/${id}/active`,
       REORDER: '/api/admin/products/reorder',
     },
     OPTION_GROUPS: {

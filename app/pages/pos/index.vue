@@ -5,7 +5,7 @@ import { API_ENDPOINTS } from '~/composables/constants/api'
 definePageMeta({ layout: 'pos', middleware: 'auth' })
 
 const store = usePosStore()
-const { showError, showSuccess } = useAlert()
+const { showError, showSuccess, showConfirm } = useAlert()
 const { resolvedItems: quickItems, addToCart: addQuickItem } = useQuickMenu()
 const showCartPanel = ref(true)
 const { mode: loyaltyModeValue, fetchMode: fetchLoyaltyMode } = useLoyaltyMode()
@@ -105,6 +105,7 @@ function handleOptionConfirm(options: PosOption[], note: string, qty: number) {
 }
 
 // ─── Member Lookup ───────────────────────────────────────────────────────────
+const MAX_STAMPS = 10
 const showMemberSearch = ref(false)
 const memberQuery = ref('')
 const isLookingUp = ref(false)
@@ -117,11 +118,26 @@ async function handleMemberLookup() {
     await store.lookupMember(memberQuery.value.trim())
     showMemberSearch.value = false
     memberQuery.value = ''
+    await checkStampEligibilityOnLookup()
   } catch {
     showError('ไม่พบสมาชิก')
   } finally {
     isLookingUp.value = false
   }
+}
+
+async function checkStampEligibilityOnLookup() {
+  const member = store.member
+  if (!member) return
+  if (loyaltyModeValue.value !== 'STAMPS') return
+  if (member.stampCount < MAX_STAMPS) return
+
+  await showConfirm({
+    title: `แสตมป์ครบ ${MAX_STAMPS} ดวงแล้ว!`,
+    message: `คุณ ${member.name} มีสิทธิ์แลกแก้วฟรี 1 แก้ว เพิ่มสินค้าลงตะกร้าแล้วกดใช้สิทธิ์ได้ที่หน้าออเดอร์หลังชำระเงิน`,
+    confirmText: 'รับทราบ',
+    cancelText: 'ปิด',
+  })
 }
 
 function handleMemberScanned(value: string) {

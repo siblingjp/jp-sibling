@@ -86,6 +86,15 @@ export const useProductsStore = defineStore('products', () => {
     }
   }
 
+  // อัปเดต field ของ product ใน listState ที่โหลดไว้แล้ว (เช่นหลัง toggle isActive/isFeatured)
+  // ต้องแก้ผ่าน action นี้เพราะ listState ที่ expose ออกไปเป็น readonly()
+  function patchLocalProduct(id: string, patch: Partial<Product>) {
+    const list = listState.value.response?.data
+    if (!list) return
+    const product = list.find((p) => p.id === id)
+    if (product) Object.assign(product, patch)
+  }
+
   return {
     listState: readonly(listState),
     formState: readonly(formState),
@@ -93,5 +102,6 @@ export const useProductsStore = defineStore('products', () => {
     create,
     update,
     remove,
+    patchLocalProduct,
   }
 })
