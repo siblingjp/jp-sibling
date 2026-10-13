@@ -4,10 +4,23 @@ definePageMeta({ layout: 'public' })
 const http = useHttpClient()
 const { member, fetchMe } = useMemberAuth()
 
+interface BundlePromo {
+  id: string
+  name: string
+  bundleQty: number | null
+  bundleDiscount: number | null
+  category: { name: string } | null
+}
+
 interface HomeData {
   products: { id: string; name: string; imageUrl: string | null; category: { name: string } }[]
-  campaigns: { id: string; name: string; description: string | null; imageUrl: string | null; displayMode: string | null; bannerColor: string | null }[]
+  campaigns: { id: string; name: string; description: string | null; imageUrl: string | null; displayMode: string | null; bannerColor: string | null; coupons: BundlePromo[] }[]
   truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean; canOrder: boolean; nextOpenLabel: string | null; nextOpenName: string | null; schedules: { id: string; name: string; openTime: string; closeTime: string; daysOfWeek: string; mapUrl: string | null }[]; activeScheduleId: string | null } | null
+}
+
+function formatBundlePromo(c: BundlePromo) {
+  const scope = c.category ? `${c.category.name} ` : ''
+  return `ซื้อ${scope}ครบ ${c.bundleQty} ชิ้น ลด ฿${Number(c.bundleDiscount).toFixed(0)}`
 }
 
 useHead({
@@ -128,7 +141,7 @@ const marqueeProducts = computed(() => {
           <img src="/logo.jpg" alt="" />
           <span>รถกาแฟข้างทาง · เชียงใหม่</span>
         </div>
-        <h1>พบกันทุกเช้า<br>ที่ไหน<em>ก็ได้</em></h1>
+        <h1>โคตรเข้ม<br>ที่<em>ริมทาง</em></h1>
         <p class="sub">ตามรถเข็นไปทุกมุมเมือง สั่งล่วงหน้าได้ ไม่ต้องรอคิว แล้วมาจิบกาแฟแก้วโปรดกับเรา</p>
         <div class="hero-ctas">
           <NuxtLink to="/order" class="btn btn-primary">สั่งออนไลน์</NuxtLink>
@@ -206,6 +219,9 @@ const marqueeProducts = computed(() => {
               <div class="promo-body">
                 <h3>{{ campaign.name }}</h3>
                 <p v-if="campaign.description" class="promo-desc">{{ campaign.description }}</p>
+                <ul v-if="campaign.coupons.length" class="promo-bundles">
+                  <li v-for="c in campaign.coupons" :key="c.id">{{ formatBundlePromo(c) }}</li>
+                </ul>
               </div>
             </template>
 
@@ -215,6 +231,9 @@ const marqueeProducts = computed(() => {
                 <div class="promo-banner-text">
                   <h3>{{ campaign.name }}</h3>
                   <p v-if="campaign.description">{{ campaign.description }}</p>
+                  <ul v-if="campaign.coupons.length" class="promo-bundles promo-bundles-banner">
+                    <li v-for="c in campaign.coupons" :key="c.id">{{ formatBundlePromo(c) }}</li>
+                  </ul>
                 </div>
               </div>
             </template>
@@ -465,7 +484,7 @@ const marqueeProducts = computed(() => {
 .hero h1 {
   font-weight: 600;
   font-size: clamp(2.1rem, 6vw, 4.2rem);
-  line-height: 1.04;
+  line-height: 1.35;
   margin: 0 0 1rem;
   max-width: 14ch;
 }
@@ -588,6 +607,37 @@ const marqueeProducts = computed(() => {
 .promo-banner img { width: 96px; height: 96px; border-radius: 16px; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0; }
 .promo-banner-text h3 { color: #fff; font-size: 1.2rem; margin: 0 0 0.5rem; }
 .promo-banner-text p { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin: 0; }
+
+.promo-bundles {
+  list-style: none;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.promo-bundles li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--blue-deep);
+  background: var(--cream-deep);
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  width: fit-content;
+}
+.promo-bundles li::before {
+  content: "";
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ember);
+  flex-shrink: 0;
+}
+.promo-bundles-banner li {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
 
 /* ───────── menu marquee ───────── */
 .menu { background: var(--cream-card); padding: 4rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }

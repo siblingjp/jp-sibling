@@ -17,6 +17,10 @@ interface CampaignCoupon {
   pointCost: number | null
   minTier: string | null
   expiredAt: string | null
+  autoApply: boolean
+  bundleQty: number | null
+  bundleDiscount: number | null
+  category: { name: string } | null
 }
 interface Campaign {
   id: string
@@ -56,6 +60,10 @@ onMounted(() => loadCampaign(campaignId.value))
 watch(campaignId, (id) => loadCampaign(id))
 
 function formatCouponValue(c: CampaignCoupon) {
+  if (c.autoApply && c.bundleQty) {
+    const scope = c.category ? `${c.category.name} ` : ''
+    return `ซื้อ${scope}ครบ ${c.bundleQty} ชิ้น ลด ฿${Number(c.bundleDiscount).toFixed(0)}`
+  }
   if (c.pointCost) return `${c.pointCost} แต้ม`
   return c.discountKind === 'PERCENT' ? `${c.discountValue}%` : `฿${Number(c.discountValue).toFixed(0)}`
 }
@@ -127,13 +135,14 @@ function formatCouponValue(c: CampaignCoupon) {
             class="flex items-center justify-between bg-[#F0F4F8] rounded-xl px-4 py-3 gap-3"
           >
             <div class="flex-1 min-w-0">
-              <p class="text-sm font-bold text-[#1B2B4B] font-mono">{{ coupon.code }}</p>
+              <p v-if="!coupon.autoApply" class="text-sm font-bold text-[#1B2B4B] font-mono">{{ coupon.code }}</p>
               <p class="text-xs text-gray-600 truncate">{{ coupon.name }}</p>
               <p v-if="coupon.description" class="text-xs text-gray-400 truncate">{{ coupon.description }}</p>
               <p class="text-sm font-bold text-[#2a3f6b] mt-0.5">{{ formatCouponValue(coupon) }}</p>
               <p v-if="coupon.minTier" class="text-xs text-gray-400">{{ coupon.minTier }}+</p>
+              <p v-if="coupon.autoApply" class="text-xs text-gray-400 mt-0.5">ลดให้อัตโนมัติเมื่อสั่งครบเงื่อนไข ไม่ต้องกดใช้</p>
             </div>
-            <div class="flex-shrink-0 flex flex-col gap-2">
+            <div v-if="!coupon.autoApply" class="flex-shrink-0 flex flex-col gap-2">
               <button
                 class="flex items-center gap-1 text-xs text-[#1B2B4B] font-semibold border border-[#1B2B4B] px-3 py-2 rounded-lg hover:bg-[#F0F4F8] transition-colors"
                 @click="qrCoupon = coupon"
@@ -160,7 +169,7 @@ function formatCouponValue(c: CampaignCoupon) {
           <span class="text-xs text-blue-600">สั่งออเดอร์</span>
           <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
           <span class="text-xs text-blue-600">เลือกสินค้า</span>
-          <template v-if="campaign.coupons.length > 0">
+          <template v-if="campaign.coupons.some((c) => !c.autoApply)">
             <Icon name="mdi:chevron-right" class="text-blue-300 text-xs flex-shrink-0" />
             <span class="text-xs text-blue-600">กดใช้คูปอง</span>
           </template>

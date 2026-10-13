@@ -16,7 +16,30 @@ export default defineEventHandler(async () => {
           OR: [{ startAt: null }, { startAt: { lte: now } }],
           AND: [{ OR: [{ expiredAt: null }, { expiredAt: { gte: now } }] }],
         },
-        select: { id: true, name: true, description: true, imageUrl: true, imageOrientation: true, displayMode: true, bannerColor: true, expiredAt: true },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          imageUrl: true,
+          imageOrientation: true,
+          displayMode: true,
+          bannerColor: true,
+          expiredAt: true,
+          coupons: {
+            where: { coupon: { isActive: true, autoApply: true } },
+            select: {
+              coupon: {
+                select: {
+                  id: true,
+                  name: true,
+                  bundleQty: true,
+                  bundleDiscount: true,
+                  category: { select: { name: true } },
+                },
+              },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
         take: 4,
       }),
@@ -84,7 +107,12 @@ export default defineEventHandler(async () => {
         }
       : null
 
-    return okResponse({ products, campaigns, truckLocation: locationData, topRequests })
+    const campaignsResult = campaigns.map((c) => ({
+      ...c,
+      coupons: c.coupons.map((cc) => cc.coupon),
+    }))
+
+    return okResponse({ products, campaigns: campaignsResult, truckLocation: locationData, topRequests })
   } catch (e) {
     handleError(e)
   }
