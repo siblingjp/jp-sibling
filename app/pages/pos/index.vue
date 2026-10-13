@@ -22,7 +22,7 @@ const quickItemsByCategory = computed(() => {
 const productTab = ref<'products' | 'quick'>('products')
 
 onMounted(async () => {
-  await Promise.all([store.fetchProducts(), store.fetchDiscounts(), fetchLoyaltyMode()])
+  await Promise.all([store.fetchProducts(), store.fetchDiscounts(), store.fetchAutoPromotions(), fetchLoyaltyMode()])
 })
 
 // ─── Product Grid ───────────────────────────────────────────────────────────
@@ -486,6 +486,8 @@ async function handleCheckout(method: 'CASH' | 'QR' | 'THAI_HELP' | 'UNPAID' | '
         @edit-item="openEditItem"
         :applied-coupon="store.appliedCoupon"
         :coupon-discount="store.couponDiscount"
+        :applied-auto-promo="store.appliedAutoPromo"
+        :auto-promo-discount="store.autoPromoDiscount"
         @lookup-member="showMemberSearch = true"
         @clear-member="store.clearMember()"
         @apply-badge="store.applyDiscountBadge"

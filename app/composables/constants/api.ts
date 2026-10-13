@@ -101,6 +101,7 @@ export const API_ENDPOINTS = {
     PRODUCTS: '/api/pos/products',
     DISCOUNTS: '/api/pos/discounts',
     MEMBER_LOOKUP: '/api/pos/member-lookup',
+    AUTO_PROMOTIONS: '/api/pos/auto-promotions',
     COUPON_VALIDATE: '/api/pos/coupon/validate',
     COUPON_USE_SCAN: (id: string) => `/api/pos/coupon-use/${id}`,
     ORDERS: {

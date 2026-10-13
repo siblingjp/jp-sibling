@@ -11,6 +11,7 @@ export default defineEventHandler(async (event) => {
 
     await prisma.coupon.delete({ where: { id } })
 
+    invalidateCache('pos:autoPromotions')
     return okResponse({ id })
   } catch (e) {
     handleError(e)

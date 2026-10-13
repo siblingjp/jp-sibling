@@ -71,7 +71,23 @@ export default defineEventHandler(async (event) => {
     // coupon
     let coupon = null
     let couponDiscountAmount = 0
-    if (data.couponCode) {
+    if (!data.couponCode) {
+      // ไม่มีโค้ดคูปองที่แคชเชียร์กรอกเอง → ลองหาโปรโมชันแบบ bundle ที่ตั้งไว้ auto-apply
+      // (ใช้ได้ครั้งละ 1 โปรโมชัน เลือกตัวที่ลดได้มากที่สุด)
+      const autoCoupons = await prisma.coupon.findMany({
+        where: { autoApply: true, isActive: true, type: 'PROMOTION' },
+        include: { category: { select: { id: true } } },
+      })
+      const picked = pickBestAutoApplyCoupon(
+        autoCoupons,
+        itemsCalc.map(({ item, product }) => ({ quantity: item.quantity, product })),
+        new Date(),
+      )
+      if (picked) {
+        coupon = picked.coupon
+        couponDiscountAmount = picked.discountAmount
+      }
+    } else {
       const now = new Date()
       coupon = await prisma.coupon.findUnique({ where: { code: data.couponCode.toUpperCase() } })
       if (!coupon || !coupon.isActive) throw badRequest('Coupon ไม่ถูกต้อง')

@@ -10,6 +10,10 @@ const schema = z.object({
   discountValue: z.number().min(0).optional(),
   minOrderAmount: z.number().min(0).optional().nullable(),
   minQuantity: z.number().int().positive().optional().nullable(),
+  categoryId: z.string().optional().nullable(),
+  bundleQty: z.number().int().positive().optional().nullable(),
+  bundleDiscount: z.number().min(0).optional().nullable(),
+  autoApply: z.boolean().optional(),
   maxUses: z.number().int().positive().optional().nullable(),
   startAt: z.string().datetime().optional().nullable(),
   expiredAt: z.string().datetime().optional().nullable(),
@@ -29,6 +33,16 @@ export default defineEventHandler(async (event) => {
     const id = getRouterParam(event, 'id')!
     const body = validate(schema, await readBody(event))
 
+    const existing = await prisma.coupon.findUnique({ where: { id }, select: { bundleQty: true, bundleDiscount: true } })
+    if (!existing) throw notFound('Coupon')
+
+    const nextAutoApply = body.autoApply ?? undefined
+    const nextBundleQty = body.bundleQty !== undefined ? body.bundleQty : existing.bundleQty
+    const nextBundleDiscount = body.bundleDiscount !== undefined ? body.bundleDiscount : existing.bundleDiscount ? Number(existing.bundleDiscount) : null
+    if (nextAutoApply && (!nextBundleQty || !nextBundleDiscount)) {
+      throw badRequest('โปรโมชันคำนวณอัตโนมัติต้องระบุจำนวนต่อชุดและส่วนลดต่อชุด')
+    }
+
     const coupon = await prisma.coupon.update({
       where: { id },
       data: {
@@ -38,6 +52,7 @@ export default defineEventHandler(async (event) => {
       },
     })
 
+    invalidateCache('pos:autoPromotions')
     return okResponse(coupon)
   } catch (e) {
     handleError(e)

@@ -11,6 +11,10 @@ const schema = z.object({
   discountValue: z.number().min(0),
   minOrderAmount: z.number().min(0).optional().nullable(),
   minQuantity: z.number().int().positive().optional().nullable(),
+  categoryId: z.string().optional().nullable(),
+  bundleQty: z.number().int().positive().optional().nullable(),
+  bundleDiscount: z.number().min(0).optional().nullable(),
+  autoApply: z.boolean().default(false),
   maxUses: z.number().int().positive().optional().nullable(),
   startAt: z.string().datetime().optional().nullable(),
   expiredAt: z.string().datetime().optional().nullable(),
@@ -35,6 +39,9 @@ export default defineEventHandler(async (event) => {
     if (body.benefitType === 'FREE_ITEM') {
       body.discountValue = 0
     }
+    if (body.autoApply && (!body.bundleQty || !body.bundleDiscount)) {
+      throw badRequest('โปรโมชันคำนวณอัตโนมัติต้องระบุจำนวนต่อชุดและส่วนลดต่อชุด')
+    }
 
     const code = body.code
       ? body.code.toUpperCase()
@@ -55,6 +62,10 @@ export default defineEventHandler(async (event) => {
         discountValue: body.discountValue,
         minOrderAmount: body.minOrderAmount ?? null,
         minQuantity: body.minQuantity ?? null,
+        categoryId: body.categoryId ?? null,
+        bundleQty: body.bundleQty ?? null,
+        bundleDiscount: body.bundleDiscount ?? null,
+        autoApply: body.autoApply,
         maxUses: body.maxUses ?? null,
         startAt: body.startAt ? new Date(body.startAt) : null,
         expiredAt: body.expiredAt ? new Date(body.expiredAt) : null,
@@ -66,6 +77,7 @@ export default defineEventHandler(async (event) => {
       },
     })
 
+    invalidateCache('pos:autoPromotions')
     return okResponse(coupon)
   } catch (e) {
     handleError(e)

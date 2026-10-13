@@ -45,6 +45,7 @@ model Category {
   updatedAt DateTime @updatedAt
 
   products Product[]
+  coupons  Coupon[]
 
   @@map("categories")
 }
@@ -168,6 +169,15 @@ model Coupon {
   minOrderAmount Decimal? @db.Decimal(10, 2)
   minQuantity    Int?
 
+  // bundle promotion (เช่น "ซื้อเมนูร้อน 2 แก้ว ลด 10 บาท" — ซ้ำได้หลายชุดตามจำนวนที่ซื้อ)
+  // categoryId null = ไม่จำกัดหมวดหมู่ (นับทุกชิ้นในออเดอร์)
+  categoryId      String?
+  bundleQty       Int?
+  bundleDiscount  Decimal? @db.Decimal(10, 2)
+
+  // ติ๊กแล้วระบบคำนวณส่วนลดนี้ให้อัตโนมัติตอนสร้างออเดอร์ (ไม่ต้องกรอกโค้ด)
+  autoApply Boolean @default(false)
+
   maxUses   Int?
   usedCount Int       @default(0)
   startAt   DateTime?
@@ -185,6 +195,7 @@ model Coupon {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  category  Category?        @relation(fields: [categoryId], references: [id])
   uses      CouponUse[]
   campaigns CampaignCoupon[]
 

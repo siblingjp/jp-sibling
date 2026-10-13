@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CartItem, PosDiscount, PosMember, PosCoupon } from '~/stores/pos'
+import type { CartItem, PosDiscount, PosMember, PosCoupon, PosAutoPromo } from '~/stores/pos'
 
 const props = defineProps<{
   cart: readonly CartItem[]
@@ -12,6 +12,8 @@ const props = defineProps<{
   discountCalc: number
   appliedCoupon: PosCoupon | null
   couponDiscount: number
+  appliedAutoPromo: { promo: PosAutoPromo; discount: number } | null
+  autoPromoDiscount: number
   pointsToRedeem: number
   pointsRedeemCapped: number
   maxRedeemable: number
@@ -370,6 +372,9 @@ async function createBadge(kind: 'PERCENT' | 'AMOUNT', value: number) {
         </div>
         <div v-if="couponDiscount > 0" class="flex justify-between text-green-600">
           <span>คูปอง</span><span>-฿{{ couponDiscount.toFixed(2) }}</span>
+        </div>
+        <div v-if="appliedAutoPromo" class="flex justify-between text-teal-600">
+          <span>{{ appliedAutoPromo.promo.name }} (อัตโนมัติ)</span><span>-฿{{ autoPromoDiscount.toFixed(2) }}</span>
         </div>
         <div v-if="pointsRedeemCapped > 0" class="flex justify-between text-purple-600">
           <span>แลกแต้ม</span><span>-฿{{ pointsRedeemCapped.toFixed(2) }}</span>

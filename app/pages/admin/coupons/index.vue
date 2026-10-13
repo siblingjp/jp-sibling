@@ -23,6 +23,10 @@ interface Coupon {
   discountValue: number
   minOrderAmount: number | null
   minQuantity: number | null
+  categoryId: string | null
+  bundleQty: number | null
+  bundleDiscount: number | null
+  autoApply: boolean
   maxUses: number | null
   startAt: string | null
   expiredAt: string | null
@@ -35,7 +39,18 @@ interface Coupon {
 }
 
 const coupons = ref<Coupon[]>([])
+const categories = ref<{ id: string; name: string }[]>([])
 const isLoading = ref(false)
+
+async function loadCategories() {
+  const res = await http.get<{ data: { id: string; name: string }[] }>('/api/admin/categories?pagination[limit]=100')
+  categories.value = res.data ?? []
+}
+
+function categoryName(id: string | null) {
+  if (!id) return 'ทุกหมวดหมู่'
+  return categories.value.find((c) => c.id === id)?.name ?? '-'
+}
 const currentPage = ref(1)
 const pageSize = ref(20)
 const totalCount = ref(0)
@@ -73,6 +88,10 @@ const form = reactive({
   discountValue: 0,
   minOrderAmount: null as number | null,
   minQuantity: null as number | null,
+  categoryId: '' as string,
+  bundleQty: null as number | null,
+  bundleDiscount: null as number | null,
+  autoApply: false,
   maxUses: null as number | null,
   startAt: '',
   expiredAt: '',
@@ -94,6 +113,10 @@ function resetForm() {
   form.discountValue = 0
   form.minOrderAmount = null
   form.minQuantity = null
+  form.categoryId = ''
+  form.bundleQty = null
+  form.bundleDiscount = null
+  form.autoApply = false
   form.maxUses = null
   form.startAt = ''
   form.expiredAt = ''
@@ -122,6 +145,10 @@ function openEdit(c: Coupon) {
   form.discountValue = Number(c.discountValue)
   form.minOrderAmount = c.minOrderAmount
   form.minQuantity = c.minQuantity
+  form.categoryId = c.categoryId ?? ''
+  form.bundleQty = c.bundleQty
+  form.bundleDiscount = c.bundleDiscount
+  form.autoApply = c.autoApply
   form.maxUses = c.maxUses
   form.startAt = c.startAt ? c.startAt.slice(0, 16) : ''
   form.expiredAt = c.expiredAt ? c.expiredAt.slice(0, 16) : ''
@@ -134,6 +161,10 @@ function openEdit(c: Coupon) {
 }
 
 async function handleSave() {
+  if (form.autoApply && (!form.bundleQty || !form.bundleDiscount)) {
+    showError('โปรโมชันคำนวณอัตโนมัติต้องระบุจำนวนต่อชุดและส่วนลดต่อชุด')
+    return
+  }
   isSaving.value = true
   try {
     const body: Record<string, any> = {
@@ -147,6 +178,10 @@ async function handleSave() {
       discountValue: form.benefitType === 'FREE_ITEM' ? 0 : Number(form.discountValue),
       minOrderAmount: form.minOrderAmount ? Number(form.minOrderAmount) : null,
       minQuantity: form.minQuantity ? Number(form.minQuantity) : null,
+      categoryId: form.categoryId || null,
+      bundleQty: form.bundleQty ? Number(form.bundleQty) : null,
+      bundleDiscount: form.bundleDiscount ? Number(form.bundleDiscount) : null,
+      autoApply: form.autoApply,
       maxUses: form.maxUses ? Number(form.maxUses) : null,
       startAt: form.startAt ? new Date(form.startAt).toISOString() : null,
       expiredAt: form.expiredAt ? new Date(form.expiredAt).toISOString() : null,
@@ -232,7 +267,7 @@ watch(() => form.benefitType, (b) => {
   if (b === 'FREE_ITEM') { form.discountValue = 0 }
 })
 
-onMounted(() => load())
+onMounted(() => { load(); loadCategories() })
 </script>
 
 <template>
@@ -277,6 +312,9 @@ onMounted(() => load())
         </div>
         <div class="flex items-center gap-2 flex-wrap text-xs text-gray-500">
           <span class="inline-flex px-2 py-0.5 rounded-full font-semibold" :class="typeColor[c.type]">{{ typeLabel[c.type] }}</span>
+          <span v-if="c.autoApply && c.bundleQty" class="inline-flex px-2 py-0.5 rounded-full font-semibold bg-teal-100 text-teal-700">
+            อัตโนมัติ · ซื้อ {{ c.bundleQty }} ลด ฿{{ Number(c.bundleDiscount).toFixed(0) }}
+          </span>
           <span class="font-bold text-gray-900">{{ discountLabel(c) }}</span>
           <span>ใช้แล้ว {{ c.usedCount }}/{{ c.maxUses ?? '∞' }}</span>
           <span v-if="c.expiredAt">หมดอายุ {{ formatDate(c.expiredAt) }}</span>
@@ -327,6 +365,11 @@ onMounted(() => load())
               </span>
               <div v-if="c.benefitType === 'FREE_ITEM'" class="mt-1">
                 <span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">ของแถม</span>
+              </div>
+              <div v-if="c.autoApply && c.bundleQty" class="mt-1">
+                <span class="text-xs bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">
+                  อัตโนมัติ · {{ categoryName(c.categoryId) }} ซื้อ {{ c.bundleQty }} ลด ฿{{ Number(c.bundleDiscount).toFixed(0) }}
+                </span>
               </div>
             </td>
             <td class="px-4 py-3.5 text-center font-bold text-gray-900">
@@ -513,6 +556,67 @@ onMounted(() => load())
                   />
                 </div>
               </div>
+            </div>
+
+            <!-- Bundle Promotion (PROMOTION only) -->
+            <div v-if="form.type === 'PROMOTION'" class="p-3 rounded-xl border border-teal-200 bg-teal-50 space-y-3">
+              <div>
+                <p class="text-xs font-semibold text-teal-700">โปรโมชันซื้อครบลด (bundle)</p>
+                <p class="text-xs text-gray-400 mt-0.5">เช่น ซื้อเมนูร้อน 2 แก้ว ลด 10 บาท — ลดซ้ำได้ตามจำนวนที่ซื้อ (ซื้อ 4 แก้ว ลด 20 บาท)</p>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">หมวดหมู่สินค้าที่เข้าร่วม</label>
+                <select
+                  v-model="form.categoryId"
+                  class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                >
+                  <option value="">ทุกหมวดหมู่</option>
+                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1">จำนวนต่อชุด (ชิ้น)</label>
+                  <input
+                    v-model.number="form.bundleQty"
+                    type="number"
+                    min="1"
+                    step="1"
+                    placeholder="เช่น 2"
+                    class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                </div>
+                <div>
+                  <label class="block text-xs font-medium text-gray-500 mb-1">ส่วนลดต่อชุด (฿)</label>
+                  <input
+                    v-model.number="form.bundleDiscount"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="เช่น 10"
+                    class="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-400"
+                  />
+                </div>
+              </div>
+
+              <label class="flex items-center gap-3 cursor-pointer pt-1">
+                <div
+                  class="relative w-10 h-5 rounded-full transition flex-shrink-0"
+                  :class="form.autoApply ? 'bg-teal-500' : 'bg-gray-300'"
+                  @click="form.autoApply = !form.autoApply"
+                >
+                  <span
+                    class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                    :class="form.autoApply ? 'translate-x-5' : ''"
+                  />
+                </div>
+                <span class="text-sm text-gray-700 font-medium">คำนวณอัตโนมัติ (ไม่ต้องกรอกโค้ด)</span>
+              </label>
+              <p v-if="form.autoApply" class="text-xs text-gray-400">
+                ระบบจะลดราคาให้อัตโนมัติตอนสร้างออเดอร์ที่ POS เมื่อสินค้าในตะกร้าครบเงื่อนไข หากมีหลายโปรโมชันเข้าเงื่อนไขพร้อมกัน จะใช้ตัวที่ลดได้มากที่สุดเพียงตัวเดียว
+              </p>
             </div>
 
             <!-- Point Cost (POINT_REDEEM only) -->

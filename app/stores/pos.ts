@@ -12,6 +12,7 @@ export interface CartItem {
   cartId: string
   productId: string
   productName: string
+  categoryId: string
   unitPrice: number
   quantity: number
   note: string
@@ -66,6 +67,14 @@ export interface PosCoupon {
   discountValue: number
 }
 
+export interface PosAutoPromo {
+  id: string
+  name: string
+  categoryId: string | null
+  bundleQty: number
+  bundleDiscount: number
+}
+
 export const usePosStore = defineStore('pos', () => {
   // ─── Products & Discounts ───────────────────────────────────────────────────
   const products = ref<PosProduct[]>([])
@@ -87,6 +96,18 @@ export const usePosStore = defineStore('pos', () => {
     discounts.value = (res.data ?? []).map((d: any) => ({ ...d, value: Number(d.value) }))
   }
 
+  // ─── Auto-apply bundle promotions ───────────────────────────────────────────
+  const autoPromotions = ref<PosAutoPromo[]>([])
+
+  async function fetchAutoPromotions() {
+    const res = await useHttpClient().get<{ data: any[] }>(API_ENDPOINTS.POS.AUTO_PROMOTIONS)
+    autoPromotions.value = (res.data ?? []).map((p: any) => ({
+      ...p,
+      bundleQty: Number(p.bundleQty),
+      bundleDiscount: Number(p.bundleDiscount),
+    }))
+  }
+
   // ─── Cart ───────────────────────────────────────────────────────────────────
   const cart = ref<CartItem[]>([])
 
@@ -102,6 +123,7 @@ export const usePosStore = defineStore('pos', () => {
       cartId,
       productId: product.id,
       productName: product.name,
+      categoryId: product.categoryId,
       unitPrice,
       quantity: qty,
       note,
@@ -237,13 +259,35 @@ export const usePosStore = defineStore('pos', () => {
     return Math.min(discountAmount.value, subtotal.value)
   })
 
-  const maxRedeemable = computed(() => Math.floor(subtotal.value - discountCalc.value - couponDiscount.value))
+  // โปรโมชันอัตโนมัติ (bundle) — ใช้ได้ก็ต่อเมื่อไม่มีการกรอกโค้ดคูปองเอง (ตรงกับ logic ฝั่งเซิร์ฟเวอร์)
+  // เลือกตัวที่ลดได้มากที่สุดถ้ามีหลายโปรโมชันเข้าเงื่อนไขพร้อมกัน
+  const appliedAutoPromo = computed(() => {
+    if (appliedCoupon.value) return null
+    let best: { promo: PosAutoPromo; discount: number } | null = null
+    for (const promo of autoPromotions.value) {
+      const eligibleQty = cart.value.reduce((sum, i) => {
+        if (promo.categoryId && i.categoryId !== promo.categoryId) return sum
+        return sum + i.quantity
+      }, 0)
+      if (promo.bundleQty <= 0) continue
+      const bundles = Math.floor(eligibleQty / promo.bundleQty)
+      const discount = bundles * promo.bundleDiscount
+      if (discount > 0 && (!best || discount > best.discount)) {
+        best = { promo, discount }
+      }
+    }
+    return best
+  })
+
+  const autoPromoDiscount = computed(() => appliedAutoPromo.value?.discount ?? 0)
+
+  const maxRedeemable = computed(() => Math.floor(subtotal.value - discountCalc.value - couponDiscount.value - autoPromoDiscount.value))
 
   const pointsRedeemCapped = computed(() =>
     Math.min(pointsToRedeem.value, member.value?.points ?? 0, maxRedeemable.value),
   )
 
-  const total = computed(() => Math.max(0, subtotal.value - discountCalc.value - couponDiscount.value - pointsRedeemCapped.value))
+  const total = computed(() => Math.max(0, subtotal.value - discountCalc.value - couponDiscount.value - autoPromoDiscount.value - pointsRedeemCapped.value))
 
   // ─── Edit Existing Order ────────────────────────────────────────────────────
   const editingOrderId = ref<string | null>(null)
@@ -402,6 +446,9 @@ export const usePosStore = defineStore('pos', () => {
   return {
     products: readonly(products),
     discounts: readonly(discounts),
+    autoPromotions: readonly(autoPromotions),
+    appliedAutoPromo,
+    autoPromoDiscount,
     isLoadingProducts: readonly(isLoadingProducts),
     cart: readonly(cart),
     member: readonly(member),
@@ -428,6 +475,7 @@ export const usePosStore = defineStore('pos', () => {
     editingOrderQueueNo: readonly(editingOrderQueueNo),
     fetchProducts,
     fetchDiscounts,
+    fetchAutoPromotions,
     addToCart,
     updateCartItem,
     removeFromCart,
