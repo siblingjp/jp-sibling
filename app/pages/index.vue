@@ -8,22 +8,17 @@ interface HomeData {
   products: { id: string; name: string; imageUrl: string | null; category: { name: string } }[]
   campaigns: { id: string; name: string; description: string | null; imageUrl: string | null; displayMode: string | null; bannerColor: string | null }[]
   truckLocation: { name: string; description: string | null; mapUrl: string | null; openTime: string | null; closeTime: string | null; daysOfWeek: string | null; isOpen: boolean; canOrder: boolean; nextOpenLabel: string | null; nextOpenName: string | null; schedules: { id: string; name: string; openTime: string; closeTime: string; daysOfWeek: string; mapUrl: string | null }[]; activeScheduleId: string | null } | null
-  topRequests: { id: string; name: string; description: string | null; voteCount: number }[]
 }
 
-interface LocationRequest {
-  id: string; name: string; description: string | null; voteCount: number
-}
+useHead({
+  link: [
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    { rel: 'stylesheet', href: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap' },
+  ],
+})
 
 const data = ref<HomeData | null>(null)
-const allRequests = ref<LocationRequest[]>([])
-const myVotedId = ref<string | null>(null)
-const showRequestForm = ref(false)
-const requestForm = reactive({ name: '', description: '' })
-const submitting = ref(false)
-const voting = ref(false)
-const formError = ref('')
-const { showSuccess, showError } = useAlert()
 const showTimeline = ref(false)
 const { canInstall, platform, hasNativePrompt, install } = usePwaInstall()
 const dismissedBanner = ref(false)
@@ -33,7 +28,6 @@ async function copyUrlAndDismiss() {
   dismissedBanner.value = true
 }
 
-
 const benefits = [
   { icon: 'flat-color-icons:approval', title: 'สะสมแต้ม', desc: 'สะสมแต้มจากทุกการสั่ง' },
   { icon: 'mdi:gift', title: 'แต้มแลกลด', desc: 'ใช้แต้มแลกส่วนลด' },
@@ -41,54 +35,19 @@ const benefits = [
   { icon: 'flat-color-icons:vip', title: 'สิทธิ์ VIP', desc: 'แต้มโบนัสพิเศษ' },
 ]
 
+const atmosphere = [
+  { src: '/images/atmosphere/tent-sign.jpg', caption: 'เปิดร้านทุกเช้า ที่ไหนก็ตามไปได้' },
+  { src: '/images/atmosphere/espresso-detail.jpg', caption: 'ชงสดทุกแก้ว ไม่มีเตรียมล่วงหน้า' },
+  { src: '/images/atmosphere/camp-chairs.jpg', caption: 'มีที่นั่งให้แวะพักจิบกาแฟ' },
+  { src: '/images/atmosphere/open-sign.jpg', caption: 'เปิดจันทร์–เสาร์ 09:00–13:00' },
+  { src: '/images/atmosphere/roadside-speaker.jpg', caption: 'เพลงเบาๆ ริมถนน บรรยากาศสบายๆ' },
+  { src: '/images/atmosphere/rain-day.jpg', caption: 'ฝนตกก็ยังเปิด รอลูกค้าทุกวัน' },
+]
+
 onMounted(async () => {
   const res = await http.get<{ success: boolean; data: HomeData }>('/api/public/home')
   data.value = res.data ?? null
-  allRequests.value = data.value?.topRequests ?? []
 })
-
-async function submitRequest() {
-  if (!member.value) { await navigateTo('/member/login'); return }
-  formError.value = ''
-  submitting.value = true
-  try {
-    await http.post('/api/public/location/request', {
-      name: requestForm.name,
-      description: requestForm.description || undefined,
-    })
-    showSuccess('เสนอสถานที่เรียบร้อยแล้ว!')
-    requestForm.name = ''
-    requestForm.description = ''
-    showRequestForm.value = false
-    await refreshRequests()
-  } catch (e: unknown) {
-    formError.value = e instanceof Error ? e.message : 'เกิดข้อผิดพลาด'
-  } finally {
-    submitting.value = false
-  }
-}
-
-async function vote(requestId: string) {
-  if (!member.value) { await navigateTo('/member/login'); return }
-  voting.value = true
-  try {
-    await http.post('/api/public/location/vote', { requestId })
-    myVotedId.value = requestId
-    await refreshRequests()
-    showSuccess('โหวตเรียบร้อยแล้ว!')
-  } catch (e: unknown) {
-    showError(e instanceof Error ? e.message : 'เกิดข้อผิดพลาด')
-  } finally {
-    voting.value = false
-  }
-}
-
-async function refreshRequests() {
-  const res = await http.get<{ success: boolean; data: { requests: LocationRequest[] } }>('/api/public/location/requests')
-  allRequests.value = res.data?.requests ?? []
-}
-
-const maxVotes = computed(() => Math.max(...allRequests.value.map(r => r.voteCount), 1))
 
 // duplicate products for seamless marquee loop
 const marqueeProducts = computed(() => {
@@ -98,68 +57,57 @@ const marqueeProducts = computed(() => {
 </script>
 
 <template>
-  <div>
-    <!-- ─── Truck Location Banner ────────────────────────────────────────── -->
-    <section v-if="data?.truckLocation" class="text-white py-4"
-      :class="data.truckLocation.isOpen ? 'bg-green-700' : data.truckLocation.canOrder ? 'bg-blue-700' : 'bg-[#1B2B4B]'">
-      <div class="max-w-4xl mx-auto px-6 flex items-start justify-between gap-4">
-        <div class="flex items-start gap-3 min-w-0">
-          <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-white/15">
-            <Icon :name="data.truckLocation.isOpen ? 'mdi:store-check' : data.truckLocation.canOrder ? 'mdi:store-clock' : 'mdi:store-off'" class="text-lg" />
-          </div>
-          <div class="min-w-0">
-            <template v-if="data.truckLocation.isOpen">
-              <p class="text-white/60 text-xs font-medium mb-0.5">วันนี้อยู่ที่</p>
-              <div class="flex items-center gap-2 flex-wrap">
-                <p class="font-bold">{{ data.truckLocation.name }}</p>
-                <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white">เปิดอยู่</span>
-              </div>
-              <p class="text-white/70 text-sm">{{ data.truckLocation.openTime }}–{{ data.truckLocation.closeTime }}</p>
+  <div class="jp-home">
+    <!-- ─── Truck Location Status Pill ───────────────────────────────────── -->
+    <div v-if="data?.truckLocation" class="status-bar">
+      <div class="status-bar-inner">
+        <div class="status-pill" :class="data.truckLocation.isOpen ? 'is-open' : data.truckLocation.canOrder ? 'is-preorder' : 'is-closed'">
+          <span class="status-dot" />
+          <template v-if="data.truckLocation.isOpen">
+            <span>วันนี้อยู่ที่ <b>{{ data.truckLocation.name }}</b></span>
+            <span class="sep">·</span>
+            <span>{{ data.truckLocation.openTime }}–{{ data.truckLocation.closeTime }}</span>
+          </template>
+          <template v-else-if="data.truckLocation.canOrder">
+            <span>ร้านปิดอยู่ แต่สั่งออนไลน์ได้</span>
+            <template v-if="data.truckLocation.nextOpenLabel">
+              <span class="sep">·</span>
+              <span>เปิดอีกครั้ง {{ data.truckLocation.nextOpenLabel }}</span>
             </template>
-            <template v-else-if="data.truckLocation.canOrder">
-              <div class="flex items-center gap-2 mb-0.5">
-                <p class="text-white/60 text-xs font-medium">ร้านปิดอยู่ แต่</p>
-                <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-white/20 text-white">สั่งออนไลน์ได้</span>
-              </div>
-              <p v-if="data.truckLocation.nextOpenLabel" class="font-bold leading-snug">เปิดอีกครั้ง {{ data.truckLocation.nextOpenLabel }}</p>
-              <p v-if="data.truckLocation.nextOpenName" class="text-white/70 text-sm truncate">ที่ {{ data.truckLocation.nextOpenName }}</p>
+          </template>
+          <template v-else-if="data.truckLocation.nextOpenLabel">
+            <span>ร้านปิดอยู่ เปิดอีกครั้ง {{ data.truckLocation.nextOpenLabel }}</span>
+            <template v-if="data.truckLocation.nextOpenName">
+              <span class="sep">·</span>
+              <span>ที่ {{ data.truckLocation.nextOpenName }}</span>
             </template>
-            <template v-else-if="data.truckLocation.nextOpenLabel">
-              <div class="flex items-center gap-2 mb-0.5">
-                <p class="text-white/60 text-xs font-medium">ร้านจะเปิดอีกครั้ง</p>
-                <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-500/80 text-white">ปิดอยู่</span>
-              </div>
-              <p class="font-bold leading-snug">{{ data.truckLocation.nextOpenLabel }}</p>
-              <p class="text-white/70 text-sm truncate">ที่ {{ data.truckLocation.nextOpenName }}</p>
-            </template>
-            <template v-else>
-              <p class="text-white/60 text-xs font-medium mb-0.5">สถานะร้าน</p>
-              <p class="font-bold">ปิดอยู่</p>
-            </template>
-          </div>
+          </template>
+          <template v-else>
+            <span>ร้านปิดอยู่</span>
+          </template>
         </div>
-        <div class="flex flex-col items-end gap-2 flex-shrink-0">
+        <div class="status-actions">
           <a
             v-if="data.truckLocation.mapUrl"
             :href="data.truckLocation.mapUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="flex items-center gap-1.5 px-4 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-medium transition-colors"
+            class="status-link"
           >
-            <Icon name="mdi:map-marker" class="text-base text-red-300" />
+            <Icon name="mdi:map-marker" />
             แผนที่
           </a>
           <button
             v-if="data.truckLocation.schedules?.length"
-            class="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-medium transition-colors text-white/80"
+            class="status-link status-link-ghost"
             @click="showTimeline = true"
           >
-            <Icon name="mdi:calendar-clock" class="text-sm" />
+            <Icon name="mdi:calendar-clock" />
             ไทม์ไลน์
           </button>
         </div>
       </div>
-    </section>
+    </div>
 
     <SharedLocationTimeline
       v-if="showTimeline && data?.truckLocation"
@@ -169,134 +117,104 @@ const marqueeProducts = computed(() => {
     />
 
     <!-- ─── Hero ─────────────────────────────────────────────────────────── -->
-    <!-- Mobile: 50vh hero + 50vh campaign cards | Desktop: full hero -->
-    <div class="md:block">
+    <section class="hero">
+      <div class="hero-media">
+        <img src="/hero-sunset.jpg" alt="" />
+      </div>
+      <div class="hero-scrim" />
 
-      <!-- Hero section: 50vh on mobile, 90vh on desktop -->
-      <section class="relative overflow-hidden h-[50vh] md:min-h-[90vh] flex flex-col">
-        <div class="absolute inset-0 pointer-events-none">
-          <img src="/hero-cover-2.jpg" alt="" class="w-full h-full object-cover" />
-          <div class="absolute inset-0 bg-gradient-to-b from-[#0F1C30]/70 via-[#0F1C30]/55 to-[#0F1C30]/80" />
-          <svg class="absolute -bottom-1 left-0 w-full hidden md:block" viewBox="0 0 1440 120" fill="none">
-            <path d="M0,60 C360,120 1080,0 1440,60 L1440,120 L0,120 Z" fill="white"/>
-          </svg>
+      <div class="hero-body">
+        <div class="hero-eyebrow">
+          <img src="/logo.jpg" alt="" />
+          <span>รถกาแฟข้างทาง · เชียงใหม่</span>
         </div>
+        <h1>พบกันทุกเช้า<br>ที่ไหน<em>ก็ได้</em></h1>
+        <p class="sub">ตามรถเข็นไปทุกมุมเมือง สั่งล่วงหน้าได้ ไม่ต้องรอคิว แล้วมาจิบกาแฟแก้วโปรดกับเรา</p>
+        <div class="hero-ctas">
+          <NuxtLink to="/order" class="btn btn-primary">สั่งออนไลน์</NuxtLink>
+          <NuxtLink to="/member/register" class="btn btn-secondary">สมัครสมาชิกฟรี</NuxtLink>
+        </div>
+      </div>
 
-        <!-- Logo + name: top-left -->
-        <div class="relative flex flex-col items-center justify-center gap-3 px-6 pt-6 md:pt-8">
-          <img src="/logo.jpg" alt="JP Sibling" class="w-16 h-16 md:w-14 md:h-14 rounded-full shadow-lg object-cover ring-2 ring-white/30" />
-          <h1 class="text-xl md:text-3xl font-bold text-white drop-shadow-lg">JP Sibling</h1>
-        </div>
-
-        <!-- Buttons: bottom -->
-        <div class="relative max-w-4xl mx-auto px-6 pb-6 md:pb-12 text-center w-full mt-auto">
-          <p class="text-sm md:text-lg text-white/85 drop-shadow mb-3 md:mb-4">พบกันทุกเช้า ที่ไหนก็ได้</p>
-          <div class="flex flex-row items-stretch gap-3 md:gap-4 justify-center">
-            <NuxtLink
-              to="/order"
-              class="flex-1 max-w-[220px] inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-teal-600 text-white font-bold rounded-2xl hover:bg-teal-700 transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
-            >
-              สั่งออนไลน์
-            </NuxtLink>
-            <NuxtLink
-              to="/member/register"
-              class="flex-1 max-w-[220px] inline-flex items-center justify-center gap-2 px-6 md:px-8 py-3 md:py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl border-2 border-white hover:bg-[#F0F4F8] transition-all shadow hover:-translate-y-0.5 text-sm md:text-base"
-            >
-              สมัครสมาชิกฟรี
-            </NuxtLink>
-          </div>
-        </div>
-      </section>
-    </div>
+      <svg class="wave" viewBox="0 0 1440 64" preserveAspectRatio="none">
+        <path d="M0,32 C240,64 480,0 720,16 C960,32 1200,64 1440,24 L1440,64 L0,64 Z" fill="#FBF4E8" />
+      </svg>
+    </section>
 
     <!-- ─── PWA Install Banner ───────────────────────────────────────────── -->
     <Transition name="slide-down">
-      <div v-if="canInstall && !dismissedBanner" class="bg-[#1B2B4B]/95 text-white px-4 py-3">
-        <div class="max-w-4xl mx-auto flex items-center gap-3">
-          <img src="/logo.jpg" alt="" class="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+      <div v-if="canInstall && !dismissedBanner" class="pwa-banner">
+        <div class="pwa-banner-inner">
+          <img src="/logo.jpg" alt="" class="pwa-logo" />
 
-          <!-- Android Chrome / Desktop: native prompt -->
           <template v-if="hasNativePrompt">
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold leading-tight">ติดตั้ง JP Sibling</p>
-              <p class="text-xs text-white/60 leading-tight">เพิ่มไปหน้าจอหลักเพื่อใช้งานง่ายขึ้น</p>
+            <div class="pwa-text">
+              <p class="pwa-title">ติดตั้ง JP Sibling</p>
+              <p class="pwa-sub">เพิ่มไปหน้าจอหลักเพื่อใช้งานง่ายขึ้น</p>
             </div>
-            <button
-              class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg flex-shrink-0"
-              @click="install"
-            >ติดตั้ง</button>
+            <button class="pwa-btn" @click="install">ติดตั้ง</button>
           </template>
 
-          <!-- iOS Safari: manual -->
           <template v-else-if="platform === 'ios-safari'">
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold leading-tight">ติดตั้ง JP Sibling บน iPhone</p>
-              <p class="text-xs text-white/60 leading-tight">
-                กดปุ่ม <Icon name="mdi:export-variant" class="inline text-sm align-middle" /> แชร์ (Share) แล้วเลือก "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"
+            <div class="pwa-text">
+              <p class="pwa-title">ติดตั้ง JP Sibling บน iPhone</p>
+              <p class="pwa-sub">
+                กดปุ่ม <Icon name="mdi:export-variant" class="inline-icon" /> แชร์ (Share) แล้วเลือก "เพิ่มไปยังหน้าจอโฮม (Add to Home Screen)"
               </p>
             </div>
           </template>
 
-          <!-- iOS Chrome: ต้องเปิดด้วย Safari -->
           <template v-else-if="platform === 'ios-other'">
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-semibold leading-tight">ติดตั้งผ่าน Safari</p>
-              <p class="text-xs text-white/60 leading-tight">Chrome บน iOS ไม่รองรับ — คัดลอกลิงก์แล้วเปิดใน Safari จากนั้นกด "เพิ่มไปยังหน้าจอโฮม"</p>
+            <div class="pwa-text">
+              <p class="pwa-title">ติดตั้งผ่าน Safari</p>
+              <p class="pwa-sub">Chrome บน iOS ไม่รองรับ — คัดลอกลิงก์แล้วเปิดใน Safari จากนั้นกด "เพิ่มไปยังหน้าจอโฮม"</p>
             </div>
-            <button
-              class="px-3 py-1.5 bg-white text-[#1B2B4B] text-xs font-bold rounded-lg flex-shrink-0"
-              @click="copyUrlAndDismiss"
-            >คัดลอกลิงก์</button>
+            <button class="pwa-btn" @click="copyUrlAndDismiss">คัดลอกลิงก์</button>
           </template>
 
-          <button class="text-white/50 hover:text-white p-1 flex-shrink-0" @click="dismissedBanner = true">
-            <Icon name="mdi:close" class="text-lg" />
+          <button class="pwa-close" @click="dismissedBanner = true">
+            <Icon name="mdi:close" />
           </button>
         </div>
       </div>
     </Transition>
 
-    <!-- ─── Campaigns (desktop full section) ────────────────────────────── -->
-    <section v-if="data?.campaigns.length" class="py-6 bg-[#F8FAFC]">
-      <div class="max-w-5xl mx-auto px-6">
-        <h2 class="text-xl font-bold text-[#1B2B4B] text-center mb-3">โปรโมชัน & แคมเปญ</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-          <div
-            v-for="campaign in data.campaigns"
-            :key="campaign.id"
-            class="relative rounded-2xl overflow-hidden shadow hover:shadow-lg transition-shadow aspect-video"
-          >
-            <!-- NEW badge -->
-            <div class="absolute top-3 right-3 z-10 flex items-center gap-1 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg">
-              <span class="w-1.5 h-1.5 rounded-full bg-white animate-ping inline-block" />
-              NEW
-            </div>
+    <!-- ─── Campaigns ────────────────────────────────────────────────────── -->
+    <section v-if="data?.campaigns.length" class="promos">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <p class="kicker">สิทธิพิเศษประจำเดือน</p>
+            <h2>โปรโมชันตอนนี้</h2>
+          </div>
+        </div>
 
-            <!-- image mode -->
+        <div class="promo-grid">
+          <div
+            v-for="(campaign, i) in data.campaigns"
+            :key="campaign.id"
+            class="promo-card"
+            :class="i % 2 === 0 ? 'tilt-left' : 'tilt-right'"
+          >
+            <div class="promo-tag"><span class="d" />NEW</div>
+
             <template v-if="campaign.displayMode !== 'banner'">
-              <img
-                v-if="campaign.imageUrl"
-                :src="campaign.imageUrl"
-                :alt="campaign.name"
-                class="absolute inset-0 w-full h-full object-cover"
-              />
-              <div v-else class="absolute inset-0 bg-gradient-to-br from-[#1B2B4B] to-[#2a3f6b]" />
-              <!-- <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-              <div class="relative h-full flex flex-col justify-end p-6">
-                <h3 class="font-bold text-white text-xl leading-snug">{{ campaign.name }}</h3>
-                <p v-if="campaign.description" class="text-white/75 text-sm mt-1">{{ campaign.description }}</p>
-              </div> -->
+              <div class="promo-img">
+                <img v-if="campaign.imageUrl" :src="campaign.imageUrl" :alt="campaign.name" />
+                <div v-else class="promo-img-fallback" />
+              </div>
+              <div class="promo-body">
+                <h3>{{ campaign.name }}</h3>
+                <p v-if="campaign.description" class="promo-desc">{{ campaign.description }}</p>
+              </div>
             </template>
 
-            <!-- banner mode -->
             <template v-else>
-              <div class="absolute inset-0" :style="`background: ${campaign.bannerColor || '#1B2B4B'}`" />
-              <div class="relative h-full flex items-center gap-6 p-6">
-                <img v-if="campaign.imageUrl" :src="campaign.imageUrl" class="w-24 h-24 rounded-2xl object-cover border-2 border-white/20 shrink-0" alt="" />
-                <div class="flex-1 min-w-0">
-                  <p class="text-xs font-semibold text-white/60 uppercase tracking-widest mb-2">โปรโมชัน</p>
-                  <h3 class="font-bold text-white text-xl leading-snug">{{ campaign.name }}</h3>
-                  <p v-if="campaign.description" class="text-white/75 text-sm mt-2">{{ campaign.description }}</p>
+              <div class="promo-banner" :style="`background: ${campaign.bannerColor || '#1C64D1'}`">
+                <img v-if="campaign.imageUrl" :src="campaign.imageUrl" alt="" />
+                <div class="promo-banner-text">
+                  <h3>{{ campaign.name }}</h3>
+                  <p v-if="campaign.description">{{ campaign.description }}</p>
                 </div>
               </div>
             </template>
@@ -306,187 +224,482 @@ const marqueeProducts = computed(() => {
     </section>
 
     <!-- ─── Menu Marquee ─────────────────────────────────────────────────── -->
-    <section class="py-4 bg-white overflow-hidden">
-      <div class="max-w-5xl mx-auto px-6 mb-4">
-        <h2 class="text-xl font-bold text-[#1B2B4B] text-center">เมนูแนะนำ</h2>
+    <section class="menu">
+      <div class="wrap">
+        <div class="section-head section-head-center">
+          <div>
+            <p class="kicker">เมนูแนะนำ</p>
+            <h2>รสที่คนสั่งซ้ำบ่อยที่สุด</h2>
+          </div>
+        </div>
       </div>
 
-      <!-- Loading skeleton -->
-      <div v-if="!data" class="flex gap-5 px-6">
-        <div v-for="i in 5" :key="i" class="flex-shrink-0 w-40 h-52 bg-gray-100 rounded-2xl animate-pulse" />
+      <div v-if="!data" class="menu-skeleton">
+        <div v-for="i in 5" :key="i" class="menu-skeleton-card" />
       </div>
 
-      <!-- Empty -->
-      <div v-else-if="!data.products.length" class="text-center text-gray-400 py-8">ยังไม่มีเมนู</div>
+      <div v-else-if="!data.products.length" class="menu-empty">ยังไม่มีเมนู</div>
 
-      <!-- Marquee -->
-      <div v-else class="relative">
-        <!-- Fade edges -->
-        <div class="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
-        <div class="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none" />
-
-        <div class="flex gap-5 marquee-track">
-          <div
-            v-for="(product, idx) in marqueeProducts"
-            :key="`${product.id}-${idx}`"
-            class="flex-shrink-0 w-40"
-          >
-            <div class="bg-[#F8FAFC] rounded-2xl overflow-hidden shadow hover:shadow-md transition-shadow">
-              <div class="w-full h-36 bg-[#DDEAF6] flex items-center justify-center overflow-hidden">
-                <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="w-full h-full object-cover" />
-                <Icon v-else name="flat-color-icons:shop" class="text-5xl" />
-              </div>
-              <div class="p-3">
-                <p class="font-semibold text-[#1B2B4B] text-sm leading-snug line-clamp-2">{{ product.name }}</p>
-                <p class="text-xs text-[#1B2B4B]/50 mt-0.5">{{ product.category.name }}</p>
-              </div>
+      <div v-else class="marquee-wrap">
+        <div class="marquee-track">
+          <div v-for="(product, idx) in marqueeProducts" :key="`${product.id}-${idx}`" class="menu-card">
+            <div class="menu-card-img">
+              <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" />
+              <Icon v-else name="flat-color-icons:shop" class="menu-card-fallback" />
+            </div>
+            <div class="menu-card-info">
+              <p class="menu-card-name">{{ product.name }}</p>
+              <p class="menu-card-cat">{{ product.category.name }}</p>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ─── Location Voting ──────────────────────────────────────────────── -->
-    <section class="py-20 bg-white">
-      <div class="max-w-2xl mx-auto px-6">
-        <div class="text-center mb-10">
-          <h2 class="text-3xl font-bold text-[#1B2B4B] mb-3">อยากให้รถมาจอดที่ไหน?</h2>
-          <p class="text-gray-500">เสนอสถานที่และโหวตได้เดือนละ 1 ครั้ง<br>รถจะไปตามที่โหวตสูงสุด!</p>
+    <!-- ─── Atmosphere Gallery ───────────────────────────────────────────── -->
+    <section class="atmosphere">
+      <div class="wrap">
+        <div class="section-head">
+          <div>
+            <p class="kicker">บรรยากาศร้าน</p>
+            <h2>เช้าแบบนี้ ที่ JP Sibling</h2>
+          </div>
+          <p class="section-head-note">ภาพจริงจากหน้าร้าน ไม่ปรุงแต่ง เช้าไหนฝนตกก็ยังเปิดรอ</p>
         </div>
 
-        <div v-if="allRequests.length" class="space-y-3 mb-8">
-          <div v-for="(req, i) in allRequests" :key="req.id" class="bg-[#F8FAFC] rounded-2xl p-4">
-            <div class="flex items-center justify-between mb-2">
-              <div class="flex items-center gap-3 min-w-0">
-                <span class="text-lg font-bold text-[#1B2B4B]/30 w-5 flex-shrink-0">{{ i + 1 }}</span>
-                <div class="min-w-0">
-                  <p class="font-semibold text-[#1B2B4B] truncate">{{ req.name }}</p>
-                  <p v-if="req.description" class="text-xs text-gray-400 truncate">{{ req.description }}</p>
-                </div>
-              </div>
-              <button
-                :disabled="voting || !!myVotedId"
-                class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all flex-shrink-0 ml-3"
-                :class="myVotedId === req.id
-                  ? 'bg-[#1B2B4B] text-white'
-                  : myVotedId
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-[#C8D8E8] text-[#1B2B4B] hover:bg-[#b0c8e0]'"
-                @click="vote(req.id)"
-              >
-                <Icon :name="myVotedId === req.id ? 'mdi:check' : 'mdi:thumb-up'" class="text-base" />
-                <span>{{ req.voteCount }}</span>
-              </button>
-            </div>
-            <div class="ml-8 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                class="h-full bg-[#C8D8E8] rounded-full transition-all duration-700"
-                :style="{ width: (req.voteCount / maxVotes * 100) + '%' }"
-              />
-            </div>
-          </div>
-        </div>
-        <div v-else class="text-center text-gray-400 py-8 mb-8">
-          ยังไม่มีคำขอสัปดาห์นี้ เป็นคนแรกได้เลย!
-        </div>
-
-        <div class="text-center">
-          <button
-            v-if="!showRequestForm"
-            class="px-6 py-3 border-2 border-[#C8D8E8] text-[#1B2B4B] font-semibold rounded-2xl hover:bg-[#F0F4F8] transition-colors"
-            @click="showRequestForm = true"
-          >+ เสนอสถานที่ใหม่</button>
-          <div v-else class="bg-[#F8FAFC] rounded-2xl p-6 text-left">
-            <h3 class="font-bold text-[#1B2B4B] mb-4">เสนอสถานที่</h3>
-            <div v-if="formError" class="mb-3 p-3 bg-red-50 text-red-600 rounded-lg text-sm">{{ formError }}</div>
-            <div class="space-y-3">
-              <input
-                v-model="requestForm.name"
-                type="text"
-                placeholder="ชื่อสถานที่ เช่น หน้าม.เกษตรฯ ประตู 1"
-                class="w-full border border-[#C8D8E8] rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8] bg-white text-[#1B2B4B]"
-              />
-              <textarea
-                v-model="requestForm.description"
-                rows="2"
-                placeholder="รายละเอียดเพิ่มเติม เช่น วัน/เวลาที่อยากให้มา (optional)"
-                class="w-full border border-[#C8D8E8] rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#C8D8E8] bg-white text-[#1B2B4B] resize-none"
-              />
-              <div class="flex gap-3">
-                <button
-                  :disabled="!requestForm.name || submitting"
-                  class="flex-1 py-3 bg-[#1B2B4B] text-white font-semibold rounded-xl hover:bg-[#2a3f6b] disabled:opacity-50 transition-colors"
-                  @click="submitRequest"
-                >{{ submitting ? 'กำลังส่ง...' : 'เสนอสถานที่' }}</button>
-                <button
-                  class="flex-1 py-3 bg-white border border-[#C8D8E8] text-gray-600 font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-                  @click="showRequestForm = false"
-                >ยกเลิก</button>
-              </div>
-            </div>
-          </div>
+        <div class="atmosphere-grid">
+          <figure
+            v-for="(shot, i) in atmosphere"
+            :key="shot.src"
+            class="atmosphere-item"
+            :class="`atmosphere-item-${i}`"
+          >
+            <img :src="shot.src" :alt="shot.caption" loading="lazy" />
+            <figcaption>{{ shot.caption }}</figcaption>
+          </figure>
         </div>
       </div>
     </section>
 
     <!-- ─── Member Benefits ──────────────────────────────────────────────── -->
-    <section class="py-20 bg-[#1B2B4B]">
-      <div class="max-w-4xl mx-auto px-6 text-center">
-        <h2 class="text-3xl font-bold text-white mb-3">ทำไมต้องสมัครสมาชิก?</h2>
-        <p class="text-[#C8D8E8] mb-12">สมัครฟรี ใช้เวลาไม่ถึง 1 นาที</p>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-12">
-          <div v-for="b in benefits" :key="b.title" class="bg-white/10 rounded-2xl p-5 flex flex-col items-center text-center">
-            <img v-if="b.image" :src="b.image" :alt="b.title" class="w-10 h-10 object-contain mb-3" />
-            <Icon v-else :name="b.icon!" class="text-4xl mb-3" />
-            <p class="font-semibold text-white text-sm">{{ b.title }}</p>
-            <p class="text-[#C8D8E8] text-xs mt-1">{{ b.desc }}</p>
+    <section class="benefits">
+      <div class="wrap">
+        <div class="section-head section-head-center">
+          <div>
+            <p class="kicker">สมัครฟรี ใช้เวลาไม่ถึง 1 นาที</p>
+            <h2>ทำไมต้องสมัครสมาชิก?</h2>
           </div>
         </div>
-        <NuxtLink
-          to="/member/register"
-          class="inline-block px-10 py-4 bg-white text-[#1B2B4B] font-bold rounded-2xl hover:bg-[#F0F4F8] transition-all shadow-lg hover:-translate-y-0.5"
-        >สมัครสมาชิกฟรี →</NuxtLink>
+
+        <div class="benefit-grid">
+          <div v-for="b in benefits" :key="b.title" class="benefit-card">
+            <div class="benefit-icon">
+              <img v-if="b.image" :src="b.image" :alt="b.title" />
+              <Icon v-else :name="b.icon!" />
+            </div>
+            <h4>{{ b.title }}</h4>
+            <p>{{ b.desc }}</p>
+          </div>
+        </div>
+
+        <div class="benefits-cta">
+          <NuxtLink to="/member/register" class="btn btn-primary">สมัครสมาชิกฟรี</NuxtLink>
+        </div>
       </div>
     </section>
 
     <!-- ─── Footer ───────────────────────────────────────────────────────── -->
-    <footer class="bg-[#0F1C30] text-[#C8D8E8] py-10">
-      <div class="max-w-4xl mx-auto px-6 text-center space-y-3">
-        <img src="/logo.jpg" alt="JP Sibling" class="w-12 h-12 mx-auto rounded-full object-cover opacity-70" />
-        <div class="flex justify-center gap-8 text-sm font-medium">
-          <a href="https://lin.ee/Yo7V4CO" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 hover:text-white transition-colors">
-            <Icon name="mdi:chat" class="text-base" />LINE OA
+    <footer class="site-footer">
+      <div class="wrap">
+        <img src="/logo.jpg" alt="JP Sibling" class="footer-logo" />
+        <div class="footer-links">
+          <a href="https://lin.ee/Yo7V4CO" target="_blank" rel="noopener noreferrer">
+            <Icon name="mdi:chat" />LINE OA
           </a>
-          <a href="https://www.instagram.com/jp.sibling/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 hover:text-white transition-colors">
-            <Icon name="mdi:instagram" class="text-base" />Instagram
+          <a href="https://www.instagram.com/jp.sibling/" target="_blank" rel="noopener noreferrer">
+            <Icon name="mdi:instagram" />Instagram
           </a>
-          <a href="https://www.facebook.com/jp.sibling/" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 hover:text-white transition-colors">
-            <Icon name="mdi:facebook" class="text-base" />Facebook
+          <a href="https://www.facebook.com/jp.sibling/" target="_blank" rel="noopener noreferrer">
+            <Icon name="mdi:facebook" />Facebook
           </a>
         </div>
-        <p class="text-xs text-[#C8D8E8]/50">© {{ new Date().getFullYear() }} <NuxtLink to="/admin" class="hover:text-white transition-colors">JP Sibling</NuxtLink> · Coffee Truck · Chiang Mai</p>
-        <p class="text-[10px] text-[#C8D8E8]/30">v{{ $config.public.appVersion }}</p>
+        <p class="footer-copy">© {{ new Date().getFullYear() }} <NuxtLink to="/admin">JP Sibling</NuxtLink> · Coffee Truck · Chiang Mai</p>
+        <p class="footer-version">v{{ $config.public.appVersion }}</p>
       </div>
     </footer>
   </div>
 </template>
 
 <style scoped>
+.jp-home {
+  --ink: #0E2A4D;
+  --ink-soft: #4A6487;
+  --blue: #1C64D1;
+  --blue-deep: #124A9E;
+  --cream: #FBF4E8;
+  --cream-deep: #F0E2C8;
+  --cream-card: #FFFDF8;
+  --ember: #E07A1F;
+  --line: #E2D4B8;
+  --shadow: 0 12px 28px -14px rgba(14, 42, 77, 0.35);
+
+  background: var(--cream);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+.jp-home :deep(h1),
+.jp-home :deep(h2),
+.jp-home :deep(h3) {
+  text-wrap: balance;
+}
+
+.display,
+.jp-home h1,
+.jp-home h2,
+.jp-home h3 {
+  font-family: 'Fraunces', 'IBM Plex Sans Thai', serif;
+}
+
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+/* ───────── status bar ───────── */
+.status-bar {
+  background: var(--ink);
+  color: var(--cream);
+}
+.status-bar-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0.65rem 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  flex-wrap: wrap;
+}
+.status-pill b { font-weight: 700; }
+.status-pill .sep { opacity: 0.4; }
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  flex-shrink: 0;
+  background: #4ADE80;
+  box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.25);
+}
+.status-pill.is-preorder .status-dot { background: #60A5FA; box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25); }
+.status-pill.is-closed .status-dot { background: #F87171; box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.25); }
+
+.status-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+.status-link {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: var(--cream);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.status-link:hover { background: rgba(255, 255, 255, 0.2); }
+
+/* ───────── hero ───────── */
+.hero {
+  position: relative;
+  min-height: 56vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+@media (min-width: 768px) {
+  .hero { min-height: 86vh; }
+}
+.hero-media { position: absolute; inset: 0; }
+.hero-media img {
+  width: 100%; height: 100%; object-fit: cover;
+  object-position: 38% 55%;
+}
+.hero-scrim {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(14,42,77,0.45) 0%, rgba(14,42,77,0.18) 30%, rgba(14,42,77,0.22) 55%, rgba(8,23,48,0.88) 100%),
+    linear-gradient(100deg, rgba(14,42,77,0.5) 0%, rgba(14,42,77,0.08) 50%);
+}
+.hero-body {
+  position: relative;
+  margin-top: auto;
+  max-width: 1120px;
+  margin-left: auto; margin-right: auto;
+  width: 100%;
+  padding: 0 1.5rem 3rem;
+  color: #fff;
+}
+@media (min-width: 768px) {
+  .hero-body { padding-bottom: 4.5rem; }
+}
+.hero-eyebrow {
+  display: flex; align-items: center; gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+.hero-eyebrow img {
+  width: 34px; height: 34px; border-radius: 50%; object-fit: cover;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+}
+.hero-eyebrow span { font-size: 0.9rem; opacity: 0.85; font-weight: 500; }
+
+.hero h1 {
+  font-weight: 600;
+  font-size: clamp(2.1rem, 6vw, 4.2rem);
+  line-height: 1.04;
+  margin: 0 0 1rem;
+  max-width: 14ch;
+}
+.hero h1 em {
+  font-style: italic;
+  font-weight: 500;
+  color: #FFD9A8;
+}
+.hero p.sub {
+  font-size: clamp(0.95rem, 1.6vw, 1.15rem);
+  max-width: 36ch;
+  opacity: 0.92;
+  margin: 0 0 1.8rem;
+  line-height: 1.55;
+}
+.hero-ctas { display: flex; gap: 0.8rem; flex-wrap: wrap; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.85rem 1.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-decoration: none;
+  transition: transform 0.18s ease;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn-primary { background: var(--ember); color: #fff; box-shadow: 0 14px 30px -12px rgba(224, 122, 31, 0.65); }
+.btn-secondary { background: rgba(255, 255, 255, 0.95); color: var(--ink); box-shadow: 0 14px 30px -14px rgba(0, 0, 0, 0.3); }
+
+.wave { display: block; width: 100%; height: 48px; position: relative; margin-top: -2px; }
+@media (min-width: 768px) {
+  .wave { height: 64px; }
+}
+
+/* ───────── pwa banner ───────── */
+.pwa-banner { background: rgba(14, 42, 77, 0.96); color: #fff; }
+.pwa-banner-inner {
+  max-width: 1120px; margin: 0 auto;
+  padding: 0.75rem 1.5rem;
+  display: flex; align-items: center; gap: 0.75rem;
+}
+.pwa-logo { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.pwa-text { flex: 1; min-width: 0; }
+.pwa-title { font-size: 0.9rem; font-weight: 600; line-height: 1.3; margin: 0; }
+.pwa-sub { font-size: 0.78rem; color: rgba(255, 255, 255, 0.6); line-height: 1.3; margin: 0; }
+.inline-icon { display: inline; vertical-align: middle; }
+.pwa-btn {
+  padding: 0.5rem 0.9rem;
+  background: #fff; color: var(--ink);
+  font-size: 0.78rem; font-weight: 700;
+  border-radius: 8px; border: none; flex-shrink: 0; cursor: pointer;
+}
+.pwa-close { background: none; border: none; color: rgba(255, 255, 255, 0.5); padding: 0.25rem; flex-shrink: 0; cursor: pointer; }
+.pwa-close:hover { color: #fff; }
+
 .slide-down-enter-active, .slide-down-leave-active { transition: all 0.3s ease; }
 .slide-down-enter-from, .slide-down-leave-to { opacity: 0; transform: translateY(-12px); }
 
-/* Auto-scroll marquee */
-.marquee-track {
-  animation: marquee 30s linear infinite;
-  width: max-content;
-  padding: 0 1.25rem;
+/* ───────── section shells ───────── */
+.section-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap;
 }
-.marquee-track:hover {
-  animation-play-state: paused;
+.section-head-center { justify-content: center; text-align: center; }
+.section-head-note { margin: 0; color: var(--ink-soft); max-width: 28ch; font-size: 0.92rem; }
+.kicker { font-size: 0.82rem; color: var(--blue); font-weight: 600; margin: 0 0 0.35rem; }
+.section-head h2 {
+  font-weight: 600;
+  font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+  margin: 0;
+  color: var(--ink);
 }
 
-@keyframes marquee {
-  0%   { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
+/* ───────── promos ───────── */
+.promos { padding: 4rem 0 3rem; }
+.promo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 420px));
+  gap: 2rem 1.8rem;
 }
+.promo-grid:has(.promo-card:only-child) { grid-template-columns: minmax(0, 420px); }
+.promo-card {
+  position: relative;
+  background: var(--cream-card);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 0.25s ease;
+}
+.promo-card.tilt-left { transform: rotate(-1.1deg); }
+.promo-card.tilt-right { transform: rotate(1deg); }
+.promo-card:hover { transform: rotate(0deg) translateY(-4px); }
+
+.promo-tag {
+  position: absolute; top: 1rem; left: 1rem; z-index: 2;
+  background: var(--ember); color: #fff;
+  font-size: 0.72rem; font-weight: 700;
+  padding: 0.35rem 0.75rem; border-radius: 999px;
+  display: flex; align-items: center; gap: 0.4rem;
+}
+.promo-tag .d { width: 6px; height: 6px; border-radius: 50%; background: #fff; opacity: 0.85; }
+
+.promo-img { height: 220px; background: var(--cream-deep); overflow: hidden; }
+.promo-img img { width: 100%; height: 100%; object-fit: cover; }
+.promo-img-fallback { width: 100%; height: 100%; background: linear-gradient(135deg, var(--blue), var(--blue-deep)); }
+.promo-body { padding: 1.4rem 1.5rem 1.6rem; }
+.promo-body h3 { font-size: 1.2rem; font-weight: 600; margin: 0 0 0.5rem; color: var(--ink); }
+.promo-body p { margin: 0; color: var(--ink-soft); font-size: 0.92rem; line-height: 1.55; }
+.promo-desc {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: pre-line;
+}
+
+.promo-banner { position: relative; display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; min-height: 220px; }
+.promo-banner img { width: 96px; height: 96px; border-radius: 16px; object-fit: cover; border: 2px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+.promo-banner-text h3 { color: #fff; font-size: 1.2rem; margin: 0 0 0.5rem; }
+.promo-banner-text p { color: rgba(255,255,255,0.75); font-size: 0.9rem; margin: 0; }
+
+/* ───────── menu marquee ───────── */
+.menu { background: var(--cream-card); padding: 4rem 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.menu-skeleton, .marquee-wrap { margin-top: 0.5rem; }
+.menu-skeleton { display: flex; gap: 1.25rem; padding: 0 1.5rem; }
+.menu-skeleton-card { flex-shrink: 0; width: 160px; height: 208px; background: var(--cream-deep); border-radius: 18px; animation: pulse 1.5s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.menu-empty { text-align: center; color: var(--ink-soft); padding: 2rem 0; }
+
+.marquee-wrap { position: relative; overflow: hidden; }
+.marquee-wrap::before, .marquee-wrap::after {
+  content: ""; position: absolute; top: 0; bottom: 0; width: 80px; z-index: 3;
+}
+.marquee-wrap::before { left: 0; background: linear-gradient(90deg, var(--cream-card), transparent); }
+.marquee-wrap::after { right: 0; background: linear-gradient(270deg, var(--cream-card), transparent); }
+.marquee-track {
+  display: flex; gap: 1.25rem; width: max-content;
+  animation: marquee 32s linear infinite;
+  padding: 0 1.5rem;
+}
+.marquee-track:hover { animation-play-state: paused; }
+@keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+.menu-card { flex-shrink: 0; width: 160px; background: var(--cream); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); }
+.menu-card-img { height: 136px; background: linear-gradient(145deg, var(--cream-deep), var(--line)); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.menu-card-img img { width: 100%; height: 100%; object-fit: cover; }
+.menu-card-fallback { font-size: 2.5rem; }
+.menu-card-info { padding: 0.8rem 0.9rem 1rem; }
+.menu-card-name { font-weight: 600; font-size: 0.88rem; line-height: 1.35; color: var(--ink); margin: 0; }
+.menu-card-cat { font-size: 0.74rem; color: var(--ink-soft); margin: 0.25rem 0 0; }
+
+/* ───────── atmosphere gallery ───────── */
+.atmosphere { background: var(--cream-deep); padding: 4.5rem 0; }
+.atmosphere-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 120px;
+  gap: 0.9rem;
+}
+.atmosphere-item {
+  position: relative;
+  margin: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.atmosphere-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s ease; }
+.atmosphere-item:hover img { transform: scale(1.05); }
+.atmosphere-item figcaption {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 0.9rem 1rem 0.7rem;
+  background: linear-gradient(0deg, rgba(14,42,77,0.82) 0%, rgba(14,42,77,0) 100%);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.3;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.atmosphere-item:hover figcaption { opacity: 1; }
+
+.atmosphere-item-0 { grid-column: span 3; grid-row: span 2; }
+.atmosphere-item-1 { grid-column: span 3; grid-row: span 1; }
+.atmosphere-item-2 { grid-column: span 3; grid-row: span 1; }
+.atmosphere-item-3 { grid-column: span 2; grid-row: span 2; }
+.atmosphere-item-4 { grid-column: span 2; grid-row: span 2; }
+.atmosphere-item-5 { grid-column: span 2; grid-row: span 2; }
+
+@media (max-width: 860px) {
+  .atmosphere-grid { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 160px; }
+  .atmosphere-item-0, .atmosphere-item-1, .atmosphere-item-2,
+  .atmosphere-item-3, .atmosphere-item-4, .atmosphere-item-5 {
+    grid-column: span 1; grid-row: span 1;
+  }
+  .atmosphere-item figcaption { opacity: 1; }
+}
+
+/* ───────── member benefits ───────── */
+.benefits { background: var(--ink); padding: 5rem 0; position: relative; overflow: hidden; }
+.benefits::before {
+  content: ""; position: absolute; top: -120px; right: -120px;
+  width: 420px; height: 420px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(28,100,209,0.35), transparent 70%);
+}
+.benefits .kicker { color: #8FB6F0; }
+.benefits .section-head h2 { color: var(--cream); }
+
+.benefit-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.1rem; margin: 2.2rem 0 2.8rem; position: relative; }
+@media (max-width: 860px) {
+  .benefit-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.benefit-card { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 1.5rem 1.2rem; text-align: center; }
+.benefit-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(28,100,209,0.3);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; color: #8FB6F0;
+  margin: 0 auto 1rem;
+}
+.benefit-icon img { width: 24px; height: 24px; object-fit: contain; }
+.benefit-card h4 { color: var(--cream); font-size: 0.95rem; margin: 0 0 0.3rem; font-weight: 600; font-family: inherit; }
+.benefit-card p { color: rgba(251,244,232,0.55); font-size: 0.8rem; margin: 0; line-height: 1.5; }
+.benefits-cta { text-align: center; position: relative; }
+
+/* ───────── footer ───────── */
+.site-footer { background: #081730; color: rgba(251,244,232,0.55); padding: 3rem 0 2.2rem; text-align: center; }
+.footer-logo { width: 44px; height: 44px; border-radius: 50%; margin: 0 auto 1rem; opacity: 0.85; object-fit: cover; }
+.footer-links { display: flex; justify-content: center; gap: 2rem; font-size: 0.88rem; font-weight: 500; margin-bottom: 1rem; flex-wrap: wrap; }
+.footer-links a { display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; color: rgba(251,244,232,0.75); transition: color 0.2s ease; }
+.footer-links a:hover { color: #fff; }
+.footer-copy { font-size: 0.8rem; margin: 0 0 0.3rem; }
+.footer-copy :deep(a) { color: inherit; text-decoration: none; }
+.footer-copy :deep(a:hover) { color: #fff; }
+.footer-version { font-size: 0.68rem; color: rgba(251,244,232,0.3); margin: 0; }
 </style>
